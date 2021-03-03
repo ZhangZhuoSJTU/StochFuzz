@@ -1,0 +1,96 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# Customize files
+workshop/
+capstone/ 
+keystone/
+glib/
+AFL/
+*.zip
+*.swp
+*.tmp
+*.bin
+*_bin.c
+*.tp
+*_tp.c
+tool
+*.gdb_history
+peda*
+handler_main.c
+.zero-patch.*
+.stoch-fuzz.*
+
+# whitelist test
+src/test/
+test/*
+!test/test_daemon.sh
+!test/bzip2.no.pie
+!test/test.c.bz2
+!test/libpng-1.2.56
+!test/seed.png
+!test/crash
+!test/crash.c
+!test/openssl-1.0.1f
+!test/.pdisasm.openssl-1.0.1f
+!test/leak-268f0e85f4bc45cbaf4d257222b830eac18977f3
+!test/runtime
+!test/check_avx512.c
+!test/check_avx512
+!test/z3
+!test/ex.smt2
+!test/.crashpoint.z3
+!test/hello
+!test/.pdisasm.hello
+!test/test.rar
+!test/rar

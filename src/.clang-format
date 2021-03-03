@@ -1,0 +1,8 @@
+BasedOnStyle: Google
+IndentWidth: 4
+AlwaysBreakTemplateDeclarations: true
+ColumnLimit: 80
+UseTab: Never
+AllowShortIfStatementsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
