@@ -1,0 +1,91 @@
+name: no_generic_pic
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: 0 14 * * 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: |
+            capstone/
+            keystone/
+            glib/
+          key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
+
+      - name: set up python 3.x
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+          architecture: 'x64'
+
+      - name: install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --upgrade pip meson ninja
+
+      - name: build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          ./build.sh
+  
+  debug:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            capstone/
+            keystone/
+            glib/
+          key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
+      - name: make format
+        run: make format
+        working-directory: ./src
+      - name: make debug
+        run: |
+          clang --version
+          make clean
+          make debug NPROB_DISASM=yes NGENERIC_PIC=yes
+        working-directory: ./src
+      - name: make test
+        run: make test NPROB_DISASM=yes NGENERIC_PIC=yes
+        working-directory: ./src
+  
+  release:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            capstone/
+            keystone/
+            glib/
+          key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
+      - name: make format
+        run: make format
+        working-directory: ./src
+      - name: make release
+        run: |
+          clang --version
+          make clean
+          make release NPROB_DISASM=yes NGENERIC_PIC=yes
+        working-directory: ./src
+      - name: make test
+        run: make test NPROB_DISASM=yes NGENERIC_PIC=yes
+        working-directory: ./src

@@ -1,0 +1,59 @@
+/*
+ * rewriter_handler.c: pre-defined handler for rewriting different instruction.
+ */
+
+#include "../fork_server.h"
+#include "../utils.h"
+
+DEFINE_GETTER(RHandler, rhandler, REvent, event);
+DEFINE_GETTER(RHandler, rhandler, RHandlerFcn, fcn);
+
+Z_API RHandler *z_rhandler_create(REvent event, RHandlerFcn fcn) {
+    RHandler *handler = STRUCT_ALLOC(RHandler);
+    handler->event = event;
+    handler->fcn = fcn;
+
+    return handler;
+}
+
+Z_API void z_rhandler_destroy(RHandler *handler) { z_free(handler); }
+
+/*
+ * Get control-flow hole size for different instruction types.
+ */
+Z_PRIVATE size_t __rewriter_get_hole_len(uint64_t id);
+
+Z_PRIVATE size_t __rewriter_get_hole_len(uint64_t id) {
+    switch (id) {
+        case X86_INS_CALL:
+        case X86_INS_JMP:
+            return 5;
+        case X86_INS_JAE:
+        case X86_INS_JA:
+        case X86_INS_JBE:
+        case X86_INS_JB:
+        case X86_INS_JE:
+        case X86_INS_JGE:
+        case X86_INS_JG:
+        case X86_INS_JLE:
+        case X86_INS_JL:
+        case X86_INS_JNE:
+        case X86_INS_JNO:
+        case X86_INS_JNP:
+        case X86_INS_JNS:
+        case X86_INS_JO:
+        case X86_INS_JP:
+        case X86_INS_JS:
+            return 6;
+        case X86_INS_JECXZ:
+            EXITME("temporarily not support for jecxz");
+        case X86_INS_JRCXZ:
+            EXITME("temporarily not support for jrcxz");
+        case X86_INS_JCXZ:
+            EXITME("jcxz is not supported in 64-bit mode");
+        default:
+            EXITME("invalid hole");
+    }
+
+    return 0;
+}
