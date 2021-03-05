@@ -6,6 +6,7 @@ LDFLAGS =
 SHELLCODE_CFLAGS = -Wall -fno-stack-protector -fno-jump-tables -fpie -O3 -D_GNU_SOURCE
 
 LIBNAME = libstochfuzz
+TOOLNAME = stoch-fuzz
 
 ifeq ($(shell ../test/check_avx512 2>/dev/null; echo $$?), 0)
 	AVX_CFLAGS = -mavx512f -DAVX512
@@ -97,7 +98,7 @@ release: executable
 executable: $(OBJS)
 	ar rcs $(LIBNAME).a $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared $(OBJS) $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o $(LIBNAME).so
-	$(CC) $(CFLAGS) $(LDFLAGS) frontend.c $(LIBNAME).a $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o tool
+	$(CC) $(CFLAGS) $(LDFLAGS) frontend.c $(LIBNAME).a $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o $(TOOLNAME)
 
 loader:
 	$(CC) $(SHELLCODE_CFLAGS) -c loader.c
@@ -129,41 +130,41 @@ endef
 
 test:
 	rm -rf test; cp -r ../test test
-	$(call test_succ, ../tool, patch, bzip2.no.pie, )
-	$(call test_succ, ../tool, run, bzip2.no.pie, --help)
-	$(call test_succ, ../tool, run, bzip2.no.pie, -kfd test.c.bz2)
-	$(call test_succ, ../tool, view, bzip2.no.pie, )
-	$(call test_succ, ../tool, run, libpng-1.2.56, seed.png)
-	$(call test_succ, ../tool, view, libpng-1.2.56, )
-	$(call test_fail, ../tool, run, crash, mdzz)
-	$(call test_succ, ../tool, view, crash, )
-	$(call test_succ, ../tool, patch, openssl-1.0.1f, )
-	$(call test_succ, ../tool, run, openssl-1.0.1f, leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
-	$(call test_succ, ../tool, view, openssl-1.0.1f, )
-	$(call test_succ, ../tool, run, hello, )
-	$(call test_succ, ../tool, view, hello, )
-	$(call test_succ, ../tool, run, rar, e -o+ -mt3 -- test.rar)
-	$(call test_succ, ../tool, view, rar, )
+	$(call test_succ, ../$(TOOLNAME), patch, bzip2.no.pie, )
+	$(call test_succ, ../$(TOOLNAME), run, bzip2.no.pie, --help)
+	$(call test_succ, ../$(TOOLNAME), run, bzip2.no.pie, -kfd test.c.bz2)
+	$(call test_succ, ../$(TOOLNAME), view, bzip2.no.pie, )
+	$(call test_succ, ../$(TOOLNAME), run, libpng-1.2.56, seed.png)
+	$(call test_succ, ../$(TOOLNAME), view, libpng-1.2.56, )
+	$(call test_fail, ../$(TOOLNAME), run, crash, mdzz)
+	$(call test_succ, ../$(TOOLNAME), view, crash, )
+	$(call test_succ, ../$(TOOLNAME), patch, openssl-1.0.1f, )
+	$(call test_succ, ../$(TOOLNAME), run, openssl-1.0.1f, leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
+	$(call test_succ, ../$(TOOLNAME), view, openssl-1.0.1f, )
+	$(call test_succ, ../$(TOOLNAME), run, hello, )
+	$(call test_succ, ../$(TOOLNAME), view, hello, )
+	$(call test_succ, ../$(TOOLNAME), run, rar, e -o+ -mt3 -- test.rar)
+	$(call test_succ, ../$(TOOLNAME), view, rar, )
 ifneq ($(NGENERIC_PIC), yes)
 ifeq ($(NPROB_DISASM), yes)
-	$(call test_succ, ../tool, run, z3, -smt2 ex.smt2)
+	$(call test_succ, ../$(TOOLNAME), run, z3, -smt2 ex.smt2)
 endif
 endif
 	# test daemon
 	rm -rf test; cp -r ../test test
-	$(call test_succ, ./test_daemon.sh, ../tool, bzip2.no.pie, -kfd test.c.bz2)
-	$(call test_succ, ./test_daemon.sh, ../tool, libpng-1.2.56, seed.png)
-	$(call test_succ, ./test_daemon.sh, ../tool, openssl-1.0.1f, leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
-	$(call test_succ, ./test_daemon.sh, ../tool, rar, e -o+ -mt3 -- test.rar)
+	$(call test_succ, ./test_daemon.sh, ../$(TOOLNAME), bzip2.no.pie, -kfd test.c.bz2)
+	$(call test_succ, ./test_daemon.sh, ../$(TOOLNAME), libpng-1.2.56, seed.png)
+	$(call test_succ, ./test_daemon.sh, ../$(TOOLNAME), openssl-1.0.1f, leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
+	$(call test_succ, ./test_daemon.sh, ../$(TOOLNAME), rar, e -o+ -mt3 -- test.rar)
 ifeq ($(NPROB_DISASM), yes)
-	$(call test_succ, ./test_daemon.sh, ../tool, hello, )
+	$(call test_succ, ./test_daemon.sh, ../$(TOOLNAME), hello, )
 ifneq ($(NGENERIC_PIC), yes)
-	$(call test_succ, ./test_daemon.sh, ../tool, z3, -smt2 ex.smt2)
+	$(call test_succ, ./test_daemon.sh, ../$(TOOLNAME), z3, -smt2 ex.smt2)
 endif
 endif
 
 clean:
-	rm -rf $(OBJS) *.out *.bin *.o *.a *.so *_bin.c tool test/
+	rm -rf $(OBJS) *.out *.bin *.o *.a *.so *_bin.c $(TOOLNAME) test/
 	$(MAKE) -C trampolines clean
 
 SOURCES:=$(OBJS:.o=.c)

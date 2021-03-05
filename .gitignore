@@ -64,11 +64,10 @@ AFL/
 *_bin.c
 *.tp
 *_tp.c
-tool
+stoch-fuzz
 *.gdb_history
 peda*
 handler_main.c
-.zero-patch.*
 .stoch-fuzz.*
 
 # whitelist test
