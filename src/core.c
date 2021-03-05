@@ -760,12 +760,11 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
 
             // step (3.3.2). if any crashed rip is found, it means it is caused
             // by sigsegv
-            z_info("find current crash rip: " COLOR_GREEN "%#lx" COLOR_RESET,
-                   addr);
+            z_info("find current crash rip: " COLOR(GREEN, "%#lx"), addr);
 
             // step (3.3.3). validate crashed rip
             if (!z_core_validate_address(core, &addr, &cp_type)) {
-                z_info(COLOR_RED "real crash!" COLOR_RESET);
+                z_info(COLOR(RED, "real crash!"));
                 // notify the client that it is a real crash
                 int msg = -1;
                 if (write(comm_fd, &msg, 4) != 4) {

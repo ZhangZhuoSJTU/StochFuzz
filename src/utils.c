@@ -197,3 +197,16 @@ const cs_insn *cs_inst;
 TPDispatcher *tp;
 size_t tp_size;
 const uint8_t *tp_code;
+
+/*
+ * System settings
+ */
+const SysConfig sys_config __attribute__((section(".data"))) = {
+    .mode = SYSMODE_NONE,
+    .trace_pc = false,
+    .count_conflict = false,
+    .disable_opt = false,
+    .safe_ret = false,
+    .force_pdisasm = false,
+    .timeout = SYS_TIMEOUT,
+};

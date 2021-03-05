@@ -9,6 +9,22 @@
 #include <keystone/keystone.h>
 
 /*
+ * Color
+ */
+#define COLOR_BLACK "\x1b[30m"
+#define COLOR_RED "\x1b[31m"
+#define COLOR_GREEN "\x1b[32m"
+#define COLOR_YELLOW "\x1b[33m"
+#define COLOR_BLUE "\x1b[34m"
+#define COLOR_MAGENTA "\x1b[35m"
+#define COLOR_CYAN "\x1b[36m"
+#define COLOR_GRAY "\x1b[90m"
+#define COLOR_PURPLE "\x1b[94m"
+#define COLOR_BRIGHT "\x1b[1;97m"
+#define COLOR_RESET "\x1b[0m"
+#define COLOR(color, str) COLOR_##color str COLOR_RESET
+
+/*
  * Lookup table
  */
 void z_lookup_table_init_cell_num(uint64_t text_size);
@@ -80,8 +96,8 @@ Z_API char *z_strchr(const char *s, int c);
         snprintf(_tmp, _len + 1, _str);         \
         _tmp;                                   \
     })
-
 #define z_snprintf(...) snprintf(__VA_ARGS__)
+#define z_sscanf(...) sscanf(__VA_ARGS__)
 
 /*
  * Keystone
@@ -172,7 +188,6 @@ extern unsigned char ks_encode_fast[0x10];
             EXITME("fail on ks_asm:\n%s", code);                             \
         }                                                                    \
     } while (0)
-#endif
 
 /*
  * Capstone
@@ -292,3 +307,32 @@ extern const uint8_t *tp_code;
         CS_FINI; \
         TP_FINI; \
     } while (0)
+
+/*
+ * System settings
+ */
+typedef enum system_mode_t {
+    SYSMODE_NONE,
+    SYSMODE_DAEMON,
+    SYSMODE_RUN,
+    SYSMODE_PATCH,
+    SYSMODE_DISASSEMBLY,
+    SYSMODE_VIEW,
+} SysMode;
+
+typedef struct system_config_t {
+    SysMode mode;
+
+    bool trace_pc;
+    bool count_conflict;
+    bool disable_opt;
+    bool safe_ret;
+    bool force_pdisasm;
+
+    uint64_t timeout;
+} SysConfig;
+
+// trick to place a constant structure into .data instead of .rodata
+extern const SysConfig sys_config __attribute__((section(".data")));
+
+#endif

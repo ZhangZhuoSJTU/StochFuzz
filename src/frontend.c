@@ -13,42 +13,54 @@
 #include <sys/shm.h>
 #include <unistd.h>
 
-static void cmd_disasm(int argc, const char **argv);
-
-static void cmd_patch(int argc, const char **argv);
-
-static void cmd_view(int argc, const char **argv);
-
-static void cmd_run(int argc, const char **argv);
-
-static void cmd_start(int argc, const char **argv);
-
 /*
  * Display usage hints.
  */
+static void usage(const char *argv0);
+
+/*
+ * Parse arguments
+ */
+static int parse_args(int argc, const char **argv);
+
+/*
+ * Handle different modes
+ */
+static void mode_disasm(int argc, const char **argv);
+
+static void mode_patch(int argc, const char **argv);
+
+static void mode_view(int argc, const char **argv);
+
+static void mode_run(int argc, const char **argv);
+
+static void mode_start(int argc, const char **argv);
+
 static void usage(const char *argv0) {
+    z_sayf(COLOR(CYAN, OURTOOL) " " COLOR(
+        BRIGHT, VERSION) " by <zhan3299@purdue.edu>\n\n");
     z_sayf(
-        "\n%s [ options ] -- target_binary [ ... ] \n\n"
+        "%s [ options ] -- target_binary [ ... ] \n\n"
 
         "Mode settings:\n\n"
 
-        "  -s            - start a background daemon and wait for a fuzzer to "
-        "attach (default mode)\n"
-        "  -r            - dry run target_binary with given arguments and "
+        "  -S            - start a background daemon and wait for a fuzzer to "
+        "attach (defualt mode)\n"
+        "  -R            - dry run target_binary with given arguments and "
         "incrementally rewrites it following the executed path\n"
-        "  -p            - patch target_binary without incremental rewriting\n"
-        "  -d            - probabilistic disassembly without rewriting\n"
-        "  -v            - show currently observed breakpoints\n\n"
+        "  -P            - patch target_binary without incremental rewriting\n"
+        "  -D            - probabilistic disassembly without rewriting\n"
+        "  -V            - show currently observed breakpoints\n\n"
 
         "Rewriting settings:\n\n"
 
-        "  -T            - trace previous PC\n"
-        "  -C            - count the number of basic blocks with conflicting "
+        "  -g            - trace previous PC\n"
+        "  -c            - count the number of basic blocks with conflicting "
         "hash values\n"
-        "  -P            - disable instrumentation optimization\n"
-        "  -R            - assume the return addresses are only used by RET "
+        "  -d            - disable instrumentation optimization\n"
+        "  -r            - assume the return addresses are only used by RET "
         "instructions\n"
-        "  -I            - forcedly assume there is data interleaving with "
+        "  -f            - forcedly assume there is data interleaving with "
         "code\n\n"
 
         "Other stuff:\n\n"
@@ -61,9 +73,62 @@ static void usage(const char *argv0) {
     exit(1);
 }
 
+static int parse_args(int argc, const char **argv) {
+    // trick to modify a constant variable
+    SysConfig *sys_config_ptr = (SysConfig *)(&sys_config);
+    bool timeout_given = false;
+
+    int opt = 0;
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrft:")) > 0) {
+        switch (opt) {
+#define __MODE_CASE(c, m)                           \
+    case c:                                         \
+        if (sys_config_ptr->mode != SYSMODE_NONE) { \
+            EXITME("trying to set multiple modes"); \
+        }                                           \
+        sys_config_ptr->mode = SYSMODE_##m;         \
+        break
+            __MODE_CASE('S', DAEMON);
+            __MODE_CASE('R', RUN);
+            __MODE_CASE('P', PATCH);
+            __MODE_CASE('D', DISASSEMBLY);
+            __MODE_CASE('V', VIEW);
+#undef __MODE_CASE
+
+#define __SETTING_CASE(c, m)      \
+    case c:                       \
+        sys_config_ptr->m = true; \
+        break
+            __SETTING_CASE('g', trace_pc);
+            __SETTING_CASE('c', count_conflict);
+            __SETTING_CASE('d', disable_opt);
+            __SETTING_CASE('r', safe_ret);
+            __SETTING_CASE('f', force_pdisasm);
+#undef __SETTING_CASE
+
+            case 't':
+                if (timeout_given) {
+                    EXITME("multiple -t options not supported");
+                }
+                timeout_given = true;
+                if (z_sscanf(optarg, "%lu", &(sys_config_ptr->timeout)) < 1) {
+                    EXITME("bad syntax used for -t");
+                }
+                break;
+
+            default:
+                usage(argv[0]);
+        }
+    }
+
+    return optind;
+}
+
 int main(int argc, const char **argv) {
     assert(PAGE_SIZE == 0x1000);
     assert(PAGE_SIZE_POW2 == 12);
+
+    parse_args(argc, argv);
 
     if (argc <= 2) {
         usage(argv[0]);
@@ -73,15 +138,15 @@ int main(int argc, const char **argv) {
     Z_INIT;
 
     if (!strcasecmp(argv[1], "PATCH")) {
-        cmd_patch(argc - 2, argv + 2);
+        mode_patch(argc - 2, argv + 2);
     } else if (!strcasecmp(argv[1], "VIEW")) {
-        cmd_view(argc - 2, argv + 2);
+        mode_view(argc - 2, argv + 2);
     } else if (!strcasecmp(argv[1], "DISASM")) {
-        cmd_disasm(argc - 2, argv + 2);
+        mode_disasm(argc - 2, argv + 2);
     } else if (!strcasecmp(argv[1], "RUN")) {
-        cmd_run(argc - 2, argv + 2);
+        mode_run(argc - 2, argv + 2);
     } else if (!strcasecmp(argv[1], "START")) {
-        cmd_start(argc - 2, argv + 2);
+        mode_start(argc - 2, argv + 2);
     } else {
         z_error("invalid command: %s", argv[1]);
     }
@@ -91,7 +156,7 @@ int main(int argc, const char **argv) {
     return 0;
 }
 
-static void cmd_patch(int argc, const char **argv) {
+static void mode_patch(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -100,7 +165,7 @@ static void cmd_patch(int argc, const char **argv) {
     z_core_destroy(core);
 }
 
-static void cmd_disasm(int argc, const char **argv) {
+static void mode_disasm(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -111,7 +176,7 @@ static void cmd_disasm(int argc, const char **argv) {
     z_core_destroy(core);
 }
 
-static void cmd_view(int argc, const char **argv) {
+static void mode_view(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -142,7 +207,7 @@ static void cmd_view(int argc, const char **argv) {
     z_core_destroy(core);
 }
 
-static void cmd_run(int argc, const char **argv) {
+static void mode_run(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -156,7 +221,7 @@ static void cmd_run(int argc, const char **argv) {
     }
 }
 
-static void cmd_start(int argc, const char **argv) {
+static void mode_start(int argc, const char **argv) {
 #ifdef BINARY_SEARCH_INVALID_CRASH
     EXITME(
         "daemon mode is not supported when doing binary search for invalid "

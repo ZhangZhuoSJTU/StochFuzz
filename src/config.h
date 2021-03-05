@@ -23,6 +23,11 @@
 #define VERSION "0.1.0"
 
 /*
+ * Default system settings
+ */
+#define SYS_TIMEOUT 1000
+
+/*
  * Magic string to indicate the file is patched
  */
 #define MAGIC_STRING "2015.05.02 Shanghai"
@@ -103,20 +108,6 @@ typedef struct __loading_info_t {
 #define RW_PAGE_USED_SIZE sizeof(__LoadingInfo)
 #define RW_PAGE_INFO_ADDR(f) (RW_PAGE_ADDR + offsetof(__LoadingInfo, f))
 #define RW_PAGE_INFO(field) (((__LoadingInfo *)RW_PAGE_ADDR)->field)
-
-/*
- * Color
- */
-#define COLOR_RED "\x1b[31m"
-#define COLOR_GREEN "\x1b[32m"
-#define COLOR_YELLOW "\x1b[33m"
-#define COLOR_BLUE "\x1b[34m"
-#define COLOR_MAGENTA "\x1b[35m"
-#define COLOR_CYAN "\x1b[36m"
-#define COLOR_GRAY "\x1b[90m"
-#define COLOR_PURPLE "\x1b[94m"
-#define COLOR_RESET "\x1b[0m"
-#define COLOR(color, str) COLOR_##color str COLOR_RESET
 
 /*
  * Prefix and suffix for additional files
