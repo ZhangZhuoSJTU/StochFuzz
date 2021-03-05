@@ -8,7 +8,7 @@ phantom=$target.phantom
 echo "phantom file: $phantom"
 
 rm -rf $phantom
-$tool start $target 2>/tmp/$target.daemon.log &
+$tool -- $target 2>/tmp/$target.daemon.log &
 daemon_pid=$!
 
 for i in {1..100}

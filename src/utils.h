@@ -316,7 +316,7 @@ typedef enum system_mode_t {
     SYSMODE_DAEMON,
     SYSMODE_RUN,
     SYSMODE_PATCH,
-    SYSMODE_DISASSEMBLY,
+    SYSMODE_DISASM,
     SYSMODE_VIEW,
 } SysMode;
 
@@ -332,7 +332,6 @@ typedef struct system_config_t {
     uint64_t timeout;
 } SysConfig;
 
-// trick to place a constant structure into .data instead of .rodata
-extern const SysConfig sys_config __attribute__((section(".data")));
+extern SysConfig sys_config;
 
 #endif

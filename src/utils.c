@@ -201,7 +201,7 @@ const uint8_t *tp_code;
 /*
  * System settings
  */
-const SysConfig sys_config __attribute__((section(".data"))) = {
+SysConfig sys_config = {
     .mode = SYSMODE_NONE,
     .trace_pc = false,
     .count_conflict = false,

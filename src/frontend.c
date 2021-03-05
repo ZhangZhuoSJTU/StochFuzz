@@ -16,7 +16,7 @@
 /*
  * Display usage hints.
  */
-static inline void usage(const char *argv0);
+static void usage(const char *argv0, int ret_status);
 
 /*
  * Parse arguments
@@ -36,11 +36,9 @@ static inline void mode_run(int argc, const char **argv);
 
 static inline void mode_start(int argc, const char **argv);
 
-static inline void usage(const char *argv0) {
-    z_sayf(COLOR(CYAN, OURTOOL) " " COLOR(
-        BRIGHT, VERSION) " by <zhan3299@purdue.edu>\n\n");
+static void usage(const char *argv0, int ret_status) {
     z_sayf(
-        "%s [ options ] -- target_binary [ ... ] \n\n"
+        "\n%s [ options ] -- target_binary [ ... ] \n\n"
 
         "Mode settings:\n\n"
 
@@ -65,40 +63,42 @@ static inline void usage(const char *argv0) {
 
         "Other stuff:\n\n"
 
+        "  -h            - print this help\n"
         "  -t msec       - timeout for each attached fuzzing run "
         "(auto-scaled, ??? ms)\n\n",
 
         argv0);
 
-    exit(1);
+    exit(ret_status);
 }
 
 static int parse_args(int argc, const char **argv) {
-    // trick to modify a constant variable
-    SysConfig *sys_config_ptr = (SysConfig *)(&sys_config);
+    z_sayf(COLOR(CYAN, OURTOOL) " " COLOR(
+        BRIGHT, VERSION) " by <zhan3299@purdue.edu>\n");
+
     bool timeout_given = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrft:")) > 0) {
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfht:")) > 0) {
         switch (opt) {
 #define __MODE_CASE(c, m)                           \
     case c:                                         \
-        if (sys_config_ptr->mode != SYSMODE_NONE) { \
+        if (sys_config.mode != SYSMODE_NONE) {      \
             EXITME("trying to set multiple modes"); \
         }                                           \
-        sys_config_ptr->mode = SYSMODE_##m;         \
-        break
+        sys_config.mode = SYSMODE_##m;              \
+        break;
             __MODE_CASE('S', DAEMON);
             __MODE_CASE('R', RUN);
             __MODE_CASE('P', PATCH);
-            __MODE_CASE('D', DISASSEMBLY);
+            __MODE_CASE('D', DISASM);
             __MODE_CASE('V', VIEW);
 #undef __MODE_CASE
 
-#define __SETTING_CASE(c, m)      \
-    case c:                       \
-        sys_config_ptr->m = true; \
-        break
+#define __SETTING_CASE(c, m) \
+    case c:                  \
+        sys_config.m = true; \
+        break;
             __SETTING_CASE('g', trace_pc);
             __SETTING_CASE('c', count_conflict);
             __SETTING_CASE('d', disable_opt);
@@ -111,18 +111,24 @@ static int parse_args(int argc, const char **argv) {
                     EXITME("multiple -t options not supported");
                 }
                 timeout_given = true;
-                if (z_sscanf(optarg, "%lu", &(sys_config_ptr->timeout)) < 1) {
+                if (z_sscanf(optarg, "%lu", &sys_config.timeout) < 1) {
                     EXITME("bad syntax used for -t");
                 }
                 break;
 
+            case 'h':
+                usage(argv[0], 0);
             default:
-                usage(argv[0]);
+                usage(argv[0], 1);
         }
     }
 
-    if (sys_config_ptr->mode == SYSMODE_NONE) {
-        sys_config_ptr->mode = SYSMODE_DAEMON;
+    if (argc == optind) {
+        usage(argv[0], 1);
+    }
+
+    if (sys_config.mode == SYSMODE_NONE) {
+        sys_config.mode = SYSMODE_DAEMON;
     }
 
     return optind;
@@ -132,27 +138,36 @@ int main(int argc, const char **argv) {
     assert(PAGE_SIZE == 0x1000);
     assert(PAGE_SIZE_POW2 == 12);
 
-    parse_args(argc, argv);
-
-    if (argc <= 2) {
-        usage(argv[0]);
-    }
+    int next_idx = parse_args(argc, argv);
+    argc -= next_idx;
+    argv += next_idx;
 
     z_log_set_level(LOG_INFO);
     Z_INIT;
 
-    if (!strcasecmp(argv[1], "PATCH")) {
-        mode_patch(argc - 2, argv + 2);
-    } else if (!strcasecmp(argv[1], "VIEW")) {
-        mode_view(argc - 2, argv + 2);
-    } else if (!strcasecmp(argv[1], "DISASM")) {
-        mode_disasm(argc - 2, argv + 2);
-    } else if (!strcasecmp(argv[1], "RUN")) {
-        mode_run(argc - 2, argv + 2);
-    } else if (!strcasecmp(argv[1], "START")) {
-        mode_start(argc - 2, argv + 2);
-    } else {
-        z_error("invalid command: %s", argv[1]);
+    switch (sys_config.mode) {
+        case SYSMODE_DAEMON:
+            mode_start(argc, argv);
+            break;
+
+        case SYSMODE_RUN:
+            mode_run(argc, argv);
+            break;
+
+        case SYSMODE_PATCH:
+            mode_patch(argc, argv);
+            break;
+
+        case SYSMODE_DISASM:
+            mode_disasm(argc, argv);
+            break;
+
+        case SYSMODE_VIEW:
+            mode_view(argc, argv);
+            break;
+
+        default:
+            EXITME("unreachable");
     }
 
     Z_FINI;
