@@ -17,9 +17,10 @@
 #include <unistd.h>
 
 /*
- * Tool name
+ * Tool name and version
  */
-#define OURTOOL "StochFuzz"
+#define OURTOOL "stoch-fuzz"
+#define VERSION "0.1.0"
 
 /*
  * Magic string to indicate the file is patched
@@ -120,7 +121,7 @@ typedef struct __loading_info_t {
 /*
  * Prefix and suffix for additional files
  */
-#define TEMPFILE_NAME_PREFIX ".stoch-fuzz."
+#define TEMPFILE_NAME_PREFIX "." OURTOOL "."
 #define LOOKUP_TABNAME_PREFIX ".lookup."
 #define TRAMPOLINES_NAME_PREFIX ".shadow."
 #define CRASHPOINT_LOG_PREFIX ".crashpoint."

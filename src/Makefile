@@ -5,8 +5,9 @@ LDFLAGS =
 
 SHELLCODE_CFLAGS = -Wall -fno-stack-protector -fno-jump-tables -fpie -O3 -D_GNU_SOURCE
 
-LIBNAME = libstochfuzz
-TOOLNAME = stoch-fuzz
+LIBNAME = $(shell grep '^\#define OURTOOL ' config.h | cut -d '"' -f2 | awk -F '-' '{print "lib"$$1$$2}')
+TOOLNAME = $(shell grep '^\#define OURTOOL ' config.h | cut -d '"' -f2)
+VERSION = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
 
 ifeq ($(shell ../test/check_avx512 2>/dev/null; echo $$?), 0)
 	AVX_CFLAGS = -mavx512f -DAVX512

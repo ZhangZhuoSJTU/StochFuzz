@@ -26,24 +26,47 @@ static void cmd_start(int argc, const char **argv);
 /*
  * Display usage hints.
  */
-static void usage(const char *argv0) {}
+static void usage(const char *argv0) {
+    z_sayf(
+        "\n%s [ options ] -- target_binary [ ... ] \n\n"
+
+        "Mode settings:\n\n"
+
+        "  -s            - start a background daemon and wait for a fuzzer to "
+        "attach (default mode)\n"
+        "  -r            - dry run target_binary with given arguments and "
+        "incrementally rewrites it following the executed path\n"
+        "  -p            - patch target_binary without incremental rewriting\n"
+        "  -d            - probabilistic disassembly without rewriting\n"
+        "  -v            - show currently observed breakpoints\n\n"
+
+        "Rewriting settings:\n\n"
+
+        "  -T            - trace previous PC\n"
+        "  -C            - count the number of basic blocks with conflicting "
+        "hash values\n"
+        "  -P            - disable instrumentation optimization\n"
+        "  -R            - assume the return addresses are only used by RET "
+        "instructions\n"
+        "  -I            - forcedly assume there is data interleaving with "
+        "code\n\n"
+
+        "Other stuff:\n\n"
+
+        "  -t msec       - timeout for each attached fuzzing run "
+        "(auto-scaled, ??? ms)\n\n",
+
+        argv0);
+
+    exit(1);
+}
 
 int main(int argc, const char **argv) {
     assert(PAGE_SIZE == 0x1000);
     assert(PAGE_SIZE_POW2 == 12);
 
     if (argc <= 2) {
-        puts(
-            "Usage: ./tool CMD [ARGUMENTS] ...\n"
-            "\n"
-            "\tCMD is the command we want to execute.\n"
-            "\n"
-            "\tpatch file\n"
-            "\tview file\n"
-            "\tdisasm file\n"
-            "\trun file [arguments] ...\n"
-            "\tstart file\n");
-        exit(0);
+        usage(argv[0]);
     }
 
     z_log_set_level(LOG_INFO);
