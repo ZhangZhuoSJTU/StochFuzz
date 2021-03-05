@@ -16,27 +16,27 @@
 /*
  * Display usage hints.
  */
-static void usage(const char *argv0);
+static inline void usage(const char *argv0);
 
 /*
  * Parse arguments
  */
-static int parse_args(int argc, const char **argv);
+static inline int parse_args(int argc, const char **argv);
 
 /*
  * Handle different modes
  */
-static void mode_disasm(int argc, const char **argv);
+static inline void mode_disasm(int argc, const char **argv);
 
-static void mode_patch(int argc, const char **argv);
+static inline void mode_patch(int argc, const char **argv);
 
-static void mode_view(int argc, const char **argv);
+static inline void mode_view(int argc, const char **argv);
 
-static void mode_run(int argc, const char **argv);
+static inline void mode_run(int argc, const char **argv);
 
-static void mode_start(int argc, const char **argv);
+static inline void mode_start(int argc, const char **argv);
 
-static void usage(const char *argv0) {
+static inline void usage(const char *argv0) {
     z_sayf(COLOR(CYAN, OURTOOL) " " COLOR(
         BRIGHT, VERSION) " by <zhan3299@purdue.edu>\n\n");
     z_sayf(
@@ -121,6 +121,10 @@ static int parse_args(int argc, const char **argv) {
         }
     }
 
+    if (sys_config_ptr->mode == SYSMODE_NONE) {
+        sys_config_ptr->mode = SYSMODE_DAEMON;
+    }
+
     return optind;
 }
 
@@ -156,7 +160,7 @@ int main(int argc, const char **argv) {
     return 0;
 }
 
-static void mode_patch(int argc, const char **argv) {
+static inline void mode_patch(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -165,7 +169,7 @@ static void mode_patch(int argc, const char **argv) {
     z_core_destroy(core);
 }
 
-static void mode_disasm(int argc, const char **argv) {
+static inline void mode_disasm(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -176,7 +180,7 @@ static void mode_disasm(int argc, const char **argv) {
     z_core_destroy(core);
 }
 
-static void mode_view(int argc, const char **argv) {
+static inline void mode_view(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -207,7 +211,7 @@ static void mode_view(int argc, const char **argv) {
     z_core_destroy(core);
 }
 
-static void mode_run(int argc, const char **argv) {
+static inline void mode_run(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
@@ -221,7 +225,7 @@ static void mode_run(int argc, const char **argv) {
     }
 }
 
-static void mode_start(int argc, const char **argv) {
+static inline void mode_start(int argc, const char **argv) {
 #ifdef BINARY_SEARCH_INVALID_CRASH
     EXITME(
         "daemon mode is not supported when doing binary search for invalid "
