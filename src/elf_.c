@@ -948,7 +948,7 @@ Z_API ELF *z_elf_open(const char *ori_filename) {
     ELF *e = STRUCT_ALLOC(ELF);
 
     memset(e->tmpnam, 0, TMPNAME_LEN);
-    snprintf(e->tmpnam, TMPNAME_LEN, TMPNAME_FMT, z_rand());
+    z_snprintf(e->tmpnam, TMPNAME_LEN, TMPNAME_FMT, z_rand());
     z_info("use temp file: %s", e->tmpnam);
 
     _MEM_FILE *stream = __elf_open_file(e, ori_filename);

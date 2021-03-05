@@ -23,6 +23,11 @@ static void cmd_run(int argc, const char **argv);
 
 static void cmd_start(int argc, const char **argv);
 
+/*
+ * Display usage hints.
+ */
+static void usage(const char *argv0) {}
+
 int main(int argc, const char **argv) {
     assert(PAGE_SIZE == 0x1000);
     assert(PAGE_SIZE_POW2 == 12);
@@ -94,14 +99,14 @@ static void cmd_view(int argc, const char **argv) {
     gpointer key, value;
     g_hash_table_iter_init(&iter, cps);
 
-    printf("%-18s%-18s\n", "Address", "CPType");
+    z_sayf("%-18s%-18s\n", "Address", "CPType");
     while (g_hash_table_iter_next(&iter, &key, &value)) {
         addr_t addr = (addr_t)key;
         addr_t type = (CPType)value & (~VCP_CALLEE);
         if (!type) {
             continue;
         }
-        printf("%-#18lx%s%s%s%s%s\n", addr,
+        z_sayf("%-#18lx%s%s%s%s%s\n", addr,
                (type & CP_INTERNAL) ? "INTERNAL" : "",
                ((type & CP_INTERNAL) && (type & CP_EXTERNAL)) ? " & " : "",
                (type & CP_EXTERNAL) ? "EXTERNAL" : "",

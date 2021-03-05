@@ -64,7 +64,7 @@ Z_PRIVATE void __splay_print_indented(Snode *root, int depth) {
         for (i = 0; i < SPLAY_INDENTATION_LEVEL * depth; i++) {
             putchar(' ');
         }
-        printf("[%ld, %ld](%p)\n", root->addr, root->addr + root->len - 1,
+        z_sayf("[%ld, %ld](%p)\n", root->addr, root->addr + root->len - 1,
                root->data);
 
         __splay_print_indented(root->child[SPLAY_RIGHT], depth + 1);
@@ -419,7 +419,7 @@ Z_API Buffer *z_splay_sorted_list(Splay *splay) {
 Z_API void z_splay_print(Splay *splay) {
     Snode *t;
     SPLAY_ROOT(splay, t);
-    printf("number of current nodes: %ld\n", z_splay_get_node_count(splay));
+    z_sayf("number of current nodes: %ld\n", z_splay_get_node_count(splay));
     __splay_print_indented(t, 0);
 }
 

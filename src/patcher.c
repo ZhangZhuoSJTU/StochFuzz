@@ -285,7 +285,7 @@ Z_API void z_patcher_describe(Patcher *p) {
     addr_t text_addr = p->text_addr;
     size_t text_size = p->text_size;
 
-    printf("%-7s%-25s%-25s%-25s%-25s%-25s%-8s%-60s%-5s%s\n", "status",
+    z_sayf("%-7s%-25s%-25s%-25s%-25s%-25s%-8s%-60s%-5s%s\n", "status",
            "inst hint", "inst lost", "data hint", "D", "P", "SCC", "inst",
            "size", " succs");
 
@@ -312,26 +312,26 @@ Z_API void z_patcher_describe(Patcher *p) {
 
         if (!isnan(data_hint) && !isinf(data_hint) &&
             data_hint > 10000000000000000000.0) {
-            printf("%-7s%-25.12Lf%-25.2Lf%-25Le%-25.12Lf%+-25.12Lf", status,
+            z_sayf("%-7s%-25.12Lf%-25.2Lf%-25Le%-25.12Lf%+-25.12Lf", status,
                    inst_hint, inst_lost, data_hint, D, P);
         } else {
-            printf("%-7s%-25.12Lf%-25.2Lf%-25.2Lf%-25.12Lf%+-25.12Lf", status,
+            z_sayf("%-7s%-25.12Lf%-25.2Lf%-25.2Lf%-25.12Lf%+-25.12Lf", status,
                    inst_hint, inst_lost, data_hint, D, P);
         }
         if (inst) {
-            printf("%-8d", scc_id);
+            z_sayf("%-8d", scc_id);
             const char *inst_str = z_alloc_printf(CS_SHOW_INST(inst));
-            printf("%-60s%-5d", inst_str, inst->size);
+            z_sayf("%-60s%-5d", inst_str, inst->size);
             z_free((void *)inst_str);
             Iter(addr_t, succ_addrs);
             z_iter_init_from_buf(succ_addrs,
                                  z_disassembler_get_successors(d, addr));
             while (!z_iter_is_empty(succ_addrs)) {
-                printf(" {%#lx}", *(z_iter_next(succ_addrs)));
+                z_sayf(" {%#lx}", *(z_iter_next(succ_addrs)));
             }
-            printf("\n");
+            z_sayf("\n");
         } else {
-            printf("%-8d(%#lx:\tinvalid)\n", scc_id, addr);
+            z_sayf("%-8d(%#lx:\tinvalid)\n", scc_id, addr);
         }
     }
 

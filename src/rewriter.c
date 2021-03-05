@@ -8,7 +8,8 @@
 #include <capstone/capstone.h>
 
 #ifdef DEBUG
-FILE *__debug_f = NULL;
+FILE *__debug_file = NULL;
+#define __debug_printf(...) fprintf(__debug_file, __VA_ARGS__)
 #endif
 
 /*
@@ -371,21 +372,21 @@ TRANSLATE_RIP_INS:
     int64_t op_mem_disp = 0;
 
     // step [1.1]. generate mnemonic
-    snprintf(asmline_fmt, ASMLINE_FMT_SIZE, "%s\t", inst->mnemonic);
+    z_snprintf(asmline_fmt, ASMLINE_FMT_SIZE, "%s\t", inst->mnemonic);
 
     // step [1.2]. generate operands
     for (int32_t i = 0; i < detail->x86.op_count; i++) {
         cs_x86_op *op = &(detail->x86.operands[i]);
         switch (op->type) {
             case X86_OP_REG:
-                snprintf(asmline_fmt + z_strlen(asmline_fmt),
-                         ASMLINE_FMT_SIZE - z_strlen(asmline_fmt), "%s, ",
-                         cs_reg_name(cs, op->reg));
+                z_snprintf(asmline_fmt + z_strlen(asmline_fmt),
+                           ASMLINE_FMT_SIZE - z_strlen(asmline_fmt), "%s, ",
+                           cs_reg_name(cs, op->reg));
                 continue;
             case X86_OP_IMM:
-                snprintf(asmline_fmt + z_strlen(asmline_fmt),
-                         ASMLINE_FMT_SIZE - z_strlen(asmline_fmt), "%#lx, ",
-                         op->imm);
+                z_snprintf(asmline_fmt + z_strlen(asmline_fmt),
+                           ASMLINE_FMT_SIZE - z_strlen(asmline_fmt), "%#lx, ",
+                           op->imm);
                 continue;
             case X86_OP_MEM:
                 assert(op->mem.base == X86_REG_RIP);
@@ -545,10 +546,10 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
 #endif
 
 #ifdef DEBUG
-    fprintf(__debug_f, "%#lx -> %#lx:\n", ori_addr,
-            z_binary_get_shadow_code_addr(r->binary));
-    fprintf(__debug_f, "\told inst " CS_SHOW_INST(inst));
-    fprintf(__debug_f, "\n");
+    __debug_printf("%#lx -> %#lx:\n", ori_addr,
+                   z_binary_get_shadow_code_addr(r->binary));
+    __debug_printf("\told inst " CS_SHOW_INST(inst));
+    __debug_printf("\n");
 #endif
     // step [3]. translate rip-related instrution
     //      XXX: note that inserting any new code between step [3] and step [4]
@@ -556,8 +557,8 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
     inst = __rewriter_translate_shadow_inst(r, inst, ori_addr);
 
 #ifdef DEBUG
-    fprintf(__debug_f, "\tnew inst " CS_SHOW_INST(inst));
-    fprintf(__debug_f, "\n");
+    __debug_printf("\tnew inst " CS_SHOW_INST(inst));
+    __debug_printf("\n");
 #endif
 
     // step [4]. check handlers
@@ -808,7 +809,7 @@ Z_API Rewriter *z_rewriter_create(Disassembler *d) {
     __rewriter_init_predefined_handler(r);
 
 #ifdef DEBUG
-    __debug_f = fopen("shadow.log", "w");
+    __debug_file = fopen("shadow.log", "w");
 #endif
 
     return r;
@@ -973,7 +974,7 @@ Z_API void z_rewriter_destroy(Rewriter *r) {
     z_free(r);
 
 #ifdef DEBUG
-    fclose(__debug_f);
+    fclose(__debug_file);
 #endif
 }
 

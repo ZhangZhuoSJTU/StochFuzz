@@ -7,7 +7,6 @@
 /*
  * Lookup table function
  */
-
 #define __INVALID_LOOKUP_TABLE_CELL_NUM ((uint64_t)(-1L))
 
 static uint64_t __lookup_table_cell_num = __INVALID_LOOKUP_TABLE_CELL_NUM;
@@ -36,7 +35,6 @@ uint64_t z_lookup_table_get_cell_num() {
 /*
  * Log session
  */
-
 static const char *level_names[] = {"TRACE", "DEBUG", "INFO",
                                     "WARN",  "ERROR", "FATAL"};
 

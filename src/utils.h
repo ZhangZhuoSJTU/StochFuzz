@@ -38,6 +38,9 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define z_fatal(...) z_log(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 #endif
 
+// print message
+#define z_sayf(...) fprintf(stderr, __VA_ARGS__)
+
 /*
  * General methods (wrapper of glibc alloc/file/string function)
  */
@@ -77,6 +80,8 @@ Z_API char *z_strchr(const char *s, int c);
         snprintf(_tmp, _len + 1, _str);         \
         _tmp;                                   \
     })
+
+#define z_snprintf(...) snprintf(__VA_ARGS__)
 
 /*
  * Keystone
@@ -232,7 +237,6 @@ extern const cs_insn *cs_inst;
 /*
  * TPDispatcher
  */
-
 extern TPDispatcher *tp;
 extern size_t tp_size;
 extern const uint8_t *tp_code;
