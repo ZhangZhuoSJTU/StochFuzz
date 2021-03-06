@@ -42,7 +42,10 @@ Z_PRIVATE bool __inst_analyzer_check_consistent(const cs_insn *inst_alice,
 
 Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
                                            const cs_insn *inst) {
-#ifndef NOPTIMIZATION
+    if (sys_config.disable_opt) {
+        return;
+    }
+
     // step (0). check whether addr is analyzed
     if (g_hash_table_lookup(a->gpr_can_write, GSIZE_TO_POINTER(addr))) {
         return;
@@ -160,12 +163,14 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
     g_queue_free(queue);
 
     return;
-#endif
 }
 
 Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
                                            const cs_insn *inst) {
-#ifndef NOPTIMIZATION
+    if (sys_config.disable_opt) {
+        return;
+    }
+
     // step (0). check whether addr is analyzed
     if (g_hash_table_lookup(a->flg_need_write, GSIZE_TO_POINTER(addr))) {
         return;
@@ -300,7 +305,6 @@ Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
     }
 
     g_queue_free(queue);
-#endif
 }
 
 Z_PRIVATE void __inst_analyzer_advance_analyze(InstAnalyzer *a, addr_t addr,
