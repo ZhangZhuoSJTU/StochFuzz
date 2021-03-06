@@ -116,36 +116,36 @@ endef
 
 test:
 	rm -rf test; cp -r ../test test
-	$(call test_succ, ../$(TOOLNAME) -P -- bzip2.no.pie)
-	$(call test_succ, ../$(TOOLNAME) -R -- bzip2.no.pie --help)
-	$(call test_succ, ../$(TOOLNAME) -R -- bzip2.no.pie -kfd test.c.bz2)
-	$(call test_succ, ../$(TOOLNAME) -V -- bzip2.no.pie )
-	$(call test_succ, ../$(TOOLNAME) -R -- libpng-1.2.56 seed.png)
-	$(call test_succ, ../$(TOOLNAME) -V -- libpng-1.2.56)
-	$(call test_fail, ../$(TOOLNAME) -R -- crash mdzz)
-	$(call test_succ, ../$(TOOLNAME) -V -- crash )
-	$(call test_succ, ../$(TOOLNAME) -P -- openssl-1.0.1f)
-	$(call test_succ, ../$(TOOLNAME) -R -- openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
-	$(call test_succ, ../$(TOOLNAME) -V -- openssl-1.0.1f)
-	$(call test_succ, ../$(TOOLNAME) -R -- hello)
-	$(call test_succ, ../$(TOOLNAME) -V -- hello)
-	$(call test_succ, ../$(TOOLNAME) -R -- rar e -o+ -mt3 -- test.rar)
-	$(call test_succ, ../$(TOOLNAME) -V -- rar)
+	$(call test_succ, ../$(TOOLNAME) -P $(TEST_OPTIONS) -- bzip2.no.pie)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.no.pie --help)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.no.pie -kfd test.c.bz2)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- bzip2.no.pie )
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libpng-1.2.56 seed.png)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- libpng-1.2.56)
+	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- crash mdzz)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- crash )
+	$(call test_succ, ../$(TOOLNAME) -P $(TEST_OPTIONS) -- openssl-1.0.1f)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- openssl-1.0.1f)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- hello)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- hello)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- rar e -o+ -mt3 -- test.rar)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- rar)
 ifneq ($(NGENERIC_PIC), yes)
 ifeq ($(NPROB_DISASM), yes)
-	$(call test_succ, ../$(TOOLNAME) -R z3 -smt2 ex.smt2)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- z3 -smt2 ex.smt2)
 endif
 endif
 	# test daemon
 	rm -rf test; cp -r ../test test
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) bzip2.no.pie -kfd test.c.bz2)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) libpng-1.2.56 seed.png)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) rar e -o+ -mt3 -- test.rar)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' bzip2.no.pie -kfd test.c.bz2)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libpng-1.2.56 seed.png)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
 ifeq ($(NPROB_DISASM), yes)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) hello)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
 ifneq ($(NGENERIC_PIC), yes)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) z3 -smt2 ex.smt2)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2)
 endif
 endif
 

@@ -3,19 +3,20 @@
 readonly EXIT_FAILURE=1
 
 tool=$1
-target=$2
+options=$2
+target=$3
 phantom=$target.phantom
 echo "phantom file: $phantom"
 
 rm -rf $phantom
-$tool -- $target 2>/tmp/$target.daemon.log &
+$tool $options -- $target 2>/tmp/$target.daemon.log &
 daemon_pid=$!
 
 for i in {1..100}
 do
     if [ -f $phantom ]; then
         echo "$target: daemon is up"
-        ./$phantom ${@:3}
+        ./$phantom ${@:4}
         wait $daemon_pid
         exit $?
     else
