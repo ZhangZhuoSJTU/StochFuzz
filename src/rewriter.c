@@ -102,7 +102,6 @@ Z_PRIVATE void __rewriter_emit_trampoline(Rewriter *r, addr_t addr);
 // prototypes
 #include "rewriter_handlers/handler_main.c"
 
-#ifdef COUNT_CONFLICT
 /*
  * Cound how many BB ID is conflicted
  */
@@ -135,7 +134,6 @@ Z_PRIVATE void __rewriter_count_conflicted_ids(Rewriter *r) {
 
     z_info("we have %d conflicted IDs in total", conflicts);
 }
-#endif
 
 /*
  * Getter and Setter
@@ -916,6 +914,7 @@ Z_API void z_rewriter_rewrite_main(Rewriter *r) {
 }
 
 // XXX: note that its underlying disassembly (linear) is not completed.
+// XXX: useless and hence unused!
 Z_API void z_rewriter_heuristics_rewrite(Rewriter *r) {
     assert(r != NULL);
 
@@ -952,9 +951,9 @@ Z_API void z_rewriter_heuristics_rewrite(Rewriter *r) {
     g_hash_table_destroy(cf_related_holes);
     g_queue_free(new_bbs);
 
-#ifdef COUNT_CONFLICT
-    __rewriter_count_conflicted_ids(r);
-#endif
+    if (sys_config.count_conflict) {
+        __rewriter_count_conflicted_ids(r);
+    }
 }
 
 Z_API void z_rewriter_destroy(Rewriter *r) {
@@ -1026,9 +1025,9 @@ Z_API void z_rewriter_rewrite(Rewriter *r, addr_t new_addr) {
            r->optimized_single_succ, r->optimized_single_succ,
            r->afl_trampoline_count);
 
-#ifdef COUNT_CONFLICT
-    __rewriter_count_conflicted_ids(r);
-#endif
+    if (sys_config.count_conflict) {
+        __rewriter_count_conflicted_ids(r);
+    }
 }
 
 Z_API addr_t z_rewriter_get_shadow_addr(Rewriter *r, addr_t addr) {
