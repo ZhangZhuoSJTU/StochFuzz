@@ -71,47 +71,48 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
          * step [1]. first check callee_addr is inside .text
          */
         if (!z_disassembler_get_superset_disasm(r->disassembler, callee_addr)) {
-#ifdef NGENERIC_PIC
-            // directly write
-            KS_ASM_CALL(shadow_addr, callee_addr);
-            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
-#else
-            KS_ASM(shadow_addr,
-                   "push %#lx;\n"
-                   "jmp %#lx;\n",
-                   ori_next_addr, callee_addr);
-            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+            if (sys_config.safe_ret) {
+                // directly write
+                KS_ASM_CALL(shadow_addr, callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+            } else {
+                KS_ASM(shadow_addr,
+                       "push %#lx;\n"
+                       "jmp %#lx;\n",
+                       ori_next_addr, callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
 
-            // update retaddr meta-info
-            if (g_hash_table_lookup(r->returned_callees,
-                                    GSIZE_TO_POINTER(callee_addr))) {
-                // this callee is known to return in future
-                KS_ASM_JMP(ori_next_addr,
-                           z_binary_get_shadow_code_addr(r->binary));
-                z_elf_write(e, ori_next_addr, ks_size, ks_encode);
-                g_hash_table_insert(r->unlogged_retaddr_crashpoints,
-                                    GSIZE_TO_POINTER(ori_next_addr),
-                                    GSIZE_TO_POINTER(true));
-            } else if (!g_hash_table_lookup(r->retaddr_crashpoints,
-                                            GSIZE_TO_POINTER(ori_next_addr))) {
-                // we do not known whether this callee will return. Hence, it is
-                // a potential CP_RETADDR. Additionaly, it is the first time
-                // that we find this retaddr.
-                g_hash_table_insert(r->retaddr_crashpoints,
-                                    GSIZE_TO_POINTER(ori_next_addr),
-                                    GSIZE_TO_POINTER(callee_addr));
-                Buffer *buf = (Buffer *)g_hash_table_lookup(
-                    r->callee2retaddrs, GSIZE_TO_POINTER(callee_addr));
-                if (!buf) {
-                    buf = z_buffer_create(NULL, 0);
-                    g_hash_table_insert(r->callee2retaddrs,
-                                        GSIZE_TO_POINTER(callee_addr),
-                                        (gpointer)buf);
+                // update retaddr meta-info
+                if (g_hash_table_lookup(r->returned_callees,
+                                        GSIZE_TO_POINTER(callee_addr))) {
+                    // this callee is known to return in future
+                    KS_ASM_JMP(ori_next_addr,
+                               z_binary_get_shadow_code_addr(r->binary));
+                    z_elf_write(e, ori_next_addr, ks_size, ks_encode);
+                    g_hash_table_insert(r->unlogged_retaddr_crashpoints,
+                                        GSIZE_TO_POINTER(ori_next_addr),
+                                        GSIZE_TO_POINTER(true));
+                } else if (!g_hash_table_lookup(
+                               r->retaddr_crashpoints,
+                               GSIZE_TO_POINTER(ori_next_addr))) {
+                    // we do not known whether this callee will return. Hence,
+                    // it is a potential CP_RETADDR. Additionaly, it is the
+                    // first time that we find this retaddr.
+                    g_hash_table_insert(r->retaddr_crashpoints,
+                                        GSIZE_TO_POINTER(ori_next_addr),
+                                        GSIZE_TO_POINTER(callee_addr));
+                    Buffer *buf = (Buffer *)g_hash_table_lookup(
+                        r->callee2retaddrs, GSIZE_TO_POINTER(callee_addr));
+                    if (!buf) {
+                        buf = z_buffer_create(NULL, 0);
+                        g_hash_table_insert(r->callee2retaddrs,
+                                            GSIZE_TO_POINTER(callee_addr),
+                                            (gpointer)buf);
+                    }
+                    z_buffer_append_raw(buf, (uint8_t *)&ori_next_addr,
+                                        sizeof(ori_next_addr));
                 }
-                z_buffer_append_raw(buf, (uint8_t *)&ori_next_addr,
-                                    sizeof(ori_next_addr));
             }
-#endif
             return;
         }
 
@@ -125,29 +126,29 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
          * step [3]. rewrite and insrumentation
          */
         if (shadow_callee_addr) {
-#ifdef NGENERIC_PIC
-            KS_ASM(shadow_addr,
-                   "push END;\n"
-                   "jmp %#lx;\n"
-                   "END:\n",
-                   shadow_callee_addr);
-#else
-            KS_ASM(shadow_addr,
-                   "push %#lx;\n"
-                   "jmp %#lx;\n",
-                   ori_next_addr, shadow_callee_addr);
-#endif
+            if (sys_config.safe_ret) {
+                KS_ASM(shadow_addr,
+                       "push END;\n"
+                       "jmp %#lx;\n"
+                       "END:\n",
+                       shadow_callee_addr);
+            } else {
+                KS_ASM(shadow_addr,
+                       "push %#lx;\n"
+                       "jmp %#lx;\n",
+                       ori_next_addr, shadow_callee_addr);
+            }
             z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
         } else {
             // rewrite return address
-#ifdef NGENERIC_PIC
-            KS_ASM(shadow_addr,
-                   "push END + %lu;\n"
-                   "END:\n",
-                   __rewriter_get_hole_len(X86_INS_JMP));
-#else
-            KS_ASM(shadow_addr, "push %#lx;\n", ori_next_addr);
-#endif
+            if (sys_config.safe_ret) {
+                KS_ASM(shadow_addr,
+                       "push END + %lu;\n"
+                       "END:\n",
+                       __rewriter_get_hole_len(X86_INS_JMP));
+            } else {
+                KS_ASM(shadow_addr, "push %#lx;\n", ori_next_addr);
+            }
 
             shadow_addr =
                 z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
@@ -249,16 +250,20 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                // "  add al, 127;\n"
                // "  sahf;\n"
                // "  mov rax, [rsp - 120 - 8];\n"
-               "  mov rcx, [rsp - 128 - 8];\n"
-#ifdef NGENERIC_PIC
-               "  call qword ptr [rsp - 144];\n",
-               text_addr + text_size, text_addr
-#else
-               "  push %#lx;\n"
-               "  jmp qword ptr [rsp - 144 + 8];\n",
-               text_addr + text_size, text_addr, ori_next_addr
-#endif
-               );
+               "  mov rcx, [rsp - 128 - 8];\n",
+               text_addr + text_size, text_addr);
+        z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+
+        // XXX: the below assembly is following the previous one
+        shadow_addr += ks_size;
+        if (sys_config.safe_ret) {
+            KS_ASM(shadow_addr, "call qword ptr [rsp - 144]");
+        } else {
+            KS_ASM(shadow_addr,
+                   "push %#lx;\n"
+                   "jmp qword ptr [rsp - 144 + 8];\n",
+                   ori_next_addr);
+        }
         z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
     }
 }

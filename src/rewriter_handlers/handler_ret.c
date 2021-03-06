@@ -11,9 +11,11 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
 Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                                       cs_insn *inst, addr_t ori_addr,
                                       addr_t ori_next_addr) {
-#ifdef NGENERIC_PIC
-    z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
-#else
+    if (sys_config.safe_ret) {
+        z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
+        return;
+    }
+
     // modern CPU will do nothing more except direct returning about `repz ret`
     addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
     ELF *e = z_binary_get_elf(r->binary);
@@ -45,5 +47,4 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                text_addr + text_size, text_addr);
     }
     z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
-#endif
 }

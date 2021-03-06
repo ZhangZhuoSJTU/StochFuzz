@@ -5,7 +5,7 @@ LDFLAGS =
 
 SHELLCODE_CFLAGS = -Wall -fno-stack-protector -fno-jump-tables -fpie -O3 -D_GNU_SOURCE
 
-LIBNAME = $(shell grep '^\#define OURTOOL ' config.h | cut -d '"' -f2 | awk -F '-' '{print "lib"$$1$$2}')
+LIBNAME = $(shell find . -regex './lib[^\.]*\.h' | tr -d '/' | cut -d '.' -f2)
 TOOLNAME = $(shell grep '^\#define OURTOOL ' config.h | cut -d '"' -f2)
 VERSION = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
 
@@ -29,11 +29,6 @@ endif
 ifneq ($(origin DEBUG_PATCHER), undefined)
 	CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_PATCHER=$(strip $(DEBUG_PATCHER))
 	SHELLCODE_CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_PATCHER=$(strip $(DEBUG_PATCHER))
-endif
-
-ifeq ($(NGENERIC_PIC), yes)
-	CFLAGS += -DNGENERIC_PIC
-	SHELLCODE_CFLAGS += -DNGENERIC_PIC
 endif
 
 ifeq ($(NPROB_DISASM), yes)
@@ -131,7 +126,7 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- hello)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- rar e -o+ -mt3 -- test.rar)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- rar)
-ifneq ($(NGENERIC_PIC), yes)
+ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 ifeq ($(NPROB_DISASM), yes)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- z3 -smt2 ex.smt2)
 endif
@@ -144,7 +139,7 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
 ifeq ($(NPROB_DISASM), yes)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
-ifneq ($(NGENERIC_PIC), yes)
+ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2)
 endif
 endif
