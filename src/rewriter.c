@@ -540,10 +540,11 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
         z_binary_update_lookup_table(r->binary, ori_addr, shadow_addr);
     }
 
-#ifdef TRACE_PC
-    KS_ASM_CONST_MOV(RW_PAGE_INFO_ADDR(prev_pc), ori_addr);
-    z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
-#endif
+    if (sys_config.trace_pc) {
+        // trace previous pc
+        KS_ASM_CONST_MOV(RW_PAGE_INFO_ADDR(prev_pc), ori_addr);
+        z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+    }
 
 #ifdef DEBUG
     __debug_printf("%#lx -> %#lx:\n", ori_addr,

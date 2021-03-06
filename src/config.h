@@ -87,9 +87,7 @@ typedef struct __loading_info_t {
 
     uint64_t client_pid;
 
-#ifdef TRACE_PC
     uint64_t prev_pc;
-#endif
 
     char shadow_path[0x100];
     uint64_t shadow_size;
