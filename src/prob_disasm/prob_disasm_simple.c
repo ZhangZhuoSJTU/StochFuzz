@@ -1,15 +1,15 @@
-#define GET_PDISASM(d) ((Splay *)((d)->prob_disasm))
-#define SET_PDISASM(d, v)                      \
+#define __GET_PDISASM(d) ((Splay *)((d)->prob_disasm))
+#define __SET_PDISASM(d, v)                    \
     do {                                       \
         (d)->prob_disasm = (PhantomType *)(v); \
     } while (0)
 
-Z_PRIVATE void __disassembler_pdisasm_create(Disassembler *d) {
+Z_PRIVATE void __disassembler_pdisasm_create_S(Disassembler *d) {
     const char *original_filename = z_binary_get_original_filename(d->binary);
     const char *pdisasm_filename =
         z_strcat(PDISASM_FILENAME_PREFIX, original_filename);
 
-    SET_PDISASM(d, z_splay_create(NULL));
+    __SET_PDISASM(d, z_splay_create(NULL));
 
     if (!z_access(pdisasm_filename, F_OK)) {
         // pdisasm file exits
@@ -48,7 +48,7 @@ Z_PRIVATE void __disassembler_pdisasm_create(Disassembler *d) {
                 z_info("pre-defined code segment: [%#lx, %#lx]", cur_addr,
                        cur_addr + cur_size - 1);
                 Snode *node = z_snode_create(cur_addr, cur_size, NULL, NULL);
-                z_splay_insert(GET_PDISASM(d), node);
+                z_splay_insert(__GET_PDISASM(d), node);
 
                 cur_addr = code->addr;
                 cur_size = code->size;
@@ -59,34 +59,37 @@ Z_PRIVATE void __disassembler_pdisasm_create(Disassembler *d) {
     } else {
         z_info("no p-disam file found, patch the whole .text section");
         Snode *node = z_snode_create(d->text_addr, d->text_size, NULL, NULL);
-        z_splay_insert(GET_PDISASM(d), node);
+        z_splay_insert(__GET_PDISASM(d), node);
     }
 
     z_free((char *)pdisasm_filename);
 }
 
-Z_PRIVATE void __disassembler_pdisasm_destroy(Disassembler *d) {
-    z_splay_destroy(GET_PDISASM(d));
+Z_PRIVATE void __disassembler_pdisasm_destroy_S(Disassembler *d) {
+    z_splay_destroy(__GET_PDISASM(d));
 }
 
-Z_PRIVATE void __disassembler_pdisasm_start(Disassembler *d) {
+Z_PRIVATE void __disassembler_pdisasm_start_S(Disassembler *d) {
     /*
      * leave it blank
      */
 }
 
-Z_PRIVATE double128_t __disassembler_pdisasm_get_inst_prob(Disassembler *d,
-                                                           addr_t addr) {
-    if (z_splay_search(GET_PDISASM(d), addr)) {
+Z_PRIVATE double128_t __disassembler_pdisasm_get_inst_prob_S(Disassembler *d,
+                                                             addr_t addr) {
+    if (z_splay_search(__GET_PDISASM(d), addr)) {
         return 1.0;
     } else {
         return 0.0;
     }
 }
 
-Z_PRIVATE void __disassembler_pdisasm_get_internal(
+Z_PRIVATE void __disassembler_pdisasm_get_internal_S(
     Disassembler *d, addr_t addr, cs_insn **inst, uint32_t *scc_id,
     double128_t *inst_hint, double128_t *inst_lost, double128_t *data_hint,
     double128_t *D, double128_t *P) {
     EXITME("Probabilisitic Disassembly is not fully supported");
 }
+
+#undef __GET_PDISASM
+#undef __SET_PDISASM

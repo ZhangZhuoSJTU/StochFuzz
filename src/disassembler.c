@@ -6,17 +6,19 @@
 #include "utils.h"
 
 #include <capstone/capstone.h>
+#include <elf.h>
 #include <gmodule.h>
 
-#include <elf.h>
+#include "prob_disasm/prob_disasm_complete.c"
+#include "prob_disasm/prob_disasm_simple.c"
 
 #define SUPERSET_DISASM_THRESHOLD 0x400000
 
-#ifdef NPROB_DISASM
-#include "prob_disasm/prob_disasm_simple.c"
-#else
-#include "prob_disasm/prob_disasm_complete.c"
-#endif
+/*
+ * Runtime binding for probabilistic disassembly
+ */
+#define __disassembler_invoke_prob_disasm(d, func, __args...) \
+    ({ (d->enable_pdisasm ? func(__args) : func##_S(__args)); })
 
 /*
  * Function Pointer: destroy a cs_insn
@@ -317,12 +319,13 @@ Z_API Disassembler *z_disassembler_create(Binary *b) {
     z_info("enable probabilistic disassembly: %s",
            d->enable_pdisasm ? "true" : "false");
 
-    __disassembler_pdisasm_create(d);
+    __disassembler_invoke_prob_disasm(d, __disassembler_pdisasm_create, d);
     return d;
 }
 
 Z_API void z_disassembler_destroy(Disassembler *d) {
-    __disassembler_pdisasm_destroy(d);
+    __disassembler_invoke_prob_disasm(d, __disassembler_pdisasm_destroy, d);
+
     g_hash_table_destroy(d->superset_disasm);
     g_hash_table_destroy(d->recursive_disasm);
     g_hash_table_destroy(d->linear_disasm);
@@ -345,16 +348,18 @@ Z_API void z_disassembler_get_prob_disasm_internal(
     Disassembler *d, addr_t addr, cs_insn **inst, uint32_t *scc_id,
     double128_t *inst_hint, double128_t *inst_lost, double128_t *data_hint,
     double128_t *D, double128_t *P) {
-    __disassembler_pdisasm_get_internal(d, addr, inst, scc_id, inst_hint,
-                                        inst_lost, data_hint, D, P);
+    __disassembler_invoke_prob_disasm(d, __disassembler_pdisasm_get_internal, d,
+                                      addr, inst, scc_id, inst_hint, inst_lost,
+                                      data_hint, D, P);
 }
 
 Z_API void z_disassembler_prob_disasm(Disassembler *d) {
-    __disassembler_pdisasm_start(d);
+    __disassembler_invoke_prob_disasm(d, __disassembler_pdisasm_start, d);
 }
 
 Z_API double128_t z_disassembler_get_prob_disasm(Disassembler *d, addr_t addr) {
-    return __disassembler_pdisasm_get_inst_prob(d, addr);
+    return __disassembler_invoke_prob_disasm(
+        d, __disassembler_pdisasm_get_inst_prob, d, addr);
 }
 
 // XXX: note that this function is not completed.

@@ -31,11 +31,6 @@ ifneq ($(origin DEBUG_PATCHER), undefined)
 	SHELLCODE_CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_PATCHER=$(strip $(DEBUG_PATCHER))
 endif
 
-ifeq ($(NPROB_DISASM), yes)
-	CFLAGS += -DNPROB_DISASM
-	SHELLCODE_CFLAGS += -DNPROB_DISASM
-endif
-
 # glib
 CFLAGS += $(shell PKG_CONFIG_PATH=$(realpath ..)/glib/lib/x86_64-linux-gnu/pkgconfig/ pkg-config --cflags glib-2.0)
 LDFLAGS += -lpthread
@@ -127,8 +122,8 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- rar e -o+ -mt3 -- test.rar)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- rar)
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
-ifeq ($(NPROB_DISASM), yes)
-	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -n -- z3 -smt2 ex.smt2)
+ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- z3 -smt2 ex.smt2)
 endif
 endif
 	# test daemon
@@ -137,10 +132,10 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libpng-1.2.56 seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
-ifeq ($(NPROB_DISASM), yes)
+ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -n' z3 -smt2 ex.smt2)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2)
 endif
 endif
 

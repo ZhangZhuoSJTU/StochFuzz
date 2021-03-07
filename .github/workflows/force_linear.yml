@@ -1,4 +1,4 @@
-name: pdisasm
+name: force_linear
 
 on:
   push:
@@ -62,7 +62,7 @@ jobs:
           make debug
         working-directory: ./src
       - name: make test
-        run: make test TEST_OPTIONS='-f'
+        run: make test TEST_OPTIONS='-n'
         working-directory: ./src
   
   release:
@@ -87,5 +87,5 @@ jobs:
           make release
         working-directory: ./src
       - name: make test
-        run: make test TEST_OPTIONS='-f'
+        run: make test TEST_OPTIONS='-n'
         working-directory: ./src

@@ -59,10 +59,10 @@ jobs:
         run: |
           clang --version
           make clean
-          make debug NPROB_DISASM=yes
+          make debug
         working-directory: ./src
       - name: make test
-        run: make test NPROB_DISASM=yes
+        run: make test
         working-directory: ./src
   
   release:
@@ -84,8 +84,8 @@ jobs:
         run: |
           clang --version
           make clean
-          make release NPROB_DISASM=yes
+          make release
         working-directory: ./src
       - name: make test
-        run: make test NPROB_DISASM=yes
+        run: make test
         working-directory: ./src

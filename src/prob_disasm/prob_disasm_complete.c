@@ -43,8 +43,8 @@ STRUCT(ProbDisassembler, {
     size_t round_n;
 });
 
-#define GET_PDISASM(d) ((ProbDisassembler *)((d)->prob_disasm))
-#define SET_PDISASM(d, v)                      \
+#define __GET_PDISASM(d) ((ProbDisassembler *)((d)->prob_disasm))
+#define __SET_PDISASM(d, v)                    \
     do {                                       \
         (d)->prob_disasm = (PhantomType *)(v); \
     } while (0)
@@ -559,26 +559,29 @@ Z_PUBLIC void z_prob_disassembler_destroy(ProbDisassembler *pd) {
 ///////////////////////////////////
 
 Z_PRIVATE void __disassembler_pdisasm_create(Disassembler *d) {
-    SET_PDISASM(d, z_prob_disassembler_create(d));
+    __SET_PDISASM(d, z_prob_disassembler_create(d));
 }
 
 Z_PRIVATE void __disassembler_pdisasm_destroy(Disassembler *d) {
-    z_prob_disassembler_destroy(GET_PDISASM(d));
+    z_prob_disassembler_destroy(__GET_PDISASM(d));
 }
 
 Z_PRIVATE void __disassembler_pdisasm_start(Disassembler *d) {
-    z_prob_disassembler_start(GET_PDISASM(d));
+    z_prob_disassembler_start(__GET_PDISASM(d));
 }
 
 Z_PRIVATE double128_t __disassembler_pdisasm_get_inst_prob(Disassembler *d,
                                                            addr_t addr) {
-    return z_prob_disassembler_get_inst_prob(GET_PDISASM(d), addr);
+    return z_prob_disassembler_get_inst_prob(__GET_PDISASM(d), addr);
 }
 
 Z_PRIVATE void __disassembler_pdisasm_get_internal(
     Disassembler *d, addr_t addr, cs_insn **inst, uint32_t *scc_id,
     double128_t *inst_hint, double128_t *inst_lost, double128_t *data_hint,
     double128_t *D, double128_t *P) {
-    z_prob_disassembler_get_internal(GET_PDISASM(d), addr, inst, scc_id,
+    z_prob_disassembler_get_internal(__GET_PDISASM(d), addr, inst, scc_id,
                                      inst_hint, inst_lost, data_hint, D, P);
 }
+
+#undef __GET_PDISASM
+#undef __SET_PDISASM
