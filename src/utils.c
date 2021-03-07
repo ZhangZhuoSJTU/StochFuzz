@@ -209,5 +209,6 @@ SysConfig sys_config = {
     .safe_ret = false,
     .force_pdisasm = false,
     .force_linear = false,
+    .log_level = LOG_INFO,
     .timeout = SYS_TIMEOUT,
 };

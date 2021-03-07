@@ -330,6 +330,8 @@ typedef struct system_config_t {
     bool force_pdisasm;
     bool force_linear;  // secret option
 
+    int32_t log_level;
+
     uint64_t timeout;
 } SysConfig;
 

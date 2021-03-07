@@ -65,7 +65,9 @@ static void usage(const char *argv0, int ret_status) {
 
         "  -h            - print this help\n"
         "  -t msec       - timeout for each attached fuzzing run "
-        "(auto-scaled, ??? ms)\n\n",
+        "(auto-scaled, ??? ms)\n"
+        "  -l level      - log level, including TRACE, DEBUG, INFO, WARN, "
+        "ERROR, and FATAL (default level: INFO)\n\n",
 
         argv0);
 
@@ -77,16 +79,17 @@ static int parse_args(int argc, const char **argv) {
         BRIGHT, VERSION) " by <zhan3299@purdue.edu>\n");
 
     bool timeout_given = false;
+    bool log_level_given = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfnht:")) > 0) {
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfnht:l:")) > 0) {
         switch (opt) {
-#define __MODE_CASE(c, m)                           \
-    case c:                                         \
-        if (sys_config.mode != SYSMODE_NONE) {      \
-            EXITME("trying to set multiple modes"); \
-        }                                           \
-        sys_config.mode = SYSMODE_##m;              \
+#define __MODE_CASE(c, m)                                   \
+    case c:                                                 \
+        if (sys_config.mode != SYSMODE_NONE) {              \
+            EXITME("multiple mode settings not supported"); \
+        }                                                   \
+        sys_config.mode = SYSMODE_##m;                      \
         break;
             __MODE_CASE('S', DAEMON);
             __MODE_CASE('R', RUN);
@@ -110,6 +113,26 @@ static int parse_args(int argc, const char **argv) {
             // .text) makes smaller memory usage.
             __SETTING_CASE('n', force_linear);
 #undef __SETTING_CASE
+
+#define __LOG_LEVEL_STRCASECMP(l, s)        \
+    do {                                    \
+        if (!strcasecmp(#l, s)) {           \
+            sys_config.log_level = LOG_##l; \
+        }                                   \
+    } while (0)
+            case 'l':
+                if (log_level_given) {
+                    EXITME("multiple -l options not supported");
+                }
+                log_level_given = true;
+                __LOG_LEVEL_STRCASECMP(TRACE, optarg);
+                __LOG_LEVEL_STRCASECMP(DEBUG, optarg);
+                __LOG_LEVEL_STRCASECMP(INFO, optarg);
+                __LOG_LEVEL_STRCASECMP(WARN, optarg);
+                __LOG_LEVEL_STRCASECMP(ERROR, optarg);
+                __LOG_LEVEL_STRCASECMP(FATAL, optarg);
+                break;
+#undef __LOG_LEVEL_STRCASECMP
 
             case 't':
                 if (timeout_given) {
@@ -143,6 +166,7 @@ static int parse_args(int argc, const char **argv) {
     if (sys_config.mode == SYSMODE_DISASM) {
         // Under disasm mode, we forcely use probabilistic disassembly
         sys_config.force_pdisasm = true;
+        sys_config.force_linear = false;
     }
 
     if (sys_config.force_pdisasm && sys_config.force_linear) {
@@ -160,7 +184,7 @@ int main(int argc, const char **argv) {
     argc -= next_idx;
     argv += next_idx;
 
-    z_log_set_level(LOG_INFO);
+    z_log_set_level(sys_config.log_level);
     Z_INIT;
 
     switch (sys_config.mode) {
