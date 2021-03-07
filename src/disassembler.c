@@ -29,20 +29,26 @@ Z_PRIVATE void __disassembler_free_cs_insn(cs_insn *inst);
 Z_PRIVATE void __disassembler_superset_disasm(Disassembler *d);
 
 /*
+ * Check whether underlying binary has inlined data (potentially)
+ */
+Z_PRIVATE bool __disassembler_has_inlined_data(Disassembler *d);
+
+/*
  * Analyse instruction group, return whether need to continue analysis.
  */
 Z_PRIVATE bool __disassembler_analyze_inst(cs_insn *inst, addr_t *target);
+
+/*
+ * Disassembly _start / .init / .fini / main
+ */
+Z_RESERVED Z_PRIVATE void __disassembler_pre_disasm(Disassembler *d);
 
 /*
  * Getter and Setter
  */
 DEFINE_GETTER(Disassembler, disassembler, Binary *, binary);
 DEFINE_GETTER(Disassembler, disassembler, InstAnalyzer *, inst_analyzer);
-
-/*
- * Disassembly _start / .init / .fini / main
- */
-Z_RESERVED Z_PRIVATE void __disassembler_pre_disasm(Disassembler *d);
+DEFINE_GETTER(Disassembler, disassembler, bool, enable_pdisasm);
 
 Z_PRIVATE void __disassembler_free_cs_insn(cs_insn *inst) { cs_free(inst, 1); }
 
@@ -138,6 +144,25 @@ Z_RESERVED Z_PRIVATE void __disassembler_pre_disasm(Disassembler *d) {
     z_info("disassemble .init/.fini done");
     z_info("we have %ld correct instructions disassemblied",
            g_hash_table_size(d->recursive_disasm));
+}
+
+// XXX: here we simply check whether linear disassembly can decode all
+// instructions (which seems good enough for most cases), but we can have
+// advanced algorithms in the future (e.g., using entropy or data hints from
+// probabilistic disassembly)
+Z_PRIVATE bool __disassembler_has_inlined_data(Disassembler *d) {
+    assert(d != NULL);
+
+    addr_t cur_addr = d->text_addr;
+    do {
+        cs_insn *cur_inst = z_disassembler_get_superset_disasm(d, cur_addr);
+        if (!cur_inst) {
+            return true;
+        }
+        cur_addr += cur_inst->size;
+    } while (cur_addr < d->text_addr + d->text_size);
+
+    return false;
 }
 
 // XXX: we do not use InstAnalyzer here, as the following code runs faster than
@@ -285,6 +310,11 @@ Z_API Disassembler *z_disassembler_create(Binary *b) {
         RPTR_MEMCPY(d->text_backup, ptr, d->text_size);
         z_rptr_destroy(ptr);
     }
+
+    d->enable_pdisasm =
+        (sys_config.force_pdisasm || __disassembler_has_inlined_data(d));
+    z_info("enable probabilistic disassembly: %s",
+           d->enable_pdisasm ? "true" : "false");
 
     __disassembler_pdisasm_create(d);
     return d;

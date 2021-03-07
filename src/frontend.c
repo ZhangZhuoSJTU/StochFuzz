@@ -118,6 +118,8 @@ static int parse_args(int argc, const char **argv) {
 
             case 'h':
                 usage(argv[0], 0);
+                break;
+
             default:
                 usage(argv[0], 1);
         }
@@ -129,6 +131,11 @@ static int parse_args(int argc, const char **argv) {
 
     if (sys_config.mode == SYSMODE_NONE) {
         sys_config.mode = SYSMODE_DAEMON;
+    }
+
+    if (sys_config.mode == SYSMODE_DISASM) {
+        // under disasm mode, we forcely use probabilistic disassembly
+        sys_config.force_pdisasm = true;
     }
 
     return optind;

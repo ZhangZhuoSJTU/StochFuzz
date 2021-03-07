@@ -34,11 +34,14 @@ STRUCT(Disassembler, {
     // Occluded address
     AddrDictFast(Buffer *, occ_addrs);
 
+    // Pdisasm enable?
+    bool enable_pdisasm;
+
     /*
      * Potential information.
      * These information is collected by linear and recursive disassembly. But
-     * due to inline data, no-return function, or any other incomplete analysis
-     * result, these information may be wrong.
+     * due to the inlined data, non-return function, or any other incomplete
+     * analysis result, these information may be wrong.
      */
     // Entrypoints of *confidentially* disassemblied instructions
     GHashTable *potential_insts;
