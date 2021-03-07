@@ -312,6 +312,7 @@ Z_API Disassembler *z_disassembler_create(Binary *b) {
     }
 
     d->enable_pdisasm =
+        (!sys_config.force_linear) &&
         (sys_config.force_pdisasm || __disassembler_has_inlined_data(d));
     z_info("enable probabilistic disassembly: %s",
            d->enable_pdisasm ? "true" : "false");

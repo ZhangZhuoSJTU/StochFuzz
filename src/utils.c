@@ -208,5 +208,6 @@ SysConfig sys_config = {
     .disable_opt = false,
     .safe_ret = false,
     .force_pdisasm = false,
+    .force_linear = false,
     .timeout = SYS_TIMEOUT,
 };

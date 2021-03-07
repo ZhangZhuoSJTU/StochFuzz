@@ -128,7 +128,7 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- rar)
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 ifeq ($(NPROB_DISASM), yes)
-	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- z3 -smt2 ex.smt2)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -n -- z3 -smt2 ex.smt2)
 endif
 endif
 	# test daemon
@@ -140,7 +140,7 @@ endif
 ifeq ($(NPROB_DISASM), yes)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -n' z3 -smt2 ex.smt2)
 endif
 endif
 

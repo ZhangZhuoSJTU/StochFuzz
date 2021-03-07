@@ -79,7 +79,7 @@ static int parse_args(int argc, const char **argv) {
     bool timeout_given = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfht:")) > 0) {
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfnht:")) > 0) {
         switch (opt) {
 #define __MODE_CASE(c, m)                           \
     case c:                                         \
@@ -104,6 +104,11 @@ static int parse_args(int argc, const char **argv) {
             __SETTING_CASE('d', disable_opt);
             __SETTING_CASE('r', safe_ret);
             __SETTING_CASE('f', force_pdisasm);
+            // This is a secret undocumented option! It is mainly used for
+            // Github Action which has memory limitation. Forcely using linear
+            // disassembly (which means do not pre-disassembly and patch all
+            // .text) makes smaller memory usage.
+            __SETTING_CASE('n', force_linear);
 #undef __SETTING_CASE
 
             case 't':
@@ -125,6 +130,8 @@ static int parse_args(int argc, const char **argv) {
         }
     }
 
+    // Validating arguments
+
     if (argc == optind) {
         usage(argv[0], 1);
     }
@@ -134,8 +141,12 @@ static int parse_args(int argc, const char **argv) {
     }
 
     if (sys_config.mode == SYSMODE_DISASM) {
-        // under disasm mode, we forcely use probabilistic disassembly
+        // Under disasm mode, we forcely use probabilistic disassembly
         sys_config.force_pdisasm = true;
+    }
+
+    if (sys_config.force_pdisasm && sys_config.force_linear) {
+        EXITME("-f and -n cannot be set together");
     }
 
     return optind;

@@ -328,6 +328,7 @@ typedef struct system_config_t {
     bool disable_opt;
     bool safe_ret;
     bool force_pdisasm;
+    bool force_linear;  // secret option
 
     uint64_t timeout;
 } SysConfig;
