@@ -118,6 +118,7 @@ static int parse_args(int argc, const char **argv) {
     do {                                    \
         if (!strcasecmp(#l, s)) {           \
             sys_config.log_level = LOG_##l; \
+            goto DONE;                      \
         }                                   \
     } while (0)
             case 'l':
@@ -131,6 +132,8 @@ static int parse_args(int argc, const char **argv) {
                 __LOG_LEVEL_STRCASECMP(WARN, optarg);
                 __LOG_LEVEL_STRCASECMP(ERROR, optarg);
                 __LOG_LEVEL_STRCASECMP(FATAL, optarg);
+                z_warn("invalid log level: \"%s\"", optarg);
+            DONE:
                 break;
 #undef __LOG_LEVEL_STRCASECMP
 
