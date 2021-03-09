@@ -34,5 +34,5 @@
 
 ## Tag Info
 
-+ v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper.
++ v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper. [__PASS BENCHMARK TEST__]
 + v0.2.0: adopt a better frontend to parse arguments and automatically decide whether we need a complete probabilistic disassembly.

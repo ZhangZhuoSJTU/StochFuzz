@@ -14,7 +14,7 @@
  *   |               |                         |                         |
  *   |               |                         |                         |
  *   |               |                         |     [status (wait4)]    x crash
- *   |               |  [status (comm socket)] |<---------------+------+-+
+ *   |               |  [status (comm socket)] |<----------------------+-+
  *   |               |<------------------------+                       |
  *   |               |     [*CRPS* (shm)]      |                       |
  *   |               |<-----------------------{|}----------------------+
@@ -30,7 +30,7 @@
  *   |               |                         |                         |
  *   |               |                         |                         |
  *   |               |                         |     [status (wait4)]    x crash
- *   |               |  [status (comm socket)] |<---------------+------+-+
+ *   |               |  [status (comm socket)] |<----------------------+-+
  *   |               |<------------------------+                       |
  *   |               |     [*CRPS* (shm)]      |                       |
  *   |               |<-----------------------{|}----------------------+
@@ -54,6 +54,22 @@
  *
  *  *CRPS*: crash points
  *
+ */
+
+/*
+ * Different situations:
+ *
+ * +------------------------+------------------+-------------------------------+
+ * | Daemon mode / Run mode |   AFL attached   |           Action              |
+ * +========================+==================+===============================+
+ * |                        |        No        |        Perform dry run        |
+ * |        Run mode        +------------------+-------------------------------+
+ * |                        |        Yes       |           Invalid             |
+ * +------------------------+------------------+-------------------------------+
+ * |                        |        No        | Ignore AFL-related operations |
+ * |       Daemon mode      +------------------+-------------------------------+
+ * |                        |        Yes       |      Follow above workflow    |
+ * +------------------------+------------------+-------------------------------+
  */
 
 #include "fork_server.h"
@@ -338,7 +354,7 @@ NO_INLINE void fork_server_start(char **envp) {
     // step (1.1). connect socket for comm_fd
     int comm_fd = fork_server_connect_pipe();
     if (comm_fd < 0) {
-        // make sure fork server is not setup
+        // make sure AFL is not attached
         if (fork_server_get_shm_id(envp) != NO_SHM_ID) {
             utils_error(env_setting_err_str, true);
         }
@@ -370,6 +386,7 @@ NO_INLINE void fork_server_start(char **envp) {
      * step (3). read crs_shm_id from daemon and respond afl_attached (comm
      * shakehand)
      */
+    // XXX: CRS may be uncessary once we use shared memory for .text section
     int crs_shm_id = 0;
     {
         if (sys_read(CRS_COMM_FD, (char *)&crs_shm_id, 4) != 4) {
