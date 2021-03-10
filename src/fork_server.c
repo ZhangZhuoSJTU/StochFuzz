@@ -473,6 +473,7 @@ NO_INLINE void fork_server_start(char **envp) {
              *
              *   ------
              *      // set pgid, to avoid kill fork_server when sending signal
+             *      // or we can setsid to directly isolate the process
              *      if (sys_setpgid(0, 0)) {
              *          utils_error(setpgid_err_str, true);
              *      }
@@ -480,7 +481,7 @@ NO_INLINE void fork_server_start(char **envp) {
              *
              * However, the disadvantage of this approach is that, every time
              * the fork server creates a new client, the *setpgid* syscall will
-             * bring additional overhead.
+             * bring additional overhead (seems negligible tbh).
              *
              * Alternatively, we can use following code in the signal handler to
              * kill client and the crashed process:
@@ -511,7 +512,7 @@ NO_INLINE void fork_server_start(char **envp) {
              * Hence, we choose the latter approach to reduce overhead.
              */
             /*
-             * XXX: actually, I do not know why AFL does not setpgid when
+             * XXX: actually, I do not know why AFL does not setpgid/setsid when
              * forking new processes. If the target program invoked kill(0,
              * SIGXXX), the fork server would be killed too, imo.
              */
@@ -676,9 +677,9 @@ NO_INLINE void fork_server_start(char **envp) {
             } else if (WIFSIGNALED(client_status)) {
                 // XXX: if the daemon already identified this crash, it will
                 // stop automatically
-                sys_kill(0, WTERMSIG(client_status));
+                sys_kill(sys_getpid(), WTERMSIG(client_status));
             } else {
-                sys_kill(0, WSTOPSIG(client_status));
+                sys_kill(sys_getpid(), WSTOPSIG(client_status));
             }
         }
     }

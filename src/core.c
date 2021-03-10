@@ -471,9 +471,12 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
         z_core_detach(core);
         pid_t pid = fork();
         if (pid == 0) {
-            if (setpgid(0, 0)) {
-                EXITME("setgpid() failed");
+            // isolate the process and configure standard descriptors (including
+            // process group)
+            if (setsid() < 0) {
+                EXITME("setsid() failed");
             }
+
             // child
             if (dup2(st_pipe[1], CRS_DATA_FD) < 0) {
                 EXITME("dup2() failed");

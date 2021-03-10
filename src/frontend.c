@@ -280,9 +280,17 @@ static inline void mode_run(int argc, const char **argv) {
     int status = z_core_perform_dry_run(core, argc, argv);
     z_core_destroy(core);
 
-    // TODO: follow the status to exit
     if (IS_SUSPECT_STATUS(status)) {
         EXITME("not a normal exit (status: %#x)", status);
+    }
+
+    // follow how the client is terminated
+    if (WIFEXITED(status)) {
+        exit(WEXITSTATUS(status));
+    } else if (WIFSIGNALED(status)) {
+        kill(getpid(), WTERMSIG(status));
+    } else {
+        kill(getpid(), WSTOPSIG(status));
     }
 }
 
