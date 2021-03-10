@@ -1,5 +1,5 @@
 /*
- * Workflow of different components (AFL, OURTOOL, fork server, and client):
+ * Workflow between different components:
  *
  *   +--------- pre-handshake (shm) -----------+
  *   |               +-- pre-handshake (shm) --+
@@ -13,7 +13,7 @@
  *   |               |                         +------------------------>|
  *   |               |                         |                         |
  *   |               |                         |                         |
- *   |               |                         |     [status (wait4)]    x crash
+ *   |               |                         |     [status (wait4)]    x MIC
  *   |               |  [status (comm socket)] |<----------------------+-+
  *   |               |<------------------------+                       |
  *   |               |     [*CRPS* (shm)]      |                       |
@@ -23,14 +23,15 @@
  *   |     crashsite ~ [ patch commands (shm)] |
  *   |     (if fake) +------------------------>|
  *   |               |                         ~ patch self and re-mmap
- *   |               |                         |
  *   |               |                         |   [   new client  &  ]
  *   |               |                         |   [handshake (socket)]
- *   |               |                         +------------------------>|
+ *   |               |[clock ON (comm socket)] +------------------------>|
+ *   |               |<------------------------+                         |
  *   |               |                         |                         |
- *   |               |                         |                         |
- *   |               |                         |     [status (wait4)]    x crash
- *   |               |  [status (comm socket)] |<----------------------+-+
+ *   |               |                         |     [status (wait4)]    x MIC
+ *   |               |[clock OFF (comm socket)]|<----------------------+-+
+ *   |               |<------------------------+                       |
+ *   |               |  [status (comm socket)] |                       |
  *   |               |<------------------------+                       |
  *   |               |     [*CRPS* (shm)]      |                       |
  *   |               |<-----------------------{|}----------------------+
@@ -53,6 +54,7 @@
  *
  *
  *  *CRPS*: crash points
+ *  *MIC* : maybe-intentional crash
  *
  */
 
@@ -508,9 +510,12 @@ NO_INLINE void fork_server_start(char **envp) {
              *
              * Hence, we choose the latter approach to reduce overhead.
              */
+            /*
+             * XXX: actually, I do not know why AFL does not setpgid when
+             * forking new processes. If the target program invoked kill(0,
+             * SIGXXX), the fork server would be killed too, imo.
+             */
             RW_PAGE_INFO(client_pid) = tid;
-
-            // TODO: correctly handle TIMEOUT.
 
             // update pid and tid in TLS, so that when the child process sends
             // signal to itself, it will not mis-send to its parent.
@@ -545,7 +550,12 @@ NO_INLINE void fork_server_start(char **envp) {
             sys_write(AFL_FORKSRV_FD + 1, (char *)&client_pid, 4);
         }
 
-        // step (7.4). wait till the client stop
+        // step (7.4). notify the daemon about the client_pid if crs_loop
+        if (crs_loop) {
+            sys_write(CRS_COMM_FD, (char *)&client_pid, 4);
+        }
+
+        // step (7.5). wait till the client stop
         int client_status = 0;
         if (sys_wait4(client_pid, &client_status, 0, NULL) < 0) {
             utils_error(wait4_err_str, true);
@@ -555,9 +565,14 @@ NO_INLINE void fork_server_start(char **envp) {
         utils_output_number(client_status);
 #endif
 
-        // step (7.5). check the client's status
+        // step (7.6). notify the daemon that the crs run is done
+        if (crs_loop) {
+            sys_write(CRS_COMM_FD, (char *)&client_pid, 4);
+        }
+
+        // step (7.7). check the client's status
         if (IS_SUSPECT_STATUS(client_status)) {
-            // step (7.5.1). notify the daemon and wait response
+            // step (7.7.1). notify the daemon and wait response
             //      + sending out the status
             //      + receiving the number of commands or -1
             int cmd_n = -1;
@@ -566,7 +581,7 @@ NO_INLINE void fork_server_start(char **envp) {
                 sys_read(CRS_COMM_FD, (char *)&cmd_n, 4);
             }
 
-            // step (7.5.2). if we need patch, do patch and notify the daemon
+            // step (7.7.2). if we need patch, do patch and notify the daemon
             if (cmd_n >= 0) {
                 bool shadow_need_sync = true;
 
@@ -645,7 +660,7 @@ NO_INLINE void fork_server_start(char **envp) {
             client_status = 139;
         }
 
-        // step (7.6). handle any other situation which is not caused by
+        // step (7.8). handle any other situation which is not caused by
         // patching
         //      [if: AFL_ATTCHED]: notify AFL and loop
         //      [if: !AFL_ATTACHED]: exit as normal or kill self with the same

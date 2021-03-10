@@ -32,8 +32,9 @@ static void __core_handle_stop_sig(int _sig_id) {
 
 // timeout handling
 static void __core_handle_timeout(int _sig_id) {
-    if (__core && __core->child_pid != INVALID_PID) {
-        kill(__core->child_pid, SIGKILL);
+    if (__core && __core->client_pid != INVALID_PID) {
+        z_warn("client timeout");
+        kill(__core->client_pid, SIGKILL);
     }
 }
 
@@ -76,6 +77,16 @@ static void __core_environment_setup(void) {
  * Getter and Setter
  */
 DEFINE_GETTER(Core, core, GHashTable *, crashpoints);
+
+/*
+ * Set clock for client timeout
+ */
+Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
+
+/*
+ * Cancel clock for client timeout
+ */
+Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid);
 
 /*
  * Read crashpoint information from logfile
@@ -123,6 +134,23 @@ Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
  * Calculate the mprotect information for core cmd
  */
 Z_PRIVATE void __core_set_mprotect_cmd(Core *core);
+
+Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid) {
+    core->client_pid = client_pid;
+    core->it.it_value.tv_sec = (sys_config.timeout / 1000);
+    core->it.it_value.tv_usec = (sys_config.timeout % 1000) * 1000;
+    setitimer(ITIMER_REAL, &core->it, NULL);
+}
+
+Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid) {
+    if (client_pid != core->client_pid) {
+        EXITME("inconsistent client_pid");
+    }
+    core->client_pid = INVALID_PID;
+    core->it.it_value.tv_sec = 0;
+    core->it.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &core->it, NULL);
+}
 
 Z_PRIVATE void __core_set_mprotect_cmd(Core *core) {
     assert(core);
@@ -468,11 +496,17 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             close(st_pipe[1]);
             int signal_fd = st_pipe[0];
 
+            // set clock
+            __core_set_client_clock(core, pid);
+
             int status = 0;
             if (waitpid(pid, &status, 0) < 0) {
                 EXITME("waitpid failed");
             }
             z_info("child process exit with %#lx", status);
+
+            // cancel clock
+            __core_cancel_client_clock(core, pid);
 
             z_core_attach(core);
             addr_t crash_rip = 0;
@@ -529,7 +563,11 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
     core->crashpoint_log = z_strcat(CRASHPOINT_LOG_PREFIX, pathname);
     __core_read_crashpoint_log(core);
 
-    core->child_pid = INVALID_PID;
+    core->client_pid = INVALID_PID;
+    core->it.it_interval.tv_sec = 0;
+    core->it.it_interval.tv_usec = 0;
+    core->it.it_value.tv_sec = 0;
+    core->it.it_value.tv_usec = 0;
 
     core->shm_id = INVALID_SHM_ID;
     core->shm_addr = INVALID_ADDR;
@@ -872,8 +910,23 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         }
 
         /*
-         * step (3.7). continue on patching
+         * step (3.7). continue on patching while checking timeout
          */
+        {
+            // step (3.7.1). set clock
+            pid_t client_pid = INVALID_PID;
+            if (read(comm_fd, &client_pid, 4) != 4) {
+                EXITME("fail to recv client_pid [befor execution]");
+            }
+            __core_set_client_clock(core, client_pid);
+
+            // step (3.7.2). cancel clock
+            if (read(comm_fd, &client_pid, 4) != 4) {
+                EXITME("fail to recv client_pid [after execution]");
+            }
+            __core_cancel_client_clock(core, client_pid);
+        }
+        // step (3.7.3). continue
         continue;
 
     NOT_PATCHED_CRASH:

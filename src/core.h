@@ -11,6 +11,8 @@
 #include "patcher.h"
 #include "rewriter.h"
 
+#include <sys/time.h>
+
 /*
  * CrashPoint Type
  *
@@ -56,8 +58,9 @@ STRUCT(Core, {
     GHashTable *crashpoints;
     const char *crashpoint_log;
 
-    // current client pid of fork server
-    pid_t child_pid;
+    // timeout info
+    pid_t client_pid;
+    struct itimerval it;
 
     // shared memory information
     int shm_id;

@@ -65,11 +65,11 @@ static void usage(const char *argv0, int ret_status) {
 
         "  -h            - print this help\n"
         "  -t msec       - timeout for each attached fuzzing run "
-        "(auto-scaled, ??? ms)\n"
+        "(default timeout: %u ms)\n"
         "  -l level      - log level, including TRACE, DEBUG, INFO, WARN, "
         "ERROR, and FATAL (default level: INFO)\n\n",
 
-        argv0);
+        argv0, SYS_TIMEOUT);
 
     exit(ret_status);
 }
@@ -280,6 +280,7 @@ static inline void mode_run(int argc, const char **argv) {
     int status = z_core_perform_dry_run(core, argc, argv);
     z_core_destroy(core);
 
+    // TODO: follow the status to exit
     if (IS_SUSPECT_STATUS(status)) {
         EXITME("not a normal exit (status: %#x)", status);
     }
