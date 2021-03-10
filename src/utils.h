@@ -58,6 +58,15 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define z_sayf(...) fprintf(stderr, __VA_ARGS__)
 
 /*
+ * Unreachable
+ */
+#define EXITME(...)                   \
+    do {                              \
+        z_error(__VA_ARGS__);         \
+        z_exit(UNREACHABLE_ERR_CODE); \
+    } while (0)
+
+/*
  * General methods (wrapper of glibc alloc/file/string function)
  */
 Z_API void z_exit(int status);

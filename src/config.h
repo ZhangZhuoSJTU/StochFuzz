@@ -38,13 +38,7 @@
 #define STRING(x) STRING_2(x)
 #define STRING_2(x) #x
 
-#define MYERR 233
-
-#define EXITME(...)           \
-    do {                      \
-        z_error(__VA_ARGS__); \
-        z_exit(MYERR);        \
-    } while (0)
+#define UNREACHABLE_ERR_CODE 233
 
 #define Z_API __attribute__((visibility("hidden")))
 #define Z_PRIVATE __attribute__((visibility("hidden"))) static inline
