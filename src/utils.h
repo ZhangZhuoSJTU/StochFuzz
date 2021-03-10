@@ -60,10 +60,10 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 /*
  * Unreachable
  */
-#define EXITME(...)                   \
-    do {                              \
-        z_error(__VA_ARGS__);         \
-        z_exit(UNREACHABLE_ERR_CODE); \
+#define EXITME(...)           \
+    do {                      \
+        z_error(__VA_ARGS__); \
+        z_exit(MY_ERR_CODE);  \
     } while (0)
 
 /*

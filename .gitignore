@@ -93,3 +93,5 @@ test/*
 !test/.pdisasm.hello
 !test/test.rar
 !test/rar
+!test/timeout
+!test/timeout.c

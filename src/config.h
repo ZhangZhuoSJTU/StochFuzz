@@ -38,7 +38,8 @@
 #define STRING(x) STRING_2(x)
 #define STRING_2(x) #x
 
-#define UNREACHABLE_ERR_CODE 233
+// error code for EXITME
+#define MY_ERR_CODE 233
 
 #define Z_API __attribute__((visibility("hidden")))
 #define Z_PRIVATE __attribute__((visibility("hidden"))) static inline
@@ -50,7 +51,7 @@
 #define ADDR_MAX SIZE_MAX
 
 /*
- * invalid information
+ * Invalid information
  */
 #define INVALID_ADDR ADDR_MAX
 #define INVALID_FD -1
@@ -58,7 +59,7 @@
 #define INVALID_PID 0
 
 /*
- * re-define type
+ * Re-define type
  */
 typedef size_t addr_t;
 typedef void PhantomType;

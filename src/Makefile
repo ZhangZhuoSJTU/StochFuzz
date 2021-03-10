@@ -121,6 +121,8 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- hello)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- rar e -o+ -mt3 -- test.rar)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- rar)
+	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- timeout mdzz)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- timeout)
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- z3 -smt2 ex.smt2)
@@ -138,6 +140,8 @@ ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2)
 endif
 endif
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
+	$(call test_succ, grep -F 'get status code: 0x9 (signal: 9)' timeout.daemon.log)
 
 clean:
 	rm -rf $(OBJS) *.out *.bin *.o *.a *.so *_bin.c $(TOOLNAME) test/

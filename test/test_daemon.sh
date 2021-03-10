@@ -9,14 +9,14 @@ phantom=$target.phantom
 echo "phantom file: $phantom"
 
 rm -rf $phantom
-$tool $options -- $target 2>/tmp/$target.daemon.log &
+$tool $options -- $target 2>$target.daemon.log &
 daemon_pid=$!
 
 for i in {1..100}
 do
     if [ -f $phantom ]; then
         echo "$target: daemon is up"
-        ./$phantom ${@:4}
+        ./$phantom ${@:4} &
         wait $daemon_pid
         exit $?
     else
