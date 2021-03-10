@@ -15,6 +15,7 @@
  * System clean up
  */
 static Core *__core = NULL;
+
 // callback function for exit
 static void __core_atexit(void) {
     if (__core) {
@@ -22,11 +23,21 @@ static void __core_atexit(void) {
     }
     system("rm -f " TEMPFILE_NAME_PREFIX "*");
 }
-// signal handling
-static void __core_signal_handler(int _sig_id) {
+
+// stop signal handling
+static void __core_handle_stop_sig(int _sig_id) {
     __core_atexit();
     kill(getpid(), SIGKILL);
 }
+
+// timeout handling
+static void __core_handle_timeout(int _sig_id) {
+    if (__core && __core->child_pid != INVALID_PID) {
+        kill(__core->child_pid, SIGKILL);
+    }
+}
+
+// setup all signal handlers
 static void __core_setup_signal_handlers(void) {
     struct sigaction sa;
 
@@ -38,12 +49,21 @@ static void __core_setup_signal_handlers(void) {
 
     /* Various ways of saying "stop". */
 
-    sa.sa_handler = __core_signal_handler;
+    sa.sa_handler = __core_handle_stop_sig;
     sigaction(SIGHUP, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+
+    /* Exec timeout notifications. */
+
+    sa.sa_handler = __core_handle_timeout;
+    sigaction(SIGALRM, &sa, NULL);
 }
+
+// avoid duplicate setting (in case there are two instances of core)
 static bool __core_signal_handled = false;
+
+// setup environment needed by core
 static void __core_environment_setup(void) {
     atexit(__core_atexit);
     if (!__core_signal_handled) {
@@ -508,6 +528,8 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
     core->crashpoint_log = z_strcat(CRASHPOINT_LOG_PREFIX, pathname);
     __core_read_crashpoint_log(core);
+
+    core->child_pid = INVALID_PID;
 
     core->shm_id = INVALID_SHM_ID;
     core->shm_addr = INVALID_ADDR;

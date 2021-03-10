@@ -56,6 +56,9 @@ STRUCT(Core, {
     GHashTable *crashpoints;
     const char *crashpoint_log;
 
+    // current client pid of fork server
+    pid_t child_pid;
+
     // shared memory information
     int shm_id;
     addr_t shm_addr;

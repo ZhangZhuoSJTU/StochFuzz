@@ -61,6 +61,7 @@
 #define INVALID_ADDR ADDR_MAX
 #define INVALID_FD -1
 #define INVALID_SHM_ID -1
+#define INVALID_PID 0
 
 /*
  * re-define type
