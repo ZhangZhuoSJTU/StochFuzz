@@ -12,12 +12,12 @@
 + [x] Support retaddr patch when pdisasm is enabled (check retaddr's probability) -- it seems impossible. Note that we cannot guarantee the control flow is returned from the callee even the returen address is visited.
 + [x] __NEW SYSTEM DESIGN__ (daemon), which separates AFL and StochFuzz and makes advanced fuzzing possible.
 + [x] A better frontend for passing arguments.
-+ [ ] Use runtime arguments to set different modes, instead of makefile.
++ [x] Use runtime arguments to set different modes, instead of makefile.
 + [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
 + [ ] Apply AddrDict to all possible places..
 + [ ] Apply Iter to all possible places..
 + [ ] Read PLT table to get library functions' names, and support the white-list for library functions.
-+ [ ] Correctly handle timeout from AFL.
++ [x] Correctly handle timeout from AFL.
 + [ ] Use shared memory for .text section, to avoid the expensive patch commands.
 + [ ] Support self-correction procedure (delta debugging).
 + [ ] Reduce false positive in recursive disassembly. A possible solution is to have a non-return analysis, with the help of the white-list for library functions .
@@ -34,5 +34,6 @@
 
 ## Tag Info
 
-+ v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper. [__PASS BENCHMARK TEST__]
++ v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper.
 + v0.2.0: adopt a better frontend to parse arguments and automatically decide whether we need a complete probabilistic disassembly.
++ v0.3.0: support timeout for daemon and add benchmark testing for each tag.
