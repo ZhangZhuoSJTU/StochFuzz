@@ -17,6 +17,7 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
     }
 
     // modern CPU will do nothing more except direct returning about `repz ret`
+    // TODO: but we need to consider `ret n`
     addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
     ELF *e = z_binary_get_elf(r->binary);
     addr_t text_addr = z_elf_get_shdr_text(e)->sh_addr;

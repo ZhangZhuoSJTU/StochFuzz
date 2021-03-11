@@ -44,20 +44,22 @@ CFLAGS += -I $(realpath ..)/capstone/include
 LDFLAGS +=
 
 OBJS=\
-	 binary.o \
-	 buffer.o \
-	 elf_.o \
-	 utils.o \
-	 interval_splay.o \
-	 mem_file.o \
-	 restricted_ptr.o \
-	 tp_dispatcher.o \
-	 disassembler.o \
-	 rewriter.o \
-	 patcher.o \
-	 inst_analyzer.o \
-	 capstone_.o \
-	 core.o
+	binary.o \
+	buffer.o \
+	elf_.o \
+	utils.o \
+	interval_splay.o \
+	mem_file.o \
+	restricted_ptr.o \
+	tp_dispatcher.o \
+	disassembler.o \
+	rewriter.o \
+	patcher.o \
+	inst_analyzer.o \
+	capstone_.o \
+	core.o
+
+.PHONY: clean format
 
 debug: CFLAGS += -g -O0 -fsanitize=address -fno-omit-frame-pointer -DDEBUG
 debug: SHELLCODE_CFLAGS += -DDEBUG
@@ -142,6 +144,43 @@ endif
 endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
 	$(call test_succ, grep -F 'get status code: 0x9 (signal: 9)' timeout.daemon.log)
+
+GOOGLE_FTS=\
+    boringssl-2016-02-12 \
+    c-ares-CVE-2016-5180 \
+    freetype2-2017 \
+    guetzli-2017-3-30 \
+    harfbuzz-1.3.2 \
+    json-2017-02-12 \
+    lcms-2017-03-21 \
+    libarchive-2017-01-04 \
+    libjpeg-turbo-07-2017 \
+    libpng-1.2.56 \
+    libssh-2017-1272 \
+    libxml2-v2.9.2 \
+    llvm-libcxxabi-2017-01-27 \
+    openssl-1.0.1f \
+    openssl-1.0.2d \
+    openssl-1.1.0c \
+    openthread-2018-02-27 \
+    pcre2-10.00 \
+    proj4-2017-08-14 \
+    re2-2014-12-09 \
+    sqlite-2016-11-14 \
+    vorbis-2017-12-11 \
+    woff2-2016-05-06 \
+    wpantund-2018-02-27
+
+prepare_google_fts:
+	rm -rf test; cp -r ../benchmark test; cp ../test/test_daemon.sh test
+
+$(GOOGLE_FTS): prepare_google_fts
+	$(call test_succ, ../$(TOOLNAME) -R -- $@.normal $@.seed)
+	$(call test_succ, ../$(TOOLNAME) -R -- $@.inline $@.seed)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '' $@.normal $@.seed)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '' $@.inline $@.seed)
+
+benchmark: prepare_google_fts $(GOOGLE_FTS)
 
 clean:
 	rm -rf $(OBJS) *.out *.bin *.o *.a *.so *_bin.c $(TOOLNAME) test/
