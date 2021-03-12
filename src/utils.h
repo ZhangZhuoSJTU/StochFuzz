@@ -25,6 +25,16 @@
 #define COLOR(color, str) COLOR_##color str COLOR_RESET
 
 /*
+ * Bit aligments
+ */
+// floor alignment:
+//  e.g., for 12-bits alignment, 0x1000 -> 0x1000, 0x1001 -> 0x1000
+#define BITS_ALIGN_FLOOR(addr, bits) (((addr) >> (bits)) << (bits))
+// cell alignment:
+//  e.g., for 12-bits alignment, 0x1000 -> 0x1000, 0x1001 -> 0x2000
+#define BITS_ALIGN_CELL(addr, bits) (((((addr)-1) >> (bits)) + 1) << (bits))
+
+/*
  * Lookup table
  */
 void z_lookup_table_init_cell_num(uint64_t text_size);

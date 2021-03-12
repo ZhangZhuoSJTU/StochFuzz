@@ -75,7 +75,7 @@ OVERLOAD_SETTER(Binary, binary, ELFState, elf_state) {
 }
 
 Z_PRIVATE void __binary_align_trampolines_addr(Binary *b) {
-    b->trampolines_addr = (((b->trampolines_addr - 1) >> 3) + 1) << 3;
+    b->trampolines_addr = BITS_ALIGN_CELL(b->trampolines_addr, 3);
 }
 
 Z_PRIVATE void __binary_setup_loader(Binary *b) {
@@ -102,7 +102,7 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
     cur_addr += ks_size;
 
     // step (4). 8-byte alignment for following data
-    cur_addr = (((cur_addr - 1) >> 3) + 1) << 3;
+    cur_addr = BITS_ALIGN_CELL(cur_addr, 3);
 
     // step (5). set down loader_base and tp_addr
     z_elf_write(b->elf, cur_addr, sizeof(addr_t), &loader_base);
@@ -131,7 +131,7 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
     cur_addr += z_strlen(pipe_filename) + 1;
 
     // step (10). 16-byte alignment for fork server (avoid error in xmm)
-    cur_addr = (((cur_addr - 1) >> 4) + 1) << 4;
+    cur_addr = BITS_ALIGN_CELL(cur_addr, 4);
 
     // step (11). redirect __libc_start_main into fork server address
     b->fork_server_addr = cur_addr;
@@ -162,7 +162,7 @@ Z_PRIVATE void __binary_setup_fork_server(Binary *b) {
     cur_addr += 5;
 
     // step (3). set random patch address
-    b->random_patch_addr = (((cur_addr - 1) >> 3) + 1) << 3;
+    b->random_patch_addr = BITS_ALIGN_CELL(cur_addr, 3);
     b->random_patch_num = 0;
     z_info("random patch address: %#lx", b->random_patch_addr);
 }

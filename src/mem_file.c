@@ -146,8 +146,7 @@ Z_API size_t z_mem_file_pwrite(_MEM_FILE *stream, const void *buf, size_t count,
 
     if (stream->size < count + offset) {
         // stretch file size
-        size_t new_size =
-            ((((count + offset - 1) >> INC_SIZE_POW2) + 1) << INC_SIZE_POW2);
+        size_t new_size = BITS_ALIGN_CELL(count + offset, INC_SIZE_POW2);
         assert(new_size >= count + offset);
 
         size_t cur_offset = stream->cur_ptr - stream->raw_buf;

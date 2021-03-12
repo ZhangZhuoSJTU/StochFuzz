@@ -139,7 +139,7 @@ Z_PRIVATE void __elf_setup_trampolines(ELF *e, const char *filename);
  */
 Z_PRIVATE void __elf_setup_pipe(ELF *e, const char *filename);
 
-// TODO: Raw pointer might lead to overflow, but we need effecience.
+// TODO: raw pointer might lead to overflow, but we need effecience.
 // In the furture, we need a better trade-off.
 // Currently, we have checked the access will not be out of boundary in advance.
 // Make sure all your raw-pointer access is valid.
@@ -389,7 +389,7 @@ Z_PRIVATE void __elf_extend_zones(ELF *e) {
      */
 
     Snode *node;
-    addr_t vaddr = ((e->max_addr >> PAGE_SIZE_POW2) + 1) << PAGE_SIZE_POW2;
+    addr_t vaddr = BITS_ALIGN_CELL(e->max_addr, PAGE_SIZE_POW2);
     size_t offset = z_mem_file_get_size(e->stream);
     assert(offset % PAGE_SIZE == 0);
 
@@ -770,8 +770,8 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
         }
 
         // Update max virtual address
-        if (e->max_addr < vaddr + memsz - 1) {
-            e->max_addr = vaddr + memsz - 1;
+        if (e->max_addr < vaddr + memsz) {
+            e->max_addr = vaddr + memsz;
         }
 
         // TODO: to support shared .text, add code here to split the segments
@@ -788,7 +788,7 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
         // For non-exec segment, we need to insert virtual uTP.
         // XXX: I totally forget what the following code does...
         if (!(phdr->p_flags & PF_X)) {
-            addr_t gap_1_addr = (vaddr >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2;
+            addr_t gap_1_addr = BITS_ALIGN_FLOOR(vaddr, PAGE_SIZE_POW2);
             size_t gap_1_size = vaddr - gap_1_addr;
             if (gap_1_size > 0) {
                 node = z_snode_create(gap_1_addr, gap_1_size, NULL, NULL);
@@ -810,10 +810,9 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
 
         // Update mmapped pages
         assert(memsz != 0);
-        addr_t mmap_addr = ((vaddr >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2);
+        addr_t mmap_addr = BITS_ALIGN_FLOOR(vaddr, PAGE_SIZE_POW2);
         size_t mmap_size = vaddr + memsz - mmap_addr;
-        mmap_size =
-            ((((mmap_size - 1) >> PAGE_SIZE_POW2) + 1) << PAGE_SIZE_POW2);
+        mmap_size = BITS_ALIGN_CELL(mmap_size, PAGE_SIZE_POW2);
         node = z_snode_create(mmap_addr, mmap_size, NULL, NULL);
         if (!z_splay_insert(e->mmapped_pages, node)) {
             EXITME("update mapped address");
@@ -858,7 +857,10 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
         }
     }
 
-    z_trace("max address for original ELF: %#lx", e->max_addr);
+    if (!e->max_addr) {
+        EXITME("no loaded segment found");
+    }
+    z_trace("max address for original ELF: %#lx", e->max_addr - 1);
 }
 
 Z_PRIVATE void __elf_parse_other_info(ELF *e) {
@@ -1190,9 +1192,9 @@ Z_API bool z_elf_insert_utp(ELF *e, Snode *utp, addr_t *mmap_addr,
 
     // calculate mmap page
     addr_t utp_mmap_lo =
-        ((z_snode_get_lower_bound(utp) >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2);
+        BITS_ALIGN_FLOOR(z_snode_get_lower_bound(utp), PAGE_SIZE_POW2);
     addr_t utp_mmap_up =
-        ((z_snode_get_upper_bound(utp) >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2);
+        BITS_ALIGN_FLOOR(z_snode_get_upper_bound(utp), PAGE_SIZE_POW2);
 
     // init values
     *mmap_addr = INVALID_ADDR;

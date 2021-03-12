@@ -15,8 +15,7 @@ void z_lookup_table_init_cell_num(uint64_t text_size) {
     if (__lookup_table_cell_num != __INVALID_LOOKUP_TABLE_CELL_NUM) {
         EXITME("duplicated initization for lookup table cell number");
     }
-    __lookup_table_cell_num =
-        ((((text_size - 1) >> PAGE_SIZE_POW2) + 1) << PAGE_SIZE_POW2);
+    __lookup_table_cell_num = BITS_ALIGN_CELL(text_size, PAGE_SIZE_POW2);
     if (__lookup_table_cell_num > LOOKUP_TABLE_MAX_CELL_NUM) {
         EXITME("too big cell number: %#lx", __lookup_table_cell_num);
     }

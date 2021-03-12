@@ -187,10 +187,9 @@ Z_PRIVATE void __core_set_mprotect_cmd(Core *core) {
     }
 
     // do alignment
-    addr_t mprotect_addr = (min_addr >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2;
+    addr_t mprotect_addr = BITS_ALIGN_FLOOR(min_addr, PAGE_SIZE_POW2);
     size_t mprotect_size = max_addr - mprotect_addr;
-    mprotect_size =
-        ((((mprotect_size - 1) >> PAGE_SIZE_POW2) + 1) << PAGE_SIZE_POW2);
+    mprotect_size = BITS_ALIGN_CELL(mprotect_size, PAGE_SIZE_POW2);
 
     z_info("mprotect %#lx bytes from %#lx", mprotect_size, mprotect_addr);
 

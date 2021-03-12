@@ -45,7 +45,7 @@ Z_PRIVATE unsigned char *__rewriter_gen_nop(size_t n) {
 
 static char asmline_fmt[ASMLINE_FMT_SIZE];
 
-// TODO: Add BeforeBB/AfterBB/BeforeInst/AfterInst handler
+// TODO: add BeforeBB/AfterBB/BeforeInst/AfterInst handler
 
 /*
  * Function Pointer: compare two address

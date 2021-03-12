@@ -88,7 +88,7 @@ STRUCT(ELF, {
     // 0x1110]).
     Splay *vmapping;           // Virtual memory
     Splay *mmapped_pages;      // Mmapped pages
-    addr_t max_addr;           // Max virtual address
+    addr_t max_addr;           // Max virtual address (XXX: excluding endpoint)
     addr_t loader_addr;        // Base address of loader
     addr_t trampolines_addr;   // Base address of trampolines(TP)
     addr_t lookup_table_addr;  // Base address of lookup table
@@ -204,6 +204,8 @@ Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf);
 /*
  * Write data to given virtual address.
  */
+// XXX: note that the z_elf_write only supports writing on data stored in file
+// but not those dynamically alloced on link time.
 Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf);
 
 /*

@@ -568,8 +568,8 @@ Z_PRIVATE void __prob_disassembler_collect_value_hints(ProbDisassembler *pd) {
         z_trace("threshold: %Lf", threshold);                                \
                                                                              \
         /* alignment */                                                      \
-        text_size = ((text_addr + text_size) >> (B)) << (B);                 \
-        text_addr = (((text_addr - 1) >> (B)) + 1) << (B);                   \
+        text_size = BITS_ALIGN_FLOOR(text_addr + text_size, (B));            \
+        text_addr = BITS_ALIGN_CELL(text_addr, (B));                         \
         text_size -= text_addr;                                              \
         z_trace("aligned range: [%#lx, %#lx]", text_addr,                    \
                 text_addr + text_size - 1);                                  \
