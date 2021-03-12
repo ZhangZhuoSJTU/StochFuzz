@@ -25,6 +25,7 @@ STRUCT(Binary, {
     addr_t loader_addr;  // Address of loader
 
     // Loader info for uTP (TramPolines for ucall/ujmp)
+    // XXX: the mmapped_pages seems useless currently (delete it maybe?)
     GHashTable *mmapped_pages;  // Hashset of mmapped pages
 
     // Fork server and random patcher
@@ -73,6 +74,8 @@ Z_API void z_binary_create_snapshot(Binary *b, const char *pathname);
 /*
  * Insert a new uTP
  */
+// XXX: currently we do not use uTP in the actual rewriting, but it will be
+// extremely useful when we start to handle overlapped jmp bridges.
 Z_API void z_binary_insert_utp(Binary *b, addr_t utp_addr, const uint8_t *utp,
                                const size_t utp_size);
 

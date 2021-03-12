@@ -770,8 +770,13 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
         }
 
         // Update max virtual address
-        if (e->max_addr < vaddr + memsz - 1)
+        if (e->max_addr < vaddr + memsz - 1) {
             e->max_addr = vaddr + memsz - 1;
+        }
+
+        // TODO: to support shared .text, add code here to split the segments
+        // containing .text section.
+        // Note that the .text section should be page-aligned
 
         fc = z_fchunk_create(e->stream, offset, filesz);
         node = z_snode_create(vaddr, memsz, (void *)fc,
@@ -781,6 +786,7 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
         }
 
         // For non-exec segment, we need to insert virtual uTP.
+        // XXX: I totally forget what the following code does...
         if (!(phdr->p_flags & PF_X)) {
             addr_t gap_1_addr = (vaddr >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2;
             size_t gap_1_size = vaddr - gap_1_addr;

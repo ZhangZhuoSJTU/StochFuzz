@@ -81,6 +81,11 @@ STRUCT(ELF, {
     /*
      * Virtual Memory
      */
+    // vmapping is the actually mappings, while mapped_pages is the thing at
+    // paging level. For example, an actual mapping [0x1010, 0x1020] has a
+    // mapped page [0x1000, 0x2000). We use mapped_pages to support multiple
+    // uTPs which fall into the same page (e.g., [0x1010, 0x1020] and [0x1100,
+    // 0x1110]).
     Splay *vmapping;           // Virtual memory
     Splay *mmapped_pages;      // Mmapped pages
     addr_t max_addr;           // Max virtual address
