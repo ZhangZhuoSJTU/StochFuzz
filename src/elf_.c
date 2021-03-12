@@ -112,7 +112,7 @@ Z_PRIVATE void __elf_set_relro(ELF *e);
 /*
  * Set virtual mapping for given ELF
  */
-Z_PRIVATE void __elf_set_virtual_mapping(ELF *e);
+Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename);
 
 /*
  * Rewrite PT_NOTE
@@ -133,6 +133,11 @@ Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename);
  * Setup trampolines (shadow code)
  */
 Z_PRIVATE void __elf_setup_trampolines(ELF *e, const char *filename);
+
+/*
+ * Setup shared .text section
+ */
+Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename);
 
 /*
  * Setup pipeline file
@@ -345,6 +350,47 @@ Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename) {
     if (!z_splay_insert(e->mmapped_pages, node)) {
         EXITME("overlapped lookup table");
     }
+}
+
+Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename) {
+    assert(e != NULL);
+
+    // step (0). get .text information
+    Elf64_Shdr *text = z_elf_get_shdr_text(e);
+    addr_t text_addr = text->sh_addr;
+    size_t text_size = text->sh_size;
+    size_t text_offset = text->sh_offset;
+
+    // step (1). get filename
+    assert(!z_strchr(filename, '/'));
+    // TODO
+
+    // step (2). create _MEM_FILE
+    // TODO
+
+    // step (3). update data to _MEM_FILE
+    // TODO
+
+    // step (4). generate virtual mapping information
+    // TODO: change into shared file (the tail part may have some problems)
+    addr_t aligned_addr = BITS_ALIGN_FLOOR(text_addr, PAGE_SIZE_POW2);
+    size_t aligned_offset = BITS_ALIGN_FLOOR(text_offset, PAGE_SIZE_POW2);
+    size_t aligned_size = BITS_ALIGN_CELL(
+        text_size + text_offset - aligned_offset, PAGE_SIZE_POW2);
+
+    // XXX: there is a potential bug when the aligned_offset + aligned_size is
+    // beyond the elf file. But as the following code is temporary, we do not
+    // handle it.
+    FChunk *fc = z_fchunk_create(e->stream, aligned_offset, aligned_size);
+    Snode *node = z_snode_create(aligned_addr, aligned_size, (void *)fc,
+                                 (void (*)(void *))(&z_fchunk_destroy));
+
+    // step (5). insert into virtual mapping
+    if (!z_splay_insert(e->vmapping, node)) {
+        EXITME("overlapped trampolines");
+    }
+
+    // XXX: mapped_pages will be updated in __elf_set_virtual_mapping
 }
 
 Z_PRIVATE void __elf_setup_trampolines(ELF *e, const char *filename) {
@@ -733,7 +779,12 @@ Z_PRIVATE void __elf_validate_header(_MEM_FILE *stream) {
     }
 }
 
-Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
+Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
+    // Get .text information
+    Elf64_Shdr *text = z_elf_get_shdr_text(e);
+    addr_t text_addr = text->sh_addr;
+    size_t text_size = text->sh_size;
+
     size_t size = z_mem_file_ftell(e->stream);
 
     e->vmapping = z_splay_create(NULL);  // Do not support merging
@@ -774,26 +825,78 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
             e->max_addr = vaddr + memsz;
         }
 
-        // TODO: to support shared .text, add code here to split the segments
-        // containing .text section.
-        // Note that the .text section should be page-aligned
+        if (text_addr >= vaddr && text_addr < vaddr + memsz) {
+            if (!(phdr->p_flags & PF_X)) {
+                EXITME(".text section is not executable");
+            }
 
-        fc = z_fchunk_create(e->stream, offset, filesz);
-        node = z_snode_create(vaddr, memsz, (void *)fc,
-                              (void (*)(void *))(&z_fchunk_destroy));
-        if (!z_splay_insert(e->vmapping, node)) {
-            EXITME("update virtual address");
+            // XXX: note that the shared .text section will be mapped in
+            // page-level
+
+            // step (0). make sure all .text are contained by file
+            if (text_addr + text_size > vaddr + filesz) {
+                EXITME("some data in .text section is not contained by file");
+            }
+
+            // step (1). first check whether we need to map the head part
+            addr_t aligned_addr = BITS_ALIGN_FLOOR(text_addr, PAGE_SIZE_POW2);
+            if (vaddr < aligned_addr) {
+                assert(aligned_addr - vaddr <= filesz);
+                fc = z_fchunk_create(e->stream, offset, aligned_addr - vaddr);
+                node = z_snode_create(vaddr, aligned_addr - vaddr, (void *)fc,
+                                      (void (*)(void *))(&z_fchunk_destroy));
+                if (!z_splay_insert(e->vmapping, node)) {
+                    EXITME("overlapped virtual addresses");
+                }
+            }
+
+            // step (2). then check whether we need to map the tail part
+            aligned_addr =
+                BITS_ALIGN_CELL(text_addr + text_size, PAGE_SIZE_POW2);
+            if (aligned_addr < vaddr + memsz) {
+                assert(aligned_addr > vaddr);
+
+                // check which kind of node we need to insert
+                if (aligned_addr - vaddr >= filesz) {
+                    // it means the tail part is purely alloced
+                    node = z_snode_create(
+                        aligned_addr, vaddr + memsz - aligned_addr, NULL, NULL);
+                } else {
+                    // it means the tail part contains some data bytes
+                    fc = z_fchunk_create(e->stream,
+                                         offset + aligned_addr - vaddr,
+                                         vaddr + filesz - aligned_addr);
+                    node = z_snode_create(
+                        aligned_addr, vaddr + memsz - aligned_addr, (void *)fc,
+                        (void (*)(void *))(&z_fchunk_destroy));
+                }
+
+                if (!z_splay_insert(e->vmapping, node)) {
+                    EXITME("overlapped virtual addresses");
+                }
+            }
+
+            // step (3). setup shared .text section
+            __elf_setup_shared_text(e, filename);
+        } else {
+            fc = z_fchunk_create(e->stream, offset, filesz);
+            node = z_snode_create(vaddr, memsz, (void *)fc,
+                                  (void (*)(void *))(&z_fchunk_destroy));
+            if (!z_splay_insert(e->vmapping, node)) {
+                EXITME("overlapeed virtual addresses");
+            }
         }
 
         // For non-exec segment, we need to insert virtual uTP.
         // XXX: I totally forget what the following code does...
+        // XXX: the segment containing .text does not go into this branch.
         if (!(phdr->p_flags & PF_X)) {
             addr_t gap_1_addr = BITS_ALIGN_FLOOR(vaddr, PAGE_SIZE_POW2);
             size_t gap_1_size = vaddr - gap_1_addr;
             if (gap_1_size > 0) {
                 node = z_snode_create(gap_1_addr, gap_1_size, NULL, NULL);
                 if (!z_splay_insert(e->vmapping, node)) {
-                    EXITME("update virtual uTP");
+                    EXITME("overlapped virtual uTPs");
                 }
             }
 
@@ -803,19 +906,20 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e) {
             if (gap_2_size > 0) {
                 node = z_snode_create(gap_2_addr, gap_2_size, NULL, NULL);
                 if (!z_splay_insert(e->vmapping, node)) {
-                    EXITME("update virtual uTP");
+                    EXITME("overlapped virtual uTPs");
                 }
             }
         }
 
         // Update mmapped pages
+        // XXX: the .text insertion does not impact the mapped pages
         assert(memsz != 0);
         addr_t mmap_addr = BITS_ALIGN_FLOOR(vaddr, PAGE_SIZE_POW2);
         size_t mmap_size = vaddr + memsz - mmap_addr;
         mmap_size = BITS_ALIGN_CELL(mmap_size, PAGE_SIZE_POW2);
         node = z_snode_create(mmap_addr, mmap_size, NULL, NULL);
         if (!z_splay_insert(e->mmapped_pages, node)) {
-            EXITME("update mapped address");
+            EXITME("overlapped mapped addresses");
         }
 
         z_trace("find segment [%#lx, %#lx] @ %#lx", vaddr, vaddr + filesz - 1,
@@ -974,7 +1078,7 @@ Z_API ELF *z_elf_open(const char *ori_filename) {
     __elf_parse_shdr(e);
 
     // Step (4). Do virtual mapping
-    __elf_set_virtual_mapping(e);
+    __elf_set_virtual_mapping(e, ori_filename);
 
     // Step (5). Extend loader/Trampolines zones onto file
     __elf_extend_zones(e);
