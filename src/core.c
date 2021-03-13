@@ -857,7 +857,15 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         /*
          * step (3.5). sync binary
          */
-        z_binary_fsync(core->binary);
+        // XXX: according to the following link, it seems the fsync is used to
+        // sync changed pages from RAM to the file. It means, those changes made
+        // by the daemon is already visible to the phantom file even without
+        // fsync. Hence, to improve the performance when the underlying files
+        // are relatively large, we disable the fsync.
+        //
+        // https://unix.stackexchange.com/questions/474946/are-sharing-a-memory-mapped-file-and-sharing-a-memory-region-implemented-based-o
+        //
+        // z_binary_fsync(core->binary);
 
         /*
          * step (3.6). send cmds

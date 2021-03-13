@@ -851,6 +851,7 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
             }
 
             // step (2). then check whether we need to map the tail part
+            // TODO: update max_addr
             aligned_addr =
                 BITS_ALIGN_CELL(text_addr + text_size, PAGE_SIZE_POW2);
             if (aligned_addr < vaddr + memsz) {
@@ -1179,7 +1180,7 @@ Z_API void z_elf_save(ELF *e, const char *pathname) {
     // an individual file.
 
     // fsync
-    z_mem_file_fsync(e->stream);
+    z_elf_fsync(e);
 
     // check whether pathname exists. if so, remove it.
     if (!z_access(pathname, F_OK)) {
@@ -1197,7 +1198,7 @@ Z_API void z_elf_save(ELF *e, const char *pathname) {
 }
 
 Z_API void z_elf_create_snapshot(ELF *e, const char *pathname) {
-    z_mem_file_fsync(e->stream);
+    z_elf_fsync(e);
     z_mem_file_save_as(e->stream, pathname);
 }
 

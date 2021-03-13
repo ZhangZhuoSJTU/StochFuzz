@@ -103,7 +103,7 @@ extern const char dup2_err_str[];
 extern const char env_setting_err_str[];
 extern const char socket_err_str[];
 extern const char data_pipe_err_str[];
-extern const char msync_err_str[];
+// extern const char msync_err_str[];
 extern const char cmd_err_str[];
 extern const char write_err_str[];
 extern const char pipe_filename_err_str[];
@@ -194,8 +194,8 @@ asm(".globl _entry\n"
     ASM_STRING(socket_err_str, "fork server: socket error")
     // data_pipe_err_str
     ASM_STRING(data_pipe_err_str, "fork server: data pipe connection error")
-    // msync_err_str
-    ASM_STRING(msync_err_str, "fork server: msync error")
+    // // msync_err_str
+    // ASM_STRING(msync_err_str, "fork server: msync error")
     // dup2_err_str
     ASM_STRING(dup2_err_str, "fork server: dup2 error")
     // cmd_err_str
@@ -584,6 +584,7 @@ NO_INLINE void fork_server_start(char **envp) {
 
             // step (7.7.2). if we need patch, do patch and notify the daemon
             if (cmd_n >= 0) {
+                // TODO: remove out-of-date variable when using shared memory
                 bool shadow_need_sync = true;
 
                 // patch all cmds
@@ -600,6 +601,9 @@ NO_INLINE void fork_server_start(char **envp) {
                 }
 
                 // fsync shadow code and lookup table
+                // XXX: disabled, more details can be found in
+                // z_core_start_deamon step (3.5) "sync binary" in core.c
+                /*
                 if (sys_msync(LOOKUP_TABLE_ADDR, RW_PAGE_INFO(lookup_tab_size),
                               MS_SYNC)) {
                     utils_error(msync_err_str, true);
@@ -611,6 +615,7 @@ NO_INLINE void fork_server_start(char **envp) {
                         utils_error(msync_err_str, true);
                     }
                 }
+                */
 
                 // we are going into the CRS loop which is out of AFL's control
                 crs_loop = true;
