@@ -104,11 +104,12 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
     // step (4). 8-byte alignment for following data
     cur_addr = BITS_ALIGN_CELL(cur_addr, 3);
 
-    // step (5). set down loader_base and tp_addr
+    // step (5). set down loader_base
     z_elf_write(b->elf, cur_addr, sizeof(addr_t), &loader_base);
     cur_addr += sizeof(addr_t);
 
-    // step (6). we will first set a NULL trampoline at trapoline zone
+    // step (6). set down tp_addr
+    // XXX: we will first set a NULL trampoline at trapoline zone
     addr_t trampolines_addr = z_elf_get_trampolines_addr(b->elf);
     assert(trampolines_addr % PAGE_SIZE == 0);
     z_elf_write(b->elf, cur_addr, sizeof(addr_t), &(trampolines_addr));
@@ -162,6 +163,7 @@ Z_PRIVATE void __binary_setup_fork_server(Binary *b) {
     cur_addr += 5;
 
     // step (3). set random patch address
+    // TODO: random patch is disable currently
     b->random_patch_addr = BITS_ALIGN_CELL(cur_addr, 3);
     b->random_patch_num = 0;
     z_info("random patch address: %#lx", b->random_patch_addr);
@@ -176,6 +178,7 @@ Z_PRIVATE void __binary_setup_tp_zone(Binary *b) {
     b->last_tp_addr = b->trampolines_addr;
 
     // insert a NULL Trampoline to indicate terminal
+    assert(sizeof(Trampoline) <= sizeof(null_buf));
     z_elf_write(b->elf, b->trampolines_addr, sizeof(Trampoline),
                 (void *)null_buf);
     b->trampolines_addr += sizeof(Trampoline);
@@ -198,7 +201,6 @@ Z_API Binary *z_binary_open(const char *pathname) {
     __binary_setup_lookup_table(b);
 
     // step (4). setup fork server
-    // TODO: haven't finished yet.
     __binary_setup_fork_server(b);
 
     // step (5). setup trampoline zone

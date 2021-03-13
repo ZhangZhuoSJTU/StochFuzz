@@ -213,6 +213,7 @@ DEFINE_GETTER(ELF, elf, addr_t, load_init);
 DEFINE_GETTER(ELF, elf, addr_t, load_fini);
 DEFINE_GETTER(ELF, elf, const char *, lookup_tabname);
 DEFINE_GETTER(ELF, elf, const char *, trampolines_name);
+DEFINE_GETTER(ELF, elf, const char *, shared_text_name);
 DEFINE_GETTER(ELF, elf, const char *, pipe_filename);
 DEFINE_GETTER(ELF, elf, size_t, plt_n);
 
@@ -363,7 +364,7 @@ Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename) {
 
     // step (1). get filename
     assert(!z_strchr(filename, '/'));
-    // TODO
+    e->shared_text_name = z_strcat(SHARED_TEXT_PREFIX, filename);
 
     // step (2). create _MEM_FILE
     // TODO
@@ -851,9 +852,14 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
             }
 
             // step (2). then check whether we need to map the tail part
-            // TODO: update max_addr
             aligned_addr =
                 BITS_ALIGN_CELL(text_addr + text_size, PAGE_SIZE_POW2);
+
+            // update max_addr if needed
+            if (e->max_addr < aligned_addr) {
+                e->max_addr = aligned_addr;
+            }
+
             if (aligned_addr < vaddr + memsz) {
                 assert(aligned_addr > vaddr);
 
@@ -1154,6 +1160,7 @@ Z_API void z_elf_destroy(ELF *e) {
 
     z_free(e->lookup_tabname);
     z_free(e->trampolines_name);
+    z_free(e->shared_text_name);
     z_free(e->pipe_filename);
 
     z_mem_file_fclose(e->lookup_table_stream);

@@ -109,6 +109,7 @@ typedef struct __loading_info_t {
 #define TEMPFILE_NAME_PREFIX "." OURTOOL "."
 #define LOOKUP_TABNAME_PREFIX ".lookup."
 #define TRAMPOLINES_NAME_PREFIX ".shadow."
+#define SHARED_TEXT_PREFIX ".text."
 #define CRASHPOINT_LOG_PREFIX ".crashpoint."
 #define PIPE_FILENAME_PREFIX ".pipe."
 #define PDISASM_FILENAME_PREFIX ".pdisasm."

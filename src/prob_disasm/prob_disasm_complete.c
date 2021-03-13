@@ -86,7 +86,7 @@ STRUCT(ProbDisassembler, {
 #define __HINT_ARG_CALL_WEIGHT (1.0)
 // data hint is different, higher means lower confidence
 #define __HINT_STRING_WEIGHT \
-    (0.00001 * (1.0 / 256.0))  // TODO: check the string is valida instead of
+    (0.00001 * (1.0 / 256.0))  // TODO: check the string is valid instead of
                                // assigning a very small weight
 #define __HINT_VALUE_WEIGHT (1.0)
 

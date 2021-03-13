@@ -106,6 +106,11 @@ STRUCT(ELF, {
     _MEM_FILE *trampolines_stream;  // _MEM_FILE of trampolines
 
     /*
+     * Shared .text section;
+     */
+    char *shared_text_name;  // Name of shared .text section
+
+    /*
      * Pipeline
      */
     char *pipe_filename;  // Name of pipe communicated with daemon
@@ -172,6 +177,7 @@ DECLARE_GETTER(ELF, elf, addr_t, load_init);
 DECLARE_GETTER(ELF, elf, addr_t, load_fini);
 DECLARE_GETTER(ELF, elf, const char *, lookup_tabname);
 DECLARE_GETTER(ELF, elf, const char *, trampolines_name);
+DECLARE_GETTER(ELF, elf, const char *, shared_text_name);
 DECLARE_GETTER(ELF, elf, const char *, pipe_filename);
 DECLARE_GETTER(ELF, elf, size_t, plt_n);
 

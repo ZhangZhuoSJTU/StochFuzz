@@ -94,7 +94,7 @@ asm(
 
     // (1) call loader_output_running_path()
     "\tmovq 0x68(%rsp), %rdi;\n"  // XXX: note that the magic number 0x68 is
-                                  // accosicated with how many registers we
+                                  // associated with how many registers we
                                   // pushed on the stack
     "\tcallq loader_output_running_path;\n"  // Show current path
 
@@ -103,14 +103,14 @@ asm(
     "\taddq $4, %rdi;\n"
     "\tshrq $3, %rdi;\n"
     "\tincq %rdi;\n"
-    "\tshlq $3, %rdi;\n"
+    "\tshlq $3, %rdi;\n"  // cur_addr in __binary_setup_loader step (4) binary.c
     "\tmovq (%rdi), %rbx;\n"
     "\tleaq _entry(%rip), %rsi;\n"
-    "\tsubq %rbx, %rsi;\n"      // Program base into %rsi
-    "\tleaq 16(%rdi), %rdx;\n"  // names in %rdx
+    "\tsubq %rbx, %rsi;\n"      // program base into %rsi (size_t rip_base)
+    "\tleaq 16(%rdi), %rdx;\n"  // names in %rdx (const char *name)
     "\tmovq 8(%rdi), %rdi;\n"
-    "\taddq %rsi, %rdi;\n"  // TP chunk base into %rdi
-    "\tmovq %rax, %rcx;\n"  // pathname into %rcx
+    "\taddq %rsi, %rdi;\n"  // TP chunk base into %rdi (Trampoline *tp)
+    "\tmovq %rax, %rcx;\n"  // pathname into %rcx (const char *pathname)
 
     // (3) mmap and copy data to target virtual addr
     "\tcld;\n"                // set DF register
@@ -347,7 +347,7 @@ NO_INLINE void loader_load(Trampoline *tp, size_t rip_base, const char *name,
     loader_mmap_fake_shared_memory();
 
     // get related path
-    // (TODO: check overflow? but the longest path on linux is only 0x100 bytes)
+    // (XXX: check overflow? but the longest path on linux is only 0x100 bytes)
     char fullpath[0x200];
     const char *slash_ = NULL;
     for (int i = 0; i < 0x200; i++) {
@@ -398,6 +398,9 @@ NO_INLINE void loader_load(Trampoline *tp, size_t rip_base, const char *name,
 
 #undef __PARSE_FILENAME
 
+    // XXX: currently TP mapping is not used but reserved for advanced patching.
+    // However, note that we still to maintain it as it can be quite useful in
+    // the futuer
     while (true) {
         // get every TP's meta-data
         mmap_addr = tp->mmap_addr;
