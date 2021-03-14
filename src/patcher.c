@@ -37,6 +37,8 @@ Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
 
     z_elf_write(e, addr, size, buf);
 
+    // XXX: delete after re-designing cmd
+    /*
     if (*p->cmd_buf_ptr) {
         // update patch command
         CRSCmd cmd;
@@ -50,6 +52,7 @@ Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
         // append into cmd_buf_ptr
         z_buffer_append_raw(*p->cmd_buf_ptr, (uint8_t *)&cmd, sizeof(cmd));
     }
+    */
 }
 
 Z_PRIVATE void __patcher_fully_patch(Patcher *p) {

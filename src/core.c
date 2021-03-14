@@ -187,6 +187,8 @@ Z_PRIVATE void __core_set_mprotect_cmd(Core *core) {
     }
 
     // do alignment
+    // XXX: delete after re-designing cmd
+    /*
     addr_t mprotect_addr = BITS_ALIGN_FLOOR(min_addr, PAGE_SIZE_POW2);
     size_t mprotect_size = max_addr - mprotect_addr;
     mprotect_size = BITS_ALIGN_CELL(mprotect_size, PAGE_SIZE_POW2);
@@ -208,6 +210,7 @@ Z_PRIVATE void __core_set_mprotect_cmd(Core *core) {
     };
     z_buffer_append_raw(core->cmd_buf, (uint8_t *)&mprotect_cmd,
                         sizeof(mprotect_cmd));
+    */
 }
 
 Z_PRIVATE void __core_setup_unix_domain_socket(Core *core) {
