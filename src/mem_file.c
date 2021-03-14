@@ -6,7 +6,8 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 
-#define INIT_SIZE 0x1000
+#define INIT_SIZE PAGE_SIZE
+// XXX: will a small INC_SIZE_POW2 helps reduce fork overhead?
 #define INC_SIZE_POW2 (PAGE_SIZE_POW2 + 6)
 #define INC_SIZE (1 << INC_SIZE_POW2)
 
@@ -18,7 +19,7 @@
     }
 
 // Stretch the file size to size.
-Z_PRIVATE int __mem_file_stretch_to_size(int fd, size_t size);
+Z_PRIVATE int __mem_file_stretch_to_size(_MEM_FILE *stream, size_t size);
 
 // Open stream.
 Z_PRIVATE void __mem_file_open_stream(_MEM_FILE *stream, bool is_resumed);
@@ -44,11 +45,67 @@ Z_PRIVATE void __mem_file_check_state(_MEM_FILE *stream) {
     }
 }
 
-Z_PRIVATE int __mem_file_stretch_to_size(int fd, size_t size) {
-    if (lseek(fd, size - 1, SEEK_SET) == -1)
-        return -1;
-    if (write(fd, "", 1) == -1)
-        return -1;
+// XXX: all possible cases when invoking __mem_file_stretch_to_size
+//  case 1: stream->size == 0, stream->raw_buf == NULL (open a new file)
+//  case 2: stream->size >  0, stream->raw_buf == NULL (resume a file)
+//  case 3: stream->size >  0, stream->raw_buf != NULL (update a file)
+Z_PRIVATE int __mem_file_stretch_to_size(_MEM_FILE *stream, size_t size) {
+    // step (0). valid size
+    if (stream->size_fixed) {
+        if (size != stream->size) {
+            EXITME("try to resize a size-fixed file");
+        }
+    } else {
+        if (size < stream->size) {
+            EXITME("the given _MEM_FILE is too large");
+        }
+    }
+
+    if (!size) {
+        EXITME("cannot stretch to 0");
+    }
+
+    if (!stream->size && (stream->raw_buf || stream->cur_ptr)) {
+        EXITME("impossible case when stream->size == 0");
+    }
+
+    // step (1). update the size of underlying file
+    // XXX: avoid write on existing data
+    if (size > stream->size) {
+        if (lseek(stream->fd, size - 1, SEEK_SET) == -1) {
+            return -1;
+        }
+
+        if (write(stream->fd, "", 1) == -1) {
+            return -1;
+        }
+    }
+
+    // step (2). update memory mapping
+    size_t old_size = stream->size;
+    size_t new_size = size;
+
+    if (stream->raw_buf) {
+        // the raw_ptr exists
+        if (new_size != old_size) {
+            assert(stream->cur_ptr >= stream->raw_buf);
+            size_t cur_offset = stream->cur_ptr - stream->raw_buf;
+            if ((stream->raw_buf = mremap(stream->raw_buf, old_size, new_size,
+                                          MREMAP_MAYMOVE)) == MAP_FAILED) {
+                EXITME("failed to mremap");
+            }
+            stream->cur_ptr = stream->raw_buf + cur_offset;
+        }
+    } else {
+        // the raw_ptr does not exist
+        if ((stream->raw_buf = mmap(NULL, new_size, PROT_READ | PROT_WRITE,
+                                    MAP_SHARED, stream->fd, 0)) == MAP_FAILED) {
+            EXITME("failed to mmap");
+        }
+        stream->cur_ptr = stream->raw_buf;
+    }
+
+    stream->size = new_size;
 
     return 0;
 }
@@ -59,21 +116,16 @@ Z_PRIVATE void __mem_file_open_stream(_MEM_FILE *stream, bool is_resumed) {
     int flag = (is_resumed ? O_RDWR : O_RDWR | O_CREAT | O_TRUNC);
     size_t file_size = (is_resumed ? stream->size : INIT_SIZE);
 
-    if ((stream->fd = open(stream->filename, flag, (mode_t)0755)) == -1)
+    if ((stream->fd = open(stream->filename, flag, (mode_t)0755)) == -1) {
         goto ERROR;
-
-    if (!is_resumed) {
-        if (__mem_file_stretch_to_size(stream->fd, file_size) == -1)
-            goto ERROR;
     }
 
-    if ((stream->raw_buf =
-             (uint8_t *)mmap(NULL, file_size, PROT_READ | PROT_WRITE,
-                             MAP_SHARED, stream->fd, 0)) == MAP_FAILED)
+    // XXX: here we can have two cases:
+    //  case 1: a new file, where stream->size = 0, stream->raw_buf = NULL
+    //  case 2: an old file, where stream->size > 0, stream->raw_buf = NULL
+    if (__mem_file_stretch_to_size(stream, file_size) == -1) {
         goto ERROR;
-
-    stream->cur_ptr = stream->raw_buf;
-    stream->size = file_size;
+    }
 
     return;
 
@@ -93,6 +145,8 @@ Z_API _MEM_FILE *z_mem_file_fopen(const char *pathname, const char *mode) {
     _MEM_FILE *stream = STRUCT_ALLOC(_MEM_FILE);
 
     stream->filename = z_strdup(pathname);
+    stream->raw_buf = stream->cur_ptr = NULL;
+    stream->size_fixed = false;
 
     __mem_file_open_stream(stream, false);
 
@@ -149,17 +203,9 @@ Z_API size_t z_mem_file_pwrite(_MEM_FILE *stream, const void *buf, size_t count,
         size_t new_size = BITS_ALIGN_CELL(count + offset, INC_SIZE_POW2);
         assert(new_size >= count + offset);
 
-        size_t cur_offset = stream->cur_ptr - stream->raw_buf;
-
-        if (__mem_file_stretch_to_size(stream->fd, new_size) == -1)
+        if (__mem_file_stretch_to_size(stream, new_size) == -1) {
             goto ERROR;
-
-        if ((stream->raw_buf = mremap(stream->raw_buf, stream->size, new_size,
-                                      MREMAP_MAYMOVE)) == MAP_FAILED)
-            goto ERROR;
-
-        stream->cur_ptr = stream->raw_buf + cur_offset;
-        stream->size = new_size;
+        }
     }
 
     memcpy(stream->raw_buf + offset, buf, count);
@@ -196,6 +242,24 @@ Z_API size_t z_mem_file_fwrite(void *ptr, size_t size, size_t nmemb,
                                  stream->cur_ptr - stream->raw_buf);
     stream->cur_ptr += n;
     return n;
+}
+
+Z_API void z_mem_file_fix_size(_MEM_FILE *stream, size_t size) {
+    __mem_file_check_state(stream);
+
+    if (size < stream->size) {
+        EXITME("the size of the given _MEM_FILE is too large");
+    }
+
+    if (size % PAGE_SIZE) {
+        EXITME("the given size is not page-aligned");
+    }
+
+    if (__mem_file_stretch_to_size(stream, size) == -1) {
+        EXITME("failed to set size for the underlying file");
+    }
+
+    stream->size_fixed = true;
 }
 
 Z_API size_t z_mem_file_fread(void *ptr, size_t size, size_t nmemb,

@@ -288,7 +288,7 @@ static inline void fork_server_patch(int n, bool *shadow_need_sync) {
             }
             // remmap it
             RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
-                RW_PAGE_INFO(shadow_path), RW_PAGE_INFO(shadow_base),
+                RW_PAGE_INFO(shadow_path), false, RW_PAGE_INFO(shadow_base),
                 PROT_READ | PROT_EXEC);
             // we do not need to sync the file right now
             *shadow_need_sync = false;

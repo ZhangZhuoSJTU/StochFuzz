@@ -12,7 +12,8 @@ STRUCT(_MEM_FILE, {
     const char *filename;
     uint8_t *raw_buf;
     uint8_t *cur_ptr;
-    size_t size;  // Page-aligned
+    size_t size;  // page-aligned
+    bool size_fixed;
 });
 
 /*
@@ -38,6 +39,12 @@ Z_API void z_mem_file_fsync(_MEM_FILE *stream);
  * Close a _MEM_FILE.
  */
 Z_API void z_mem_file_fclose(_MEM_FILE *stream);
+
+/*
+ * Fix the size of a _MEM_FILE. This function requires the size of _MEM_FILE
+ * cannot be larger than size.
+ */
+Z_API void z_mem_file_fix_size(_MEM_FILE *stream, size_t size);
 
 /*
  * Write to a _MEM_FILE.

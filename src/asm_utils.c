@@ -92,7 +92,7 @@ Z_UTILS size_t utils_strcpy(char *dst, char *src) {
 /*
  * Load external file.
  */
-Z_UTILS size_t utils_mmap_external_file(const char *filename,
+Z_UTILS size_t utils_mmap_external_file(const char *filename, bool remmap,
                                         unsigned long addr, int prot) {
     // Step (0): prepare error string
 #ifdef DEBUG
@@ -135,7 +135,14 @@ Z_UTILS size_t utils_mmap_external_file(const char *filename,
         utils_error(s_, true);
     }
 
-    // Step (3): mmap file
+    // Step (3). remmap if needed
+    if (remmap) {
+        if (sys_munmap(addr, fd_size)) {
+            utils_error(s_, true);
+        }
+    }
+
+    // Step (4): mmap file
 #ifdef BINARY_SEARCH_INVALID_CRASH
     // make gdb able to set breakpoints at mmapped pages
     if (sys_mmap(addr, fd_size, prot, MAP_PRIVATE | MAP_FIXED, fd, 0) != addr) {

@@ -387,7 +387,7 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
     utils_strcpy(RW_PAGE_INFO(shadow_path), fullpath);
     utils_puts(RW_PAGE_INFO(shadow_path), true);
     RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
-        fullpath, (unsigned long)tp, PROT_READ | PROT_EXEC);
+        fullpath, false, (unsigned long)tp, PROT_READ | PROT_EXEC);
     RW_PAGE_INFO(shadow_base) = (addr_t)tp;
 
     // lookup table file
@@ -395,7 +395,7 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
     utils_strcpy(RW_PAGE_INFO(lookup_tab_path), fullpath);
     utils_puts(RW_PAGE_INFO(lookup_tab_path), true);
     RW_PAGE_INFO(lookup_tab_size) =
-        utils_mmap_external_file(fullpath, LOOKUP_TABLE_ADDR, PROT_READ);
+        utils_mmap_external_file(fullpath, false, LOOKUP_TABLE_ADDR, PROT_READ);
 
     // pipe file
     __PARSE_FILENAME(cur_, name);

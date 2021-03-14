@@ -310,6 +310,7 @@ Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename) {
     // step (3). create _MEM_FILE
     e->lookup_table_stream =
         z_mem_file_fopen((const char *)e->lookup_tabname, "w+");
+    z_mem_file_fix_size(e->lookup_table_stream, LOOKUP_TABLE_SIZE);
     z_mem_file_pwrite(e->lookup_table_stream, "", 1, LOOKUP_TABLE_SIZE - 1);
 
     // step (4). fill in pre-defined values
