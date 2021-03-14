@@ -95,8 +95,8 @@ typedef struct __loading_info_t {
     char pipe_path[0x100];
 
     char shared_text_path[0x100];
-    uint64_t text_size;
-    addr_t text_base;
+    uint64_t shared_text_size;
+    addr_t shared_text_base;
 
     bool daemon_attached;
 

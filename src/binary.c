@@ -115,26 +115,38 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
     z_elf_write(b->elf, cur_addr, sizeof(addr_t), &(trampolines_addr));
     cur_addr += sizeof(addr_t);
 
-    // step (7). store trampolines name
+    // step (7). set down shared .text base address
+    addr_t shared_text_addr = z_elf_get_shared_text_addr(b->elf);
+    assert(shared_text_addr % PAGE_SIZE == 0);
+    z_elf_write(b->elf, cur_addr, sizeof(addr_t), &(shared_text_addr));
+    cur_addr += sizeof(addr_t);
+
+    // step (8). store trampolines name
     const char *trampolines_name = z_elf_get_trampolines_name(b->elf);
     z_elf_write(b->elf, cur_addr, z_strlen(trampolines_name) + 1,
                 trampolines_name);
     cur_addr += z_strlen(trampolines_name) + 1;
 
-    // step (8). store lookup table name
+    // step (9). store lookup table name
     const char *lookup_tabname = z_elf_get_lookup_tabname(b->elf);
     z_elf_write(b->elf, cur_addr, z_strlen(lookup_tabname) + 1, lookup_tabname);
     cur_addr += z_strlen(lookup_tabname) + 1;
 
-    // step (9). store pipeline filename
+    // step (10). store pipeline filename
     const char *pipe_filename = z_elf_get_pipe_filename(b->elf);
     z_elf_write(b->elf, cur_addr, z_strlen(pipe_filename) + 1, pipe_filename);
     cur_addr += z_strlen(pipe_filename) + 1;
 
-    // step (10). 16-byte alignment for fork server (avoid error in xmm)
+    // step (11). store pipeline filename
+    const char *shared_text_name = z_elf_get_shared_text_name(b->elf);
+    z_elf_write(b->elf, cur_addr, z_strlen(shared_text_name) + 1,
+                shared_text_name);
+    cur_addr += z_strlen(shared_text_name) + 1;
+
+    // step (12). 16-byte alignment for fork server (avoid error in xmm)
     cur_addr = BITS_ALIGN_CELL(cur_addr, 4);
 
-    // step (11). redirect __libc_start_main into fork server address
+    // step (13). redirect __libc_start_main into fork server address
     b->fork_server_addr = cur_addr;
     addr_t load_main = z_elf_get_load_main(b->elf);
     if (z_elf_get_is_pie(b->elf)) {

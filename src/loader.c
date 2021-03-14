@@ -105,12 +105,14 @@ asm(
     "\tincq %rdi;\n"
     "\tshlq $3, %rdi;\n"  // cur_addr in __binary_setup_loader step (4) binary.c
     "\tmovq (%rdi), %rbx;\n"
-    "\tleaq _entry(%rip), %rsi;\n"
-    "\tsubq %rbx, %rsi;\n"      // program base into %rsi (size_t rip_base)
-    "\tleaq 16(%rdi), %rdx;\n"  // names in %rdx (const char *name)
+    "\tleaq _entry(%rip), %rdx;\n"
+    "\tsubq %rbx, %rdx;\n"      // program base into %rdx (size_t rip_base)
+    "\tleaq 24(%rdi), %rcx;\n"  // names in %rcx (const char *name)
+    "\tmovq 16(%rdi), %rsi;\n"
+    "\taddq %rdx, %rsi;\n"  // .text base into %rsi (void *shared_text_base)
     "\tmovq 8(%rdi), %rdi;\n"
-    "\taddq %rsi, %rdi;\n"  // TP chunk base into %rdi (Trampoline *tp)
-    "\tmovq %rax, %rcx;\n"  // pathname into %rcx (const char *pathname)
+    "\taddq %rdx, %rdi;\n"  // TP chunk base into %rdi (Trampoline *tp)
+    "\tmovq %rax, %r8;\n"   // pathname into %r8 (const char *pathname)
 
     // (3) mmap and copy data to target virtual addr
     "\tcld;\n"                // set DF register
@@ -335,7 +337,8 @@ static inline void loader_set_seccomp() {
 /*
  * Load ujmp/ucall trampolines, and set a W/R page tp store global data
  */
-NO_INLINE void loader_load(Trampoline *tp, size_t rip_base, const char *name,
+NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
+                           size_t rip_base, const char *name,
                            const char *pathname) {
     void *mmap_addr, *tp_addr;
     unsigned long mmap_size, tp_size, next_tp_offset;
@@ -386,16 +389,24 @@ NO_INLINE void loader_load(Trampoline *tp, size_t rip_base, const char *name,
     RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
         fullpath, (unsigned long)tp, PROT_READ | PROT_EXEC);
     RW_PAGE_INFO(shadow_base) = (addr_t)tp;
+
     // lookup table file
     __PARSE_FILENAME(cur_, name);
     utils_strcpy(RW_PAGE_INFO(lookup_tab_path), fullpath);
     utils_puts(RW_PAGE_INFO(lookup_tab_path), true);
     RW_PAGE_INFO(lookup_tab_size) =
         utils_mmap_external_file(fullpath, LOOKUP_TABLE_ADDR, PROT_READ);
+
     // pipe file
     __PARSE_FILENAME(cur_, name);
     utils_strcpy(RW_PAGE_INFO(pipe_path), fullpath);
     utils_puts(RW_PAGE_INFO(pipe_path), true);
+
+    // shared .text file
+    __PARSE_FILENAME(cur_, name);
+    utils_strcpy(RW_PAGE_INFO(shared_text_path), fullpath);
+    RW_PAGE_INFO(shared_text_base) = (addr_t)shared_text_base;
+    utils_puts(RW_PAGE_INFO(shared_text_path), true);
 
 #undef __PARSE_FILENAME
 
