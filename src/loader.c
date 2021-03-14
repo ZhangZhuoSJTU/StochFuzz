@@ -207,7 +207,7 @@ static inline void loader_mmap_data_page(size_t rip_base) {
         utils_error(loader_err_str, true);
     }
 
-    RW_PAGE_INFO(program_base) = (void *)rip_base;
+    RW_PAGE_INFO(program_base) = (addr_t)rip_base;
 }
 
 /*
@@ -236,7 +236,7 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
     utils_puts(s, false);
 #endif
 
-    rip -= (uint64_t)(RW_PAGE_INFO(program_base));
+    rip -= RW_PAGE_INFO(program_base);
 
     // XXX: For an *UNKNOWN* reason, pipe CRS_DATA_FD sometimes is broken,
     // resulting in an incorrect patching schedule. Hence, we adopt shared
@@ -384,7 +384,8 @@ NO_INLINE void loader_load(Trampoline *tp, size_t rip_base, const char *name,
     utils_strcpy(RW_PAGE_INFO(shadow_path), fullpath);
     utils_puts(RW_PAGE_INFO(shadow_path), true);
     RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
-        fullpath, (unsigned long)tp + rip_base, PROT_READ | PROT_EXEC);
+        fullpath, (unsigned long)tp, PROT_READ | PROT_EXEC);
+    RW_PAGE_INFO(shadow_base) = (addr_t)tp;
     // lookup table file
     __PARSE_FILENAME(cur_, name);
     utils_strcpy(RW_PAGE_INFO(lookup_tab_path), fullpath);

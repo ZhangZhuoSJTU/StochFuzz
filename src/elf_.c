@@ -203,6 +203,7 @@ ELF_DEFINE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt_got);
 DEFINE_GETTER(ELF, elf, addr_t, loader_addr);
 DEFINE_GETTER(ELF, elf, addr_t, trampolines_addr);
 DEFINE_GETTER(ELF, elf, addr_t, lookup_table_addr);
+DEFINE_GETTER(ELF, elf, addr_t, shared_text_addr);
 DEFINE_GETTER(ELF, elf, bool, is_pie);
 DEFINE_GETTER(ELF, elf, addr_t, ori_entry);
 DEFINE_GETTER(ELF, elf, addr_t, main);
@@ -362,6 +363,13 @@ Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename) {
     size_t text_size = text->sh_size;
     size_t text_offset = text->sh_offset;
 
+    addr_t aligned_addr = BITS_ALIGN_FLOOR(text_addr, PAGE_SIZE_POW2);
+    size_t aligned_offset = BITS_ALIGN_FLOOR(text_offset, PAGE_SIZE_POW2);
+    size_t aligned_size = BITS_ALIGN_CELL(
+        text_size + text_offset - aligned_offset, PAGE_SIZE_POW2);
+
+    e->shared_text_addr = aligned_addr;
+
     // step (1). get filename
     assert(!z_strchr(filename, '/'));
     e->shared_text_name = z_strcat(SHARED_TEXT_PREFIX, filename);
@@ -374,10 +382,6 @@ Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename) {
 
     // step (4). generate virtual mapping information
     // TODO: change into shared file (the tail part may have some problems)
-    addr_t aligned_addr = BITS_ALIGN_FLOOR(text_addr, PAGE_SIZE_POW2);
-    size_t aligned_offset = BITS_ALIGN_FLOOR(text_offset, PAGE_SIZE_POW2);
-    size_t aligned_size = BITS_ALIGN_CELL(
-        text_size + text_offset - aligned_offset, PAGE_SIZE_POW2);
 
     // XXX: there is a potential bug when the aligned_offset + aligned_size is
     // beyond the elf file. But as the following code is temporary, we do not
@@ -1228,6 +1232,8 @@ Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf) {
 Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
     assert(e != NULL);
 
+    // TODO: we should guarantee there is no other pages between the trampolines
+    // and the lookup table.
     if (addr >= e->trampolines_addr && addr < LOOKUP_TABLE_ADDR) {
         // write on trampolines, which is extensive.
 

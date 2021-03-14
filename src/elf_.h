@@ -92,6 +92,7 @@ STRUCT(ELF, {
     addr_t loader_addr;        // Base address of loader
     addr_t trampolines_addr;   // Base address of trampolines(TP)
     addr_t lookup_table_addr;  // Base address of lookup table
+    addr_t shared_text_addr;   // Base address of shared .text (page-aligned)
 
     /*
      * Lookup table
@@ -167,6 +168,7 @@ DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt);
 DECLARE_GETTER(ELF, elf, addr_t, loader_addr);
 DECLARE_GETTER(ELF, elf, addr_t, trampolines_addr);
 DECLARE_GETTER(ELF, elf, addr_t, lookup_table_addr);
+DECLARE_GETTER(ELF, elf, addr_t, shared_text_addr);
 DECLARE_GETTER(ELF, elf, bool, is_pie);
 DECLARE_GETTER(ELF, elf, addr_t, ori_entry);
 DECLARE_GETTER(ELF, elf, addr_t, main);

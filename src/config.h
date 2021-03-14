@@ -77,7 +77,7 @@ typedef long double double128_t;
  * [RW_PAGE_ADDR] The meta information needed during loading
  */
 typedef struct __loading_info_t {
-    void *program_base;
+    addr_t program_base;
 
     uint64_t afl_prev_id;
 
@@ -87,11 +87,16 @@ typedef struct __loading_info_t {
 
     char shadow_path[0x100];
     uint64_t shadow_size;
+    addr_t shadow_base;
 
     char lookup_tab_path[0x100];
     uint64_t lookup_tab_size;
 
     char pipe_path[0x100];
+
+    char shared_text_path[0x100];
+    uint64_t text_size;
+    addr_t text_base;
 
     bool daemon_attached;
 

@@ -282,15 +282,13 @@ static inline void fork_server_patch(int n, bool *shadow_need_sync) {
             continue;
         } else if (cmd->type == CRS_CMD_REMMAP) {
             // munmap current shadow file
-            if (sys_munmap(
-                    (uint64_t)(RW_PAGE_INFO(program_base)) + SHADOW_CODE_ADDR,
-                    RW_PAGE_INFO(shadow_size))) {
+            if (sys_munmap(RW_PAGE_INFO(shadow_base),
+                           RW_PAGE_INFO(shadow_size))) {
                 utils_error(mumap_err_str, true);
             }
             // remmap it
             RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
-                RW_PAGE_INFO(shadow_path),
-                (uint64_t)(RW_PAGE_INFO(program_base)) + SHADOW_CODE_ADDR,
+                RW_PAGE_INFO(shadow_path), RW_PAGE_INFO(shadow_base),
                 PROT_READ | PROT_EXEC);
             // we do not need to sync the file right now
             *shadow_need_sync = false;
@@ -302,8 +300,8 @@ static inline void fork_server_patch(int n, bool *shadow_need_sync) {
             }
         } else if (cmd->type == CRS_CMD_MPROTECT) {
             // change page permission
-            if (sys_mprotect(cmd->addr + (addr_t)RW_PAGE_INFO(program_base),
-                             cmd->size, cmd->data)) {
+            if (sys_mprotect(cmd->addr + RW_PAGE_INFO(program_base), cmd->size,
+                             cmd->data)) {
                 utils_error(mprotect_err_str, true);
             }
             continue;
@@ -609,8 +607,7 @@ NO_INLINE void fork_server_start(char **envp) {
                     utils_error(msync_err_str, true);
                 }
                 if (shadow_need_sync) {
-                    if (sys_msync((uint64_t)(RW_PAGE_INFO(program_base)) +
-                                      SHADOW_CODE_ADDR,
+                    if (sys_msync(RW_PAGE_INFO(shadow_base),
                                   RW_PAGE_INFO(shadow_size), MS_SYNC)) {
                         utils_error(msync_err_str, true);
                     }
