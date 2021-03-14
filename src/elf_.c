@@ -376,18 +376,21 @@ Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename) {
     e->shared_text_name = z_strcat(SHARED_TEXT_PREFIX, filename);
 
     // step (2). create _MEM_FILE
-    // TODO
+    e->shared_text_stream =
+        z_mem_file_fopen((const char *)e->shared_text_name, "w+");
+    z_mem_file_fix_size(e->shared_text_stream, aligned_size);
+    z_mem_file_pwrite(e->shared_text_stream, "", 1, aligned_size - 1);
 
     // step (3). update data to _MEM_FILE
-    // TODO
+    // XXX: note that e->stream is alreay page-aligned, which means the
+    // following memcpy is safe.
+    uint8_t *base = z_mem_file_get_raw_buf(e->stream);
+    uint8_t *src = base + aligned_offset;
+    uint8_t *dst = z_mem_file_get_raw_buf(e->shared_text_stream);
+    memcpy(dst, src, aligned_size);
 
     // step (4). generate virtual mapping information
-    // TODO: change into shared file (the tail part may have some problems)
-
-    // XXX: there is a potential bug when the aligned_offset + aligned_size is
-    // beyond the elf file. But as the following code is temporary, we do not
-    // handle it.
-    FChunk *fc = z_fchunk_create(e->stream, aligned_offset, aligned_size);
+    FChunk *fc = z_fchunk_create(e->shared_text_stream, 0, aligned_size);
     Snode *node = z_snode_create(aligned_addr, aligned_size, (void *)fc,
                                  (void (*)(void *))(&z_fchunk_destroy));
 
@@ -1170,6 +1173,7 @@ Z_API void z_elf_destroy(ELF *e) {
 
     z_mem_file_fclose(e->lookup_table_stream);
     z_mem_file_fclose(e->trampolines_stream);
+    z_mem_file_fclose(e->shared_text_stream);
     z_mem_file_fclose(e->stream);
 
     if (remove(e->tmpnam)) {
@@ -1184,6 +1188,7 @@ Z_API void z_elf_fsync(ELF *e) {
 
     z_mem_file_fsync(e->lookup_table_stream);
     z_mem_file_fsync(e->trampolines_stream);
+    z_mem_file_fsync(e->shared_text_stream);
     z_mem_file_fsync(e->stream);
 }
 

@@ -148,6 +148,7 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
 
     // step (13). redirect __libc_start_main into fork server address
     b->fork_server_addr = cur_addr;
+    z_info("fork server address: %#lx", b->fork_server_addr);
     addr_t load_main = z_elf_get_load_main(b->elf);
     if (z_elf_get_is_pie(b->elf)) {
         // size of "lea rdi, [rip + xxx]" is 7

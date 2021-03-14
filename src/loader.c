@@ -405,8 +405,10 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
     // shared .text file
     __PARSE_FILENAME(cur_, name);
     utils_strcpy(RW_PAGE_INFO(shared_text_path), fullpath);
-    RW_PAGE_INFO(shared_text_base) = (addr_t)shared_text_base;
     utils_puts(RW_PAGE_INFO(shared_text_path), true);
+    RW_PAGE_INFO(shared_text_size) = utils_mmap_external_file(
+        fullpath, true, (unsigned long)shared_text_base, PROT_READ | PROT_EXEC);
+    RW_PAGE_INFO(shared_text_base) = (addr_t)shared_text_base;
 
 #undef __PARSE_FILENAME
 

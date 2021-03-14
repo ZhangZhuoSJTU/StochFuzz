@@ -109,7 +109,8 @@ STRUCT(ELF, {
     /*
      * Shared .text section;
      */
-    char *shared_text_name;  // Name of shared .text section
+    char *shared_text_name;         // Name of shared .text section
+    _MEM_FILE *shared_text_stream;  // _MEM_FILE of shared .text section
 
     /*
      * Pipeline

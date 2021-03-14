@@ -76,6 +76,7 @@ typedef long double double128_t;
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading
  */
+// XXX: members with addr_t are runtime address (especially for PIE)
 typedef struct __loading_info_t {
     addr_t program_base;
 
