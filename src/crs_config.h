@@ -30,19 +30,20 @@ enum {
 };
 
 /*
- * Memory layout of CRS shared memory:
- *
- *  |- cmds (CRS_CMDBUF_SIZE) -| |- crashed address (sizeof(addr_t)) -|
+ * [CRS_INFO] The crash site information needed by self-patching
  */
+typedef struct __crs_info_t {
+    addr_t crash_ip;
+} __CRSInfo;
 
 #define CRS_MAP_SIZE_POW2 PAGE_SIZE_POW2
 #define CRS_MAP_SIZE (1 << CRS_MAP_SIZE_POW2)
-#define CRS_CMDBUF_SIZE (CRS_MAP_SIZE - sizeof(addr_t))
-
 #define CRS_MAP_ADDR (AFL_MAP_ADDR + AFL_MAP_SIZE)
-#define CRS_CRASHIP_ADDR (CRS_MAP_ADDR + CRS_CMDBUF_SIZE)
 
-#define CRS_MAP_MAX_CMD_N (CRS_CMDBUF_SIZE / sizeof(CRSCmd))
+#define CRS_USED_SIZE sizeof(__CRSInfo)
+
+#define CRS_INFO(field) (((__CRSInfo *)CRS_MAP_ADDR)->field)
+#define CRS_INFO_BASE(addr, field) (((__CRSInfo *)(addr))->field)
 
 #define CRS_COMM_FD 222
 

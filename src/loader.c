@@ -245,7 +245,7 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
     // memory to sent crashed PC. Note that CRS_DATA_FD is still valid in dry
     // run, for compatibility. In the future, we will abandon this pipe.
     if (RW_PAGE_INFO(daemon_attached)) {
-        *((addr_t *)CRS_CRASHIP_ADDR) = rip;
+        CRS_INFO(crash_ip) = (addr_t)rip;
     } else {
         if (sys_write(CRS_DATA_FD, (char *)(&rip), 8) != 8) {
             utils_error(handler_err_str, true);

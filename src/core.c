@@ -747,8 +747,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         {
             // step (3.3.0). recv crashed rip from shm
             CPType cp_type = CP_NONE;
-            addr_t *addr_p = (addr_t *)(core->shm_addr + CRS_CMDBUF_SIZE);
-            addr_t addr = *addr_p;
+            addr_t addr = CRS_INFO_BASE(core->shm_addr, crash_ip);
 
             // step (3.3.1). check INVALID and update
             if (addr == CRS_INVALID_IP) {
@@ -757,7 +756,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
                     "is sent to daemon");
                 break;
             }
-            *addr_p = CRS_INVALID_IP;
+            CRS_INFO_BASE(core->shm_addr, crash_ip) = CRS_INVALID_IP;
 
             // step (3.3.2). if any crashed rip is found, it means it is caused
             // by sigsegv
