@@ -326,7 +326,7 @@ Z_PRIVATE void __core_setup_shm(Core *core) {
 
     // step (2). set shared memory address
     core->shm_addr = (addr_t)shmat(core->shm_id, NULL, 0);
-    if (core->shm_addr == (addr_t)-1) {
+    if (core->shm_addr == INVALID_ADDR) {
         EXITME("failed: shmat()");
     }
 }
