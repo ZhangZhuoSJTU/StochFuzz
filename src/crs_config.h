@@ -6,23 +6,6 @@
 
 #include "afl_config.h"
 
-typedef enum crs_cmd_type_t {
-    CRS_CMD_NONE = 0x0,
-    CRS_CMD_REMMAP,
-    CRS_CMD_REWRITE,
-    CRS_CMD_MPROTECT,
-} CRSCmdType;
-
-typedef struct crs_cmd_t {
-    CRSCmdType type;
-    union {
-        const char buf[0x8];
-        uint64_t data;
-    };
-    addr_t addr;
-    size_t size;
-} CRSCmd;
-
 enum {
     CRS_STATUS_NONE,        // nothing to do for fork server
     CRS_STATUS_REMMAP,      // fork server needs to remmap shadow code

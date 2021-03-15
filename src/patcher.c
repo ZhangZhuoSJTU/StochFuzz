@@ -36,23 +36,6 @@ Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
     ELF *e = z_binary_get_elf(p->binary);
 
     z_elf_write(e, addr, size, buf);
-
-    // XXX: delete after re-designing cmd
-    /*
-    if (*p->cmd_buf_ptr) {
-        // update patch command
-        CRSCmd cmd;
-        cmd.type = CRS_CMD_REWRITE;
-        cmd.addr = addr;
-        cmd.size = size;
-
-        assert(sizeof(cmd.buf) >= size);
-        memcpy((void *)cmd.buf, buf, size);
-
-        // append into cmd_buf_ptr
-        z_buffer_append_raw(*p->cmd_buf_ptr, (uint8_t *)&cmd, sizeof(cmd));
-    }
-    */
 }
 
 Z_PRIVATE void __patcher_fully_patch(Patcher *p) {
@@ -342,7 +325,7 @@ Z_API void z_patcher_describe(Patcher *p) {
     z_buffer_destroy(checkpoints);
 }
 
-Z_API Patcher *z_patcher_create(Disassembler *d, Buffer **cmd_buf_ptr) {
+Z_API Patcher *z_patcher_create(Disassembler *d) {
     Patcher *p = STRUCT_ALLOC(Patcher);
 
     p->disassembler = d;
@@ -358,8 +341,6 @@ Z_API Patcher *z_patcher_create(Disassembler *d, Buffer **cmd_buf_ptr) {
 
     p->bridges =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-
-    p->cmd_buf_ptr = cmd_buf_ptr;
 
     return p;
 }

@@ -104,13 +104,11 @@ extern const char env_setting_err_str[];
 extern const char socket_err_str[];
 extern const char data_pipe_err_str[];
 // extern const char msync_err_str[];
-extern const char cmd_err_str[];
 extern const char write_err_str[];
 extern const char pipe_filename_err_str[];
 extern const char afl_attached_str[];
 extern const char status_str[];
 extern const char setpgid_err_str[];
-extern const char patch_cmd_err_str[];
 #endif
 
 extern const char magic_string[];
@@ -198,8 +196,6 @@ asm(".globl _entry\n"
     // ASM_STRING(msync_err_str, "fork server: msync error")
     // dup2_err_str
     ASM_STRING(dup2_err_str, "fork server: dup2 error")
-    // cmd_err_str
-    ASM_STRING(cmd_err_str, "fork server: invalid patch command type")
     // pipe_filename_err_str
     ASM_STRING(pipe_filename_err_str, "fork server: pipe filename too long")
     // env_setting_err_str
@@ -211,8 +207,6 @@ asm(".globl _entry\n"
     ASM_STRING(status_str, "fork server: client status: ")
     // setpgid_err_str
     ASM_STRING(setpgid_err_str, "fork server: setpgid error")
-    // patch_cmd_err_str
-    ASM_STRING(patch_cmd_err_str, "fork server: too many patch commands")
 #endif
 
     // Magic String to indicate instrumented

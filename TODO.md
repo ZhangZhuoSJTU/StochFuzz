@@ -18,7 +18,7 @@
 + [ ] Apply Iter to all possible places..
 + [ ] Read PLT table to get library functions' names, and support the white-list for library functions.
 + [x] Correctly handle timeout from AFL.
-+ [ ] Use shared memory for .text section, to avoid the expensive patch commands.
++ [x] Use shared memory for .text section, to avoid the expensive patch commands.
 + [ ] Support self-correction procedure (delta debugging).
 + [ ] Reduce false positive in recursive disassembly. A possible solution is to have a non-return analysis, with the help of the white-list for library functions .
 + [ ] Support the on-the-fly probability recalculation.
@@ -37,3 +37,4 @@
 + v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper.
 + v0.2.0: adopt a better frontend to parse arguments and automatically decide whether we need a complete probabilistic disassembly.
 + v0.3.0: support timeout for daemon and add benchmark testing for each tag.
++ v0.4.0: support shared .text section for the new system design and simplify the communication between the daemon and binary.

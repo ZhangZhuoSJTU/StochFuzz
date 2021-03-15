@@ -22,15 +22,12 @@ STRUCT(Patcher, {
 
     // patched bridge (bridge entrypoint)
     GHashTable *bridges;
-
-    // CRS CMD information
-    Buffer **cmd_buf_ptr;
 });
 
 /*
  * Create a patcher
  */
-Z_API Patcher *z_patcher_create(Disassembler *d, Buffer **cmd_buf_ptr);
+Z_API Patcher *z_patcher_create(Disassembler *d);
 
 /*
  * Destroy a patcher

@@ -66,9 +66,6 @@ STRUCT(Core, {
     int shm_id;
     addr_t shm_addr;
 
-    // patch cmd info
-    Buffer *cmd_buf;
-
     // unix domain information
     int sock_fd;
 });

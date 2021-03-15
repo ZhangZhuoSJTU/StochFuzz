@@ -329,9 +329,6 @@ Z_PRIVATE void __core_setup_shm(Core *core) {
     if (core->shm_addr == (addr_t)-1) {
         EXITME("failed: shmat()");
     }
-
-    // step (3). enable cmd buffer
-    core->cmd_buf = z_buffer_create(NULL, 0);
 }
 
 Z_PRIVATE void __core_clean_environment(Core *core) {
@@ -339,8 +336,6 @@ Z_PRIVATE void __core_clean_environment(Core *core) {
         shmctl(core->shm_id, IPC_RMID, NULL);
         core->shm_id = INVALID_SHM_ID;
         core->shm_addr = INVALID_ADDR;
-        assert(core->cmd_buf);
-        z_buffer_destroy(core->cmd_buf);
     }
 
     if (core->sock_fd != INVALID_FD) {
@@ -495,7 +490,7 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
     core->binary = z_binary_open(pathname);
     core->disassembler = z_disassembler_create(core->binary);
     core->rewriter = z_rewriter_create(core->disassembler);
-    core->patcher = z_patcher_create(core->disassembler, &core->cmd_buf);
+    core->patcher = z_patcher_create(core->disassembler);
 
     core->crashpoints =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -510,8 +505,6 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
 
     core->shm_id = INVALID_SHM_ID;
     core->shm_addr = INVALID_ADDR;
-
-    core->cmd_buf = NULL;
 
     core->sock_fd = INVALID_FD;
 
@@ -694,26 +687,12 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     // step (3). communicate with the client
     //      + if it is not a crash (normal exit), directly stop the daemon. note
     //      that when AFL is attached, no any normal status can be recevied;
-    //      + if it is a real crash, the daemon sends -1 patch command to notify
+    //      + if it is a real crash, the daemon sends CRS_STATUS_CRASH to notify
     //      the client, and (a.) stop the daemon when AFL is not attached or
     //      (b.) continue a new round when AFL is attached;
-    //      + if it is a patch crash, the daemon sends patch commands to guide
-    //      the client do the on-the-fly patch;
-    CRSCmd placeholder_cmd = {
-        .type = CRS_CMD_NONE,
-        .data = 0,
-        .addr = INVALID_ADDR,
-        .size = 0,
-    };
+    //      + if it is a patch crash, the daemon sends CRS_STATUS_NONE/_REMMAP
+    //      to guide the client do the on-the-fly patch.
     while (true) {
-        /*
-         * step (3.0). clear the commands on the shared memory, and insert a
-         * placehold for CRS_CMD_MPROTECT command
-         */
-        z_buffer_truncate(core->cmd_buf, 0);
-        z_buffer_append_raw(core->cmd_buf, (uint8_t *)&placeholder_cmd,
-                            sizeof(placeholder_cmd));
-
         /*
          * step (3.1). recv program status from the client
          */

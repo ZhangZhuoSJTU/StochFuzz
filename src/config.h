@@ -20,7 +20,7 @@
  * Tool name and version
  */
 #define OURTOOL "stoch-fuzz"
-#define VERSION "0.3.2"
+#define VERSION "0.4.0"
 
 /*
  * Default system settings
