@@ -1,5 +1,7 @@
 ## Todo
 
+While we are migrating StochFuzz to a new system design, followings are some to-do tasks.
+
 + [x] In release version, remove unnecessary z\_log (e.g., z\_debug, z\_trace, and etc.).
 + [x] Support probabilisitic disassembly.
 + [x] Mark .text section non-writable.
@@ -25,14 +27,20 @@
 + [ ] Support other disassembly backends (for the initial disassembly).
 + [x] Use simple linear disassembly to check the existence of inlined data.
 + [ ] Calculate [entropy](https://github.com/NationalSecurityAgency/ghidra/issues/1035) to check the existence of inlined data (ADVANCED).
++ [ ] Fix the bugs when rewriting PIE binary and support it.
 
 ## Known Issues
+
+There are some known issues which we are trying to resolve.
 
 + Fixed LOOKUP\_TABLE\_ADDR is mixed with other random addresses, may cause bugs in PIE binary.
 + When running, the input file may be modified by previous crashed run (due to the new system design).
 + Timeout needs to be set up separately for AFL and StochFuzz (due to the new system design).
++ Test failed on Github Actions Ubuntu 20.04 (the root cause is unknown currently).
 
 ## Tag Info
+
+We have marked multiple tags when migrating the system, many of which reflect the migration progress.
 
 + v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper.
 + v0.2.0: adopt a better frontend to parse arguments and automatically decide whether we need a complete probabilistic disassembly.
