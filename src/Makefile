@@ -143,6 +143,7 @@ ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 endif
 endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
+	$(call test_succ, cat timeout.daemon.log)
 	$(call test_succ, grep -F 'get status code: 0x9 (signal: 9)' timeout.daemon.log)
 
 GOOGLE_FTS=\
