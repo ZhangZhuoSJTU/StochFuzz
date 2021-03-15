@@ -130,11 +130,6 @@ Z_PRIVATE void __core_clean_environment(Core *core);
  */
 Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
 
-/*
- * Calculate the mprotect information for core cmd
- */
-Z_PRIVATE void __core_set_mprotect_cmd(Core *core);
-
 Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid) {
     core->client_pid = client_pid;
     core->it.it_value.tv_sec = (sys_config.timeout / 1000);
@@ -150,67 +145,6 @@ Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid) {
     core->it.it_value.tv_sec = 0;
     core->it.it_value.tv_usec = 0;
     setitimer(ITIMER_REAL, &core->it, NULL);
-}
-
-Z_PRIVATE void __core_set_mprotect_cmd(Core *core) {
-    assert(core);
-    assert(core->cmd_buf);
-
-    int cmd_n = z_buffer_get_size(core->cmd_buf) / sizeof(CRSCmd);
-    CRSCmd *cmds = (CRSCmd *)z_buffer_get_raw_buf(core->cmd_buf);
-
-    addr_t min_addr = (addr_t)(-1);
-    addr_t max_addr = (addr_t)(0);
-
-    CRSCmd *cmd = cmds;
-    for (int i = 0; i < cmd_n; i++, cmd++) {
-        if (cmd->type == CRS_CMD_MPROTECT) {
-            EXITME("invalid mprotect command during calculation");
-        }
-
-        if (cmd->type != CRS_CMD_REWRITE) {
-            continue;
-        }
-
-        addr_t cmd_addr = cmd->addr;
-        addr_t cmd_size = cmd->size;
-
-        min_addr = (min_addr > cmd_addr ? cmd_addr : min_addr);
-        max_addr =
-            (max_addr < cmd_addr + cmd_size ? cmd_addr + cmd_size : max_addr);
-    }
-
-    if (min_addr == (addr_t)(-1)) {
-        // no CRS_CMD_REWRITE found
-        assert(!max_addr);
-        return;
-    }
-
-    // do alignment
-    // XXX: delete after re-designing cmd
-    /*
-    addr_t mprotect_addr = BITS_ALIGN_FLOOR(min_addr, PAGE_SIZE_POW2);
-    size_t mprotect_size = max_addr - mprotect_addr;
-    mprotect_size = BITS_ALIGN_CELL(mprotect_size, PAGE_SIZE_POW2);
-
-    z_info("mprotect %#lx bytes from %#lx", mprotect_size, mprotect_addr);
-
-    // set first mprotect
-    cmds[0].type = CRS_CMD_MPROTECT;
-    cmds[0].data = PROT_WRITE | PROT_READ;
-    cmds[0].addr = mprotect_addr;
-    cmds[0].size = mprotect_size;
-
-    // set last mprotect
-    CRSCmd mprotect_cmd = {
-        .type = CRS_CMD_MPROTECT,
-        .data = PROT_READ | PROT_EXEC,
-        .addr = mprotect_addr,
-        .size = mprotect_size,
-    };
-    z_buffer_append_raw(core->cmd_buf, (uint8_t *)&mprotect_cmd,
-                        sizeof(mprotect_cmd));
-    */
 }
 
 Z_PRIVATE void __core_setup_unix_domain_socket(Core *core) {
@@ -699,6 +633,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     const char *filename = z_binary_get_original_filename(core->binary);
 
     // first dry run w/o any parameter to find some crashpoint during init
+    // XXX: dry run must be performed before setting up shm
     const char *argv[2] = {NULL, NULL};
     argv[0] = filename;
     z_core_perform_dry_run(core, 1, argv);
@@ -808,6 +743,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         /*
          * step (3.3). check returning status and get patch commands
          */
+        int crs_status = CRS_STATUS_NONE;
         {
             // step (3.3.0). recv crashed rip from shm
             CPType cp_type = CP_NONE;
@@ -831,8 +767,8 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
             if (!z_core_validate_address(core, &addr, &cp_type)) {
                 z_info(COLOR(RED, "real crash!"));
                 // notify the client that it is a real crash
-                int msg = -1;
-                if (write(comm_fd, &msg, 4) != 4) {
+                crs_status = CRS_STATUS_CRASH;
+                if (write(comm_fd, &crs_status, 4) != 4) {
                     EXITME("fail to notify real crash");
                 }
                 goto NOT_PATCHED_CRASH;
@@ -848,9 +784,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
          */
         if (z_binary_check_state(core->binary, ELFSTATE_SHADOW_EXTENDED)) {
             z_info("underlying shadow file is extended");
-            CRSCmd cmd;
-            cmd.type = CRS_CMD_REMMAP;
-            z_buffer_append_raw(core->cmd_buf, (uint8_t *)&cmd, sizeof(cmd));
+            crs_status = CRS_STATUS_REMMAP;
 
             // do not forget to disable the shadow_extened flag
             z_binary_set_elf_state(core->binary,
@@ -871,55 +805,10 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         // z_binary_fsync(core->binary);
 
         /*
-         * step (3.6). send cmds
+         * step (3.6). send status
          */
-        {
-            // calculate mprotect command
-            __core_set_mprotect_cmd(core);
-
-            assert(core->shm_addr != INVALID_ADDR);
-            assert(core->cmd_buf);
-            assert(z_buffer_get_size(core->cmd_buf) % sizeof(CRSCmd) == 0);
-
-            int cmd_n = z_buffer_get_size(core->cmd_buf) / sizeof(CRSCmd);
-            CRSCmd *cmds = (CRSCmd *)z_buffer_get_raw_buf(core->cmd_buf);
-
-            z_info("we are going to send %d patch commands", cmd_n);
-            // XXX: be careful when cmd_n == 0 (k * CRS_MAP_MAX_CMD_N)
-            while (true) {
-                // get how many cmds are going to be sent
-                int n = cmd_n;
-                if (n > CRS_MAP_MAX_CMD_N) {
-                    n = CRS_MAP_MAX_CMD_N;
-                }
-
-                // send commands
-                z_info("sending %d patch commands", n);
-                memcpy((void *)core->shm_addr, cmds, n * sizeof(CRSCmd));
-                if (write(comm_fd, &n, 4) != 4) {
-                    EXITME("fail to send patch commands");
-                }
-
-                // check ternimation
-                if (n < CRS_MAP_MAX_CMD_N) {
-                    break;
-                }
-
-                // get feedback
-                if (read(comm_fd, &n, 4) != 4) {
-                    EXITME("fail to recv the number of patched commands");
-                }
-                if (n != CRS_MAP_MAX_CMD_N) {
-                    EXITME("invalid number of patched cmds: %d v/s %d", n,
-                           CRS_MAP_MAX_CMD_N);
-                }
-
-                // update
-                cmd_n -= CRS_MAP_MAX_CMD_N;
-                cmds += CRS_MAP_MAX_CMD_N;
-            }
-
-            assert(cmd_n < CRS_MAP_MAX_CMD_N);
+        if (write(comm_fd, &crs_status, 4) != 4) {
+            EXITME("fail to send crs status");
         }
 
         /*

@@ -23,6 +23,12 @@ typedef struct crs_cmd_t {
     size_t size;
 } CRSCmd;
 
+enum {
+    CRS_STATUS_NONE,        // nothing to do for fork server
+    CRS_STATUS_REMMAP,      // fork server needs to remmap shadow code
+    CRS_STATUS_CRASH = -1,  // a crash in the subject program
+};
+
 /*
  * Memory layout of CRS shared memory:
  *

@@ -267,51 +267,6 @@ static inline int fork_server_get_shm_id(char **envp) {
 }
 
 /*
- * Patch guided by CRS patch commands
- */
-static inline void fork_server_patch(int n, bool *shadow_need_sync) {
-    // update n
-    if (n > CRS_MAP_MAX_CMD_N) {
-        utils_error(patch_cmd_err_str, true);
-    }
-
-    CRSCmd *cmd = (CRSCmd *)(CRS_MAP_ADDR);
-    for (int i = 0; i < n; i++, cmd++) {
-        if (cmd->type == CRS_CMD_NONE) {
-            // place holder
-            continue;
-        } else if (cmd->type == CRS_CMD_REMMAP) {
-            // munmap current shadow file
-            if (sys_munmap(RW_PAGE_INFO(shadow_base),
-                           RW_PAGE_INFO(shadow_size))) {
-                utils_error(mumap_err_str, true);
-            }
-            // remmap it
-            RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
-                RW_PAGE_INFO(shadow_path), false, RW_PAGE_INFO(shadow_base),
-                PROT_READ | PROT_EXEC);
-            // we do not need to sync the file right now
-            *shadow_need_sync = false;
-        } else if (cmd->type == CRS_CMD_REWRITE) {
-            // patch one by one
-            for (int j = 0; j < cmd->size; j++) {
-                *((char *)(RW_PAGE_INFO(program_base) + cmd->addr + j)) =
-                    cmd->buf[j];
-            }
-        } else if (cmd->type == CRS_CMD_MPROTECT) {
-            // change page permission
-            if (sys_mprotect(cmd->addr + RW_PAGE_INFO(program_base), cmd->size,
-                             cmd->data)) {
-                utils_error(mprotect_err_str, true);
-            }
-            continue;
-        } else {
-            utils_error(cmd_err_str, true);
-        }
-    }
-}
-
-/*
  * Connect to the pipeline
  */
 static inline int fork_server_connect_pipe() {
@@ -570,49 +525,33 @@ NO_INLINE void fork_server_start(char **envp) {
         }
 
         // step (7.7). check the client's status
+        // XXX: after going into the SUSPECT_STATUS branch, the program is
+        // either crashed by a patch (which will lead to a crs_loop) or a
+        // subject bug.
         if (IS_SUSPECT_STATUS(client_status)) {
             // step (7.7.1). notify the daemon and wait response
             //      + sending out the status
-            //      + receiving the number of commands or -1
-            int cmd_n = -1;
+            //      + receiving the status of crash site (CRS)
+            int crs_status = CRS_STATUS_CRASH;
             {
                 sys_write(CRS_COMM_FD, (char *)&client_status, 4);
-                sys_read(CRS_COMM_FD, (char *)&cmd_n, 4);
+                sys_read(CRS_COMM_FD, (char *)&crs_status, 4);
             }
 
-            // step (7.7.2). if we need patch, do patch and notify the daemon
-            if (cmd_n >= 0) {
-                // TODO: remove out-of-date variable when using shared memory
-                bool shadow_need_sync = true;
-
-                // patch all cmds
-                while (true) {
-                    // do patch
-                    fork_server_patch(cmd_n, &shadow_need_sync);
-                    // terminate if needed
-                    if (cmd_n < CRS_MAP_MAX_CMD_N) {
-                        break;
+            // step (7.7.2). if the crash is not caused by a patch
+            if (crs_status != CRS_STATUS_CRASH) {
+                // check remmap
+                if (crs_status == CRS_STATUS_REMMAP) {
+                    // munmap current shadow file
+                    if (sys_munmap(RW_PAGE_INFO(shadow_base),
+                                   RW_PAGE_INFO(shadow_size))) {
+                        utils_error(mumap_err_str, true);
                     }
-                    // send back how many cmds are actually patched
-                    sys_write(CRS_COMM_FD, (char *)&cmd_n, 4);
-                    sys_read(CRS_COMM_FD, (char *)&cmd_n, 4);
+                    // remmap it
+                    RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
+                        RW_PAGE_INFO(shadow_path), false,
+                        RW_PAGE_INFO(shadow_base), PROT_READ | PROT_EXEC);
                 }
-
-                // fsync shadow code and lookup table
-                // XXX: disabled, more details can be found in
-                // z_core_start_deamon step (3.5) "sync binary" in core.c
-                /*
-                if (sys_msync(LOOKUP_TABLE_ADDR, RW_PAGE_INFO(lookup_tab_size),
-                              MS_SYNC)) {
-                    utils_error(msync_err_str, true);
-                }
-                if (shadow_need_sync) {
-                    if (sys_msync(RW_PAGE_INFO(shadow_base),
-                                  RW_PAGE_INFO(shadow_size), MS_SYNC)) {
-                        utils_error(msync_err_str, true);
-                    }
-                }
-                */
 
                 // we are going into the CRS loop which is out of AFL's control
                 crs_loop = true;
