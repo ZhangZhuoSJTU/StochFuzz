@@ -548,7 +548,7 @@ Z_API GQueue *z_disassembler_recursive_disasm(Disassembler *d, addr_t addr) {
                                 (gpointer)inst);
 
             // [5]. analyze instruction group
-            addr_t target_addrs[2] = {INVALID_ADDR};
+            addr_t target_addrs[2] = {INVALID_ADDR, INVALID_ADDR};
             bool do_more = __disassembler_analyze_inst(inst, target_addrs);
             z_trace("find target addresss: %#lx %#lx", target_addrs[0],
                     target_addrs[1]);

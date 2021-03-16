@@ -243,6 +243,13 @@ Z_PRIVATE void __core_read_crashpoint_log(Core *core) {
     for (size_t i = 0; i < file_size; i += sizeof(CrashPoint), cp++) {
         // handle virtual crashpoints
         if (cp->type & VCP_CALLEE) {
+            if (z_disassembler_fully_support_prob_disasm(core->disassembler)) {
+                // TODO: skip this VCP_CALLEE instead of directly exiting
+                EXITME(
+                    "while pdisasm is fully enabled, currently we cannot "
+                    "support this VCP_CALLEE: %#lx",
+                    cp->addr);
+            }
             z_rewriter_set_returned_callees(core->rewriter, cp->addr);
             if (!(cp->type = cp->type & (~VCP_CALLEE))) {
                 continue;
@@ -317,6 +324,7 @@ Z_PRIVATE void __core_setup_shm(Core *core) {
     if (core->shm_id != INVALID_SHM_ID) {
         EXITME("multiple CRS shared memory detected");
     }
+
     // step (1). set shared memory id
     core->shm_id =
         shmget(IPC_PRIVATE, CRS_MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
@@ -608,7 +616,11 @@ Z_PUBLIC bool z_core_validate_address(Core *core, addr_t *addr_ptr,
         if (!z_patcher_check(core->patcher, addr)) {
             return false;
         }
-        // XXX: retaddr patch may cause crash when enabling pdisasm
+        // XXX: retaddr patch may cause crash when enabling pdisasm.
+        // XXX: note that if core does not generate any CP_RETADDR, all
+        // ret-related functions of rewriter will not be invoked and no
+        // VCP_CALLEE will be generated. That is why this check is extremely
+        // important.
         if (!z_disassembler_fully_support_prob_disasm(core->disassembler) &&
             z_rewriter_check_retaddr_crashpoint(core->rewriter, addr)) {
             z_info("find new address [retaddr]: \033[32m%#x\033[0m", addr);

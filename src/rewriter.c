@@ -1051,6 +1051,9 @@ Z_API bool z_rewriter_check_retaddr_crashpoint(Rewriter *r, addr_t addr) {
                                  GSIZE_TO_POINTER(addr));
 }
 
+// XXX: every time we find a new retaddr, we will do following things:
+//  1. mark its corresponding callee as returnable (generate a VCP_CALLEE later)
+//  2. find all the retaddrs associated with this VCP_CALLEE and patch them
 Z_API Buffer *z_rewriter_new_validate_retaddr(Rewriter *r, addr_t retaddr) {
     assert(
         g_hash_table_lookup(r->retaddr_crashpoints, GSIZE_TO_POINTER(retaddr)));

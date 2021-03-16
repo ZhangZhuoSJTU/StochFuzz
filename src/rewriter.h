@@ -25,6 +25,7 @@ STRUCT(Rewriter, {
     /*
      * meta-info for CP_RETADDR
      */
+    // XXX: note that when pdisasm is fully supported, CP_RETADDR is disabled.
     // patched retaddr, which is potential to be crashpoint
     GHashTable *retaddr_crashpoints;
     // callees who will return
