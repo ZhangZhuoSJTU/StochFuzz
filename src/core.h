@@ -7,6 +7,7 @@
 #include "binary.h"
 #include "buffer.h"
 #include "config.h"
+#include "diagnoser.h"
 #include "disassembler.h"
 #include "patcher.h"
 #include "rewriter.h"
@@ -54,6 +55,7 @@ STRUCT(Core, {
     Disassembler *disassembler;
     Patcher *patcher;
     Rewriter *rewriter;
+    Diagnoser *diagnoser;
 
     GHashTable *crashpoints;
     const char *crashpoint_log;

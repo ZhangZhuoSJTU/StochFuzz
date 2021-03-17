@@ -499,6 +499,7 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
     core->disassembler = z_disassembler_create(core->binary);
     core->rewriter = z_rewriter_create(core->disassembler);
     core->patcher = z_patcher_create(core->disassembler);
+    core->diagnoser = z_diagnoser_create(core->patcher, core->rewriter);
 
     core->crashpoints =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -538,6 +539,7 @@ Z_PUBLIC void z_core_destroy(Core *core) {
 
     __core_write_crashpoint_log(core);
 
+    z_diagnoser_destroy(core->diagnoser);
     z_patcher_destroy(core->patcher);
     z_rewriter_destroy(core->rewriter);
     z_disassembler_destroy(core->disassembler);

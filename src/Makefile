@@ -57,6 +57,7 @@ OBJS=\
 	patcher.o \
 	inst_analyzer.o \
 	capstone_.o \
+	diagnoser.o \
 	core.o
 
 .PHONY: clean format
