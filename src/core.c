@@ -260,24 +260,17 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             __core_cancel_client_clock(core, pid);
 
             z_core_attach(core);
-            addr_t crash_rip = 0;
-            if (IS_SUSPECT_STATUS(status)) {
-                z_info("potential patch crash");
-                read(signal_fd, (char *)(&crash_rip), 8);
-                close(st_pipe[0]);
-                addr_t addr = crash_rip;
-                CPType cp_type = CP_NONE;
 
-                if (!z_core_validate_address(core, &addr, &cp_type)) {
-                    z_error("real crash! %#lx", addr);
-                    z_free(argv_);
-                    z_free((char *)patched_filename);
-                    return status;
-                }
+            addr_t crash_rip = CRS_INVALID_IP;
+            // XXX: this read may fail when the status is not suspect
+            read(signal_fd, (char *)(&crash_rip), 8);
+            close(st_pipe[0]);
 
-                z_core_new_address(core, addr, cp_type);
-            } else {
-                close(st_pipe[0]);
+            CRSStatus crs_status =
+                z_diagnoser_new_crashpoint(core->diagnoser, status, crash_rip);
+
+            if (crs_status == CRS_STATUS_CRASH ||
+                crs_status == CRS_STATUS_OTHERS) {
                 z_free(argv_);
                 z_free((char *)patched_filename);
                 return status;
@@ -531,65 +524,30 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         }
 
         /*
-         * step (3.2). if not patched crash, direct break from the loop
+         * step (3.2). get crash rip
          */
-        if (!IS_SUSPECT_STATUS(status)) {
-            z_info("the client is not terminated/stopped by a patched crash");
-            goto NOT_PATCHED_CRASH;
-        }
+        addr_t crash_rip = CRS_INFO_BASE(core->shm_addr, crash_ip);
+        CRS_INFO_BASE(core->shm_addr, crash_ip) = CRS_INVALID_IP;
 
         /*
          * step (3.3). check returning status and get patch commands
          */
-        int crs_status = CRS_STATUS_NONE;
-        {
-            // step (3.3.0). recv crashed rip from shm
-            CPType cp_type = CP_NONE;
-            addr_t addr = CRS_INFO_BASE(core->shm_addr, crash_ip);
+        // XXX: we use int to guarantee a 4-byte integer
+        int crs_status =
+            z_diagnoser_new_crashpoint(core->diagnoser, status, crash_rip);
 
-            // step (3.3.1). check INVALID and update
-            if (addr == CRS_INVALID_IP) {
-                EXITME(
-                    "client exits as SUSPECT_STATUS but no suspected address "
-                    "is sent to daemon");
-                break;
+        if (crs_status == CRS_STATUS_CRASH) {
+            if (write(comm_fd, &crs_status, 4) != 4) {
+                EXITME("fail to notify real crash");
             }
-            CRS_INFO_BASE(core->shm_addr, crash_ip) = CRS_INVALID_IP;
-
-            // step (3.3.2). if any crashed rip is found, it means it is caused
-            // by sigsegv
-            z_info("find current crash rip: " COLOR(GREEN, "%#lx"), addr);
-
-            // step (3.3.3). validate crashed rip
-            if (!z_core_validate_address(core, &addr, &cp_type)) {
-                z_info(COLOR(RED, "real crash!"));
-                // notify the client that it is a real crash
-                crs_status = CRS_STATUS_CRASH;
-                if (write(comm_fd, &crs_status, 4) != 4) {
-                    EXITME("fail to notify real crash");
-                }
-                goto NOT_PATCHED_CRASH;
-            }
-
-            // step (3.3.4). patch
-            z_info("patched crash, prepare patch guidance");
-            z_core_new_address(core, addr, cp_type);
+            goto NOT_PATCHED_CRASH;
+        }
+        if (crs_status == CRS_STATUS_OTHERS) {
+            goto NOT_PATCHED_CRASH;
         }
 
         /*
-         * step (3.4). check shadow file
-         */
-        if (z_binary_check_state(core->binary, ELFSTATE_SHADOW_EXTENDED)) {
-            z_info("underlying shadow file is extended");
-            crs_status = CRS_STATUS_REMMAP;
-
-            // do not forget to disable the shadow_extened flag
-            z_binary_set_elf_state(core->binary,
-                                   ELFSTATE_SHADOW_EXTENDED | ELFSTATE_DISABLE);
-        }
-
-        /*
-         * step (3.5). sync binary
+         * step (3.4). sync binary
          */
         // XXX: according to the following link, it seems the fsync is used to
         // sync changed pages from RAM to the file. It means, those changes made
@@ -602,30 +560,30 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         // z_binary_fsync(core->binary);
 
         /*
-         * step (3.6). send status
+         * step (3.5). send status
          */
         if (write(comm_fd, &crs_status, 4) != 4) {
             EXITME("fail to send crs status");
         }
 
         /*
-         * step (3.7). continue on patching while checking timeout
+         * step (3.6). continue on patching while checking timeout
          */
         {
-            // step (3.7.1). set clock
+            // step (3.6.1). set clock
             pid_t client_pid = INVALID_PID;
             if (read(comm_fd, &client_pid, 4) != 4) {
                 EXITME("fail to recv client_pid [befor execution]");
             }
             __core_set_client_clock(core, client_pid);
 
-            // step (3.7.2). cancel clock
+            // step (3.6.2). cancel clock
             if (read(comm_fd, &client_pid, 4) != 4) {
                 EXITME("fail to recv client_pid [after execution]");
             }
             __core_cancel_client_clock(core, client_pid);
         }
-        // step (3.7.3). continue
+        // step (3.6.3). continue
         continue;
 
     NOT_PATCHED_CRASH:

@@ -7,9 +7,12 @@
 #include "afl_config.h"
 
 typedef enum crs_status_t {
-    CRS_STATUS_NONE,        // nothing to do for fork server
-    CRS_STATUS_REMMAP,      // fork server needs to remmap shadow code
-    CRS_STATUS_CRASH = -1,  // a crash in the subject program
+    CRS_STATUS_NONE,    // nothing to do for fork server
+    CRS_STATUS_REMMAP,  // fork server needs to remmap shadow code
+    CRS_STATUS_CRASH,   // a crash in the subject program
+
+    // XXX: CRS_STATUS_OTHERS will not be sent to fork server
+    CRS_STATUS_OTHERS = -1,  // other status (non-suspect)
 } CRSStatus;
 
 /*

@@ -18,8 +18,7 @@ Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
 /*
  * Validate a crashpoint, return INVALID_ADDR if it is an unintentional crash
  */
-Z_PRIVATE addr_t __diagnoser_validate_crashpoint(Diagnoser *g, int status,
-                                                 addr_t addr);
+Z_PRIVATE addr_t __diagnoser_validate_crashpoint(Diagnoser *g, addr_t addr);
 
 /*
  * Get the CPType of the given crashpoint
@@ -77,26 +76,20 @@ Z_PRIVATE CPType __diagnoser_get_crashpoint_type(Diagnoser *g, addr_t addr,
         // important.
         if (!z_disassembler_fully_support_prob_disasm(g->disassembler) &&
             z_rewriter_check_retaddr_crashpoint(g->rewriter, addr)) {
-            z_info("find new address [retaddr]: " COLOR(GREEN, "%l#x"), addr);
+            z_info("find new address [retaddr]: " COLOR(GREEN, "%#lx"), addr);
             return CP_RETADDR;
         } else {
-            z_info("find new address [external]: " COLOR(GREEN, "%l#x"), addr);
+            z_info("find new address [external]: " COLOR(GREEN, "%#lx"), addr);
             return CP_EXTERNAL;
         }
     }
 }
 
-Z_PRIVATE addr_t __diagnoser_validate_crashpoint(Diagnoser *g, int status,
-                                                 addr_t addr) {
+Z_PRIVATE addr_t __diagnoser_validate_crashpoint(Diagnoser *g, addr_t addr) {
     assert(g != NULL);
 
-    // step (0). check INVALID_ADDR
+    // step (1). check INVALID_ADDR
     if (addr == INVALID_ADDR) {
-        return INVALID_ADDR;
-    }
-
-    // step (1). check whether the status is suspect
-    if (!IS_SUSPECT_STATUS(status)) {
         return INVALID_ADDR;
     }
 
@@ -306,21 +299,31 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
 
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
                                            addr_t addr) {
-    addr_t real_addr = __diagnoser_validate_crashpoint(g, status, addr);
+    // step (0). check whether the status is suspect
+    if (!IS_SUSPECT_STATUS(status)) {
+        z_info("non-suspect status: %d", status);
+        return CRS_STATUS_OTHERS;
+    }
+    if (addr == CRS_INVALID_IP) {
+        EXITME("the client exits as SUSPECT but no suspected address is sent");
+    }
 
-    // step (1). check whether real_addr is INVALID_ADDR
+    // step (1). validate crashpoint
+    addr_t real_addr = __diagnoser_validate_crashpoint(g, addr);
+
+    // step (2). check whether real_addr is INVALID_ADDR
     if (real_addr == INVALID_ADDR) {
-        z_info(COLOR(RED, "real crash!"));
+        z_error(COLOR(RED, "real crash! (%#lx)"), addr);
         return CRS_STATUS_CRASH;
     }
 
-    // step (2). get CPType
+    // step (3). get CPType
     CPType cp_type = __diagnoser_get_crashpoint_type(g, addr, real_addr);
 
-    // step (3). patch the intentional crash
+    // step (4). patch the intentional crash
     __diagnoser_patch_crashpoint(g, real_addr, cp_type);
 
-    // step (4). check remmap
+    // step (5). check remmap
     if (z_binary_check_state(g->binary, ELFSTATE_SHADOW_EXTENDED)) {
         z_info("underlying shadow file is extended");
 
