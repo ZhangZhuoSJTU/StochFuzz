@@ -60,17 +60,6 @@ Z_PUBLIC Core *z_core_create(const char *pathname);
 Z_PUBLIC void z_core_destroy(Core *core);
 
 /*
- * Find new valid address
- */
-Z_PUBLIC void z_core_new_address(Core *core, addr_t addr, CPType cp_type);
-
-/*
- * Validate address
- */
-Z_PUBLIC bool z_core_validate_address(Core *core, addr_t *addr_ptr,
-                                      CPType *cp_type);
-
-/*
  * Activate core analysis
  */
 Z_PUBLIC void z_core_activate(Core *core);

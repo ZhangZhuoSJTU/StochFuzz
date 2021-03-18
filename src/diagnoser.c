@@ -37,6 +37,9 @@ Z_PRIVATE void __diagnoser_patch_crashpoint(Diagnoser *g, addr_t addr,
  */
 DEFINE_GETTER(Diagnoser, diagnoser, GHashTable *, crashpoints);
 
+// XXX: note that __diagnoser_patch_crashpoint's parameter *cp_type* must be a
+// single type (e.g., CP_INTERNAL), instead of multiple types (e.g., CP_RETADDR
+// | CP_EXTERNAL)
 Z_PRIVATE void __diagnoser_patch_crashpoint(Diagnoser *g, addr_t addr,
                                             CPType cp_type) {
     if (cp_type == CP_RETADDR) {
