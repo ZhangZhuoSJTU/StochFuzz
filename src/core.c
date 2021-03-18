@@ -74,11 +74,6 @@ static void __core_environment_setup(void) {
 }
 
 /*
- * Getter and Setter
- */
-DEFINE_GETTER(Core, core, GHashTable *, crashpoints);
-
-/*
  * Set clock for client timeout
  */
 Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
@@ -87,33 +82,6 @@ Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
  * Cancel clock for client timeout
  */
 Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid);
-
-/*
- * Read crashpoint information from logfile
- */
-Z_PRIVATE void __core_read_crashpoint_log(Core *core);
-
-/*
- * Update a crashpoint's information
- */
-Z_PRIVATE void __core_update_crashpoint_type(Core *core, addr_t addr,
-                                             CPType type);
-
-/*
- * Log down crashpoints' informationnn
- */
-Z_PRIVATE void __core_write_crashpoint_log(Core *core);
-
-/*
- * Apply all logged crashpoints
- */
-Z_PRIVATE void __core_apply_logged_crashpoints(Core *core);
-
-/*
- * Handler a new address
- */
-Z_PRIVATE void __core_handle_single_new_address(Core *core, addr_t addr,
-                                                CPType cp_type);
 
 /*
  * Setup Shared memory of CRS
@@ -177,148 +145,6 @@ Z_PRIVATE void __core_setup_unix_domain_socket(Core *core) {
     }
 }
 
-Z_PRIVATE void __core_apply_logged_crashpoints(Core *core) {
-#define __SHOW_CP(addr, type)                                                  \
-    do {                                                                       \
-        z_info("logged crashpoint [%s%s%s%s%s]: " COLOR(GREEN, "%#lx"),        \
-               ((type)&CP_INTERNAL) ? "internal" : "",                         \
-               (((type)&CP_INTERNAL) && ((type)&CP_EXTERNAL)) ? "|" : "",      \
-               ((type)&CP_EXTERNAL) ? "external" : "",                         \
-               (((type) & (CP_INTERNAL | CP_EXTERNAL)) && ((type)&CP_RETADDR)) \
-                   ? "|"                                                       \
-                   : "",                                                       \
-               ((type)&CP_RETADDR) ? "retaddr" : "", addr);                    \
-    } while (0)
-
-#define __APPLY_CPS(filter)                                     \
-    do {                                                        \
-        GHashTableIter iter;                                    \
-        gpointer key, value;                                    \
-        g_hash_table_iter_init(&iter, core->crashpoints);       \
-                                                                \
-        while (g_hash_table_iter_next(&iter, &key, &value)) {   \
-            addr_t addr = (addr_t)key;                          \
-            addr_t type = (CPType)value & (filter);             \
-            if (!type) {                                        \
-                continue;                                       \
-            }                                                   \
-            __SHOW_CP(addr, type);                              \
-            __core_handle_single_new_address(core, addr, type); \
-        }                                                       \
-    } while (0)
-
-    // we do this in two round, where we first ignore CP_RETADDR, and then we
-    // only work on CP_RETADDR. So that we can make sure all blocks are
-    // identified before building ret bridgs.
-    __APPLY_CPS(~CP_RETADDR);
-    __APPLY_CPS(CP_RETADDR);
-
-#undef __APPLY_CPS
-#undef __SHOW_CP
-}
-
-Z_PRIVATE void __core_update_crashpoint_type(Core *core, addr_t addr,
-                                             CPType type) {
-    CPType type_ =
-        (CPType)g_hash_table_lookup(core->crashpoints, GSIZE_TO_POINTER(addr));
-    if ((type | type_) != type_) {
-        // this check is very important, which is used to avoid modifying
-        // core->crashpoints and invalidating any iterator associated with the
-        // hash table
-        g_hash_table_insert(core->crashpoints, GSIZE_TO_POINTER(addr),
-                            GSIZE_TO_POINTER(type | type_));
-    }
-}
-
-Z_PRIVATE void __core_read_crashpoint_log(Core *core) {
-    if (z_access(core->crashpoint_log, F_OK)) {
-        z_trace("log file for crashpoints (%s) does not exist",
-                core->crashpoint_log);
-        return;
-    }
-
-    Buffer *buffer = z_buffer_read_file(core->crashpoint_log);
-    CrashPoint *cp = (CrashPoint *)z_buffer_get_raw_buf(buffer);
-    size_t file_size = z_buffer_get_size(buffer);
-    for (size_t i = 0; i < file_size; i += sizeof(CrashPoint), cp++) {
-        // handle virtual crashpoints
-        if (cp->type & VCP_CALLEE) {
-            if (z_disassembler_fully_support_prob_disasm(core->disassembler)) {
-                // TODO: skip this VCP_CALLEE instead of directly exiting
-                EXITME(
-                    "while pdisasm is fully enabled, currently we cannot "
-                    "support this VCP_CALLEE: %#lx",
-                    cp->addr);
-            }
-            z_rewriter_set_returned_callees(core->rewriter, cp->addr);
-            if (!(cp->type = cp->type & (~VCP_CALLEE))) {
-                continue;
-            }
-        }
-
-        __core_update_crashpoint_type(core, cp->addr, cp->type);
-    }
-
-    z_buffer_destroy(buffer);
-}
-
-Z_PRIVATE void __core_write_crashpoint_log(Core *core) {
-    // before write crashpoints, we need to store unlogged retaddr crashpoints
-    {
-        GHashTable *unlogged_retaddr_crashpoints =
-            z_rewriter_get_unlogged_retaddr_crashpoints(core->rewriter);
-
-        GHashTableIter iter;
-        gpointer key, value;
-        g_hash_table_iter_init(&iter, unlogged_retaddr_crashpoints);
-
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-            addr_t addr = (addr_t)key;
-            __core_update_crashpoint_type(core, addr, CP_RETADDR);
-        }
-    }
-
-    // update VCP_CALLEE
-    {
-        GHashTable *returned_callees =
-            z_rewriter_get_returned_callees(core->rewriter);
-
-        GHashTableIter iter;
-        gpointer key, value;
-        g_hash_table_iter_init(&iter, returned_callees);
-
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-            addr_t addr = (addr_t)key;
-            __core_update_crashpoint_type(core, addr, VCP_CALLEE);
-        }
-    }
-
-    {
-#ifndef BINARY_SEARCH_INVALID_CRASH
-        // write down all crashpoints
-        FILE *f = z_fopen(core->crashpoint_log, "wb");
-        CrashPoint cp = {
-            .addr = INVALID_ADDR,
-            .type = CP_NONE,
-        };
-
-        GHashTableIter iter;
-        gpointer key, value;
-        g_hash_table_iter_init(&iter, core->crashpoints);
-
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-            cp.addr = (addr_t)key;
-            cp.type = (CPType)value;
-            if (z_fwrite(&cp, sizeof(CrashPoint), 1, f) != 1) {
-                EXITME("error on writing crashpoint log file");
-            }
-        }
-
-        z_fclose(f);
-#endif
-    }
-}
-
 Z_PRIVATE void __core_setup_shm(Core *core) {
     // step (0). check shared memory is already setup
     if (core->shm_id != INVALID_SHM_ID) {
@@ -356,23 +182,6 @@ Z_PRIVATE void __core_clean_environment(Core *core) {
     if (!z_access(pipe_filename, F_OK)) {
         remove(pipe_filename);
     }
-}
-
-Z_PRIVATE void __core_handle_single_new_address(Core *core, addr_t addr,
-                                                CPType cp_type) {
-    if (!(cp_type & CP_RETADDR)) {
-        z_rewriter_rewrite(core->rewriter, addr);
-    }
-    if (!(cp_type & CP_INTERNAL)) {
-        // XXX: note that if it is a retaddr crashpoint, its shadow address
-        // should not be a trampoline code.
-        addr_t shadow_addr = z_rewriter_get_shadow_addr(core->rewriter, addr);
-        assert(shadow_addr != INVALID_ADDR);
-        z_patcher_build_bridge(core->patcher, addr, shadow_addr);
-    }
-
-    // update crashpoint log
-    __core_update_crashpoint_type(core, addr, cp_type);
 }
 
 Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
@@ -499,12 +308,10 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
     core->disassembler = z_disassembler_create(core->binary);
     core->rewriter = z_rewriter_create(core->disassembler);
     core->patcher = z_patcher_create(core->disassembler);
-    core->diagnoser = z_diagnoser_create(core->patcher, core->rewriter);
+    core->diagnoser =
+        z_diagnoser_create(core->patcher, core->rewriter, core->disassembler);
 
-    core->crashpoints =
-        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-    core->crashpoint_log = z_strcat(CRASHPOINT_LOG_PREFIX, pathname);
-    __core_read_crashpoint_log(core);
+    z_diagnoser_read_crashpoint_log(core->diagnoser);
 
     core->client_pid = INVALID_PID;
     core->it.it_interval.tv_sec = 0;
@@ -531,22 +338,19 @@ Z_PUBLIC void z_core_activate(Core *core) {
     // XXX: it seems not a good idea to do pre-disassembly (linear-disassembly)
     // z_rewriter_heuristics_rewrite(core->rewriter);
 
-    __core_apply_logged_crashpoints(core);
+    z_diagnoser_apply_logged_crashpoints(core->diagnoser);
 }
 
 Z_PUBLIC void z_core_destroy(Core *core) {
     __core_clean_environment(core);
 
-    __core_write_crashpoint_log(core);
+    z_diagnoser_write_crashpoint_log(core->diagnoser);
 
     z_diagnoser_destroy(core->diagnoser);
     z_patcher_destroy(core->patcher);
     z_rewriter_destroy(core->rewriter);
     z_disassembler_destroy(core->disassembler);
     z_binary_destroy(core->binary);
-
-    g_hash_table_destroy(core->crashpoints);
-    z_free((char *)core->crashpoint_log);
 
     z_free(core);
 
@@ -576,13 +380,14 @@ Z_PUBLIC void z_core_new_address(Core *core, addr_t addr, CPType cp_type) {
         z_info("we found %d CP_RETADDR sharing the same callee", n);
 
         for (int i = 0; i < n; i++) {
-            __core_handle_single_new_address(core, addrs[i], cp_type);
+            __diagnoser_handle_single_crashpoint(core->diagnoser, addrs[i],
+                                                 cp_type);
         }
 
         z_buffer_destroy(retaddrs);
     } else {
         assert(!(cp_type & CP_RETADDR));
-        __core_handle_single_new_address(core, addr, cp_type);
+        __diagnoser_handle_single_crashpoint(core->diagnoser, addr, cp_type);
     }
 
     /*

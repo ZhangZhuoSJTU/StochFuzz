@@ -245,7 +245,7 @@ static inline void mode_view(int argc, const char **argv) {
     z_info("target binary: %s", target);
 
     Core *core = z_core_create(target);
-    GHashTable *cps = z_core_get_crashpoints(core);
+    GHashTable *cps = z_diagnoser_get_crashpoints(core->diagnoser);
 
     GHashTableIter iter;
     gpointer key, value;

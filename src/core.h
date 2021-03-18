@@ -12,40 +12,9 @@
 #include "patcher.h"
 #include "rewriter.h"
 
+#include <gmodule.h>
+
 #include <sys/time.h>
-
-/*
- * CrashPoint Type
- *
- *      CP_INTERNAL:    need to disassemble address
- *      CP_EXTERNAL:    need to disassembly address and build jump bridge
- *      CP_RETADDR:     need to build jump bridge
- *
- *      VCP_CALLEE:     virtual crashpoint (returnable callee)
- */
-typedef enum cp_type_t {
-    /*
-     * Real crashpoint
-     */
-    CP_NONE = 0UL,
-    CP_INTERNAL = (1UL << 0),  // internal indirect call/jump
-    CP_EXTERNAL = (1UL << 1),  // external callback from library
-    CP_RETADDR = (1UL << 2),   // return address when calling library
-
-    /*
-     * followings are virtual crashpoints, which means it is not a real
-     * crashpoint, but meanful information related with crashpoint
-     */
-    VCP_CALLEE = (1UL << 3),  // callees that is known to be going to return
-} CPType;
-
-/*
- * CrashPoint Log
- */
-typedef struct crash_point_t {
-    addr_t addr;
-    CPType type;
-} CrashPoint;
 
 /*
  * Core
@@ -56,9 +25,6 @@ STRUCT(Core, {
     Patcher *patcher;
     Rewriter *rewriter;
     Diagnoser *diagnoser;
-
-    GHashTable *crashpoints;
-    const char *crashpoint_log;
 
     // timeout info
     pid_t client_pid;
@@ -71,8 +37,6 @@ STRUCT(Core, {
     // unix domain information
     int sock_fd;
 });
-
-DECLARE_GETTER(Core, core, GHashTable *, crashpoints);
 
 /*
  * Dry run without starting any server
