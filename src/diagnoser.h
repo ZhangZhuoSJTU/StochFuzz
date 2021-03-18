@@ -1,7 +1,9 @@
 #ifndef __DIAGNOSER_H
 #define __DIAGNOSER_H
 
+#include "binary.h"
 #include "config.h"
+#include "crs_config.h"
 #include "disassembler.h"
 #include "patcher.h"
 #include "rewriter.h"
@@ -46,6 +48,8 @@ typedef struct crash_point_t {
  * while it also manages the schedule of self-recovering.
  */
 STRUCT(Diagnoser, {
+    Binary *binary;
+
     Patcher *patcher;
     Rewriter *rewriter;
     Disassembler *disassembler;
@@ -81,6 +85,13 @@ Z_API void z_diagnoser_write_crashpoint_log(Diagnoser *g);
  * Apply all logged crashpoints
  */
 Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g);
+
+/*
+ * Find a new crashpoint, and diagnoser will validate this crashpoint and does
+ * patch accordingly.
+ */
+Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
+                                           addr_t addr);
 
 // XXX: temporarily set a private function as public
 Z_API void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,

@@ -6,11 +6,11 @@
 
 #include "afl_config.h"
 
-enum {
+typedef enum crs_status_t {
     CRS_STATUS_NONE,        // nothing to do for fork server
     CRS_STATUS_REMMAP,      // fork server needs to remmap shadow code
     CRS_STATUS_CRASH = -1,  // a crash in the subject program
-};
+} CRSStatus;
 
 /*
  * [CRS_INFO] The crash site information needed by self-patching
