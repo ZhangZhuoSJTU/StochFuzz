@@ -95,7 +95,7 @@ tps:
 	$(MAKE) -C trampolines
 
 handlers:
-	python rewriter_handlers/generate.py rewriter_handlers
+	python3 rewriter_handlers/generate.py rewriter_handlers
 
 binary.o: loader fork_server tps handlers
 
