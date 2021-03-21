@@ -7,13 +7,11 @@
 Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
                                                   CPType type);
 
-// XXX: temporarily set a private function as public
-// /*
-//  * Handler a single crashpoint (the real function handling patching).
-//  */
-// Z_PRIVATE void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t
-// addr,
-//                                                     CPType type);
+/*
+ * Handler a single crashpoint (the real function while handles patching).
+ */
+Z_PRIVATE void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
+                                                    CPType type);
 
 /*
  * Validate a crashpoint, return INVALID_ADDR if it is an unintentional crash

@@ -93,8 +93,4 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g);
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
                                            addr_t addr);
 
-// XXX: temporarily set a private function as public
-Z_API void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
-                                                CPType type);
-
 #endif
