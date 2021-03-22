@@ -121,11 +121,13 @@ Z_API void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
         z_rewriter_rewrite(g->rewriter, addr);
     }
     if (!(type & CP_INTERNAL)) {
-        // XXX: note that if it is a retaddr crashpoint, its shadow address
-        // should not be a trampoline code.
-        addr_t shadow_addr = z_rewriter_get_shadow_addr(g->rewriter, addr);
+        // XXX: note that if it is a retaddr crashpoint, its corresponding
+        // shadow code should not start with an AFL trampoline.
+        addr_t bridge_addr = z_patcher_adjust_bridge_address(g->patcher, addr);
+        addr_t shadow_addr =
+            z_rewriter_get_shadow_addr(g->rewriter, bridge_addr);
         assert(shadow_addr != INVALID_ADDR);
-        z_patcher_build_bridge(g->patcher, addr, shadow_addr);
+        z_patcher_build_bridge(g->patcher, bridge_addr, shadow_addr);
     }
 
     // update crashpoint log

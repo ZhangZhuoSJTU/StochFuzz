@@ -35,6 +35,11 @@ Z_API Patcher *z_patcher_create(Disassembler *d);
 Z_API void z_patcher_destroy(Patcher *p);
 
 /*
+ * Patcher show details
+ */
+Z_API void z_patcher_describe(Patcher *p);
+
+/*
  * Patch all instructions whose probabilities are high enough
  */
 Z_API void z_patcher_patch_all(Patcher *p);
@@ -51,8 +56,9 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                                   addr_t shadow_addr);
 
 /*
- * Patcher show details
+ * Adjust the address of a given bridge. This function may also change current
+ * patching.
  */
-Z_API void z_patcher_describe(Patcher *p);
+Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr);
 
 #endif

@@ -418,3 +418,8 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     }
     __patcher_do_patch_on_the_fly(p, ori_addr, ks_size, ks_encode);
 }
+
+Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
+    // TODO: support bridge adjustment
+    return addr;
+}
