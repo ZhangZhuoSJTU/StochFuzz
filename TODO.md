@@ -22,7 +22,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [x] Correctly handle timeout from AFL.
 + [x] Use shared memory for .text section, to avoid the expensive patch commands.
 + [ ] Support self-correction procedure (delta debugging).
-+ [ ] Reduce false positive in recursive disassembly. A possible solution is to have a non-return analysis, with the help of the white-list for library functions .
++ [ ] Support non-return analysis on UCFG, with the help of the white-list for library functions.
 + [ ] Support the on-the-fly probability recalculation.
 + [ ] Support other disassembly backends (for the initial disassembly).
 + [x] Use simple linear disassembly to check the existence of inlined data.
@@ -37,6 +37,7 @@ There are some known issues which we are trying to resolve.
 + When running, the input file may be modified by previous crashed run (due to the new system design).
 + Timeout needs to be set up separately for AFL and StochFuzz (due to the new system design).
 + Test failed on Github Actions Ubuntu 20.04 (the root cause is unknown currently).
++ When lazy superset disassemble is enable, the inst\_analyzer may perform erroneously.
 
 ## Tag Info
 

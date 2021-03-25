@@ -31,10 +31,96 @@ Z_PRIVATE void __patcher_fully_patch(Patcher *p);
 Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
                                              size_t size, const void *buf);
 
+/*
+ * Find a new certain address
+ */
+Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr);
+
+Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr) {
+    // step (0). a quick check of whether addr is already known
+    if (z_addr_dict_exist(p->certain_addresses, addr)) {
+        return;
+    }
+
+    Disassembler *d = p->disassembler;
+    addr_t text_addr = p->text_addr;
+    size_t text_size = p->text_size;
+
+    // step (1). BFS to find all certain addresses
+    GQueue *queue = g_queue_new();
+    g_queue_push_tail(queue, GSIZE_TO_POINTER(addr));
+
+    while (!g_queue_is_empty(queue)) {
+        // step (3.1). pop from queue and get basic information
+        addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
+
+        // step (3.2). update certain_addresses (true means it is an instruction
+        // boundary, otherwise false)
+        if (z_addr_dict_exist(p->certain_addresses, cur_addr)) {
+            // XXX: there are two cases of duplicate updating:
+            //  a: we push the same instruction into the queue twice
+            //  b: there is an overlapping instruction caused by *LOCK* prefix
+            // The other two assertions have the same situation.
+            assert(z_addr_dict_get(p->certain_addresses, cur_addr) ||
+                   (z_addr_dict_get(p->certain_addresses, cur_addr - 1) &&
+                    z_disassembler_get_superset_disasm(d, cur_addr - 1)
+                            ->detail->x86.prefix[0] == X86_PREFIX_LOCK));
+            continue;
+        }
+
+        cs_insn *cur_inst = z_disassembler_get_superset_disasm(d, cur_addr);
+        assert(cur_inst);
+        z_trace("find a certain address " CS_SHOW_INST(cur_inst));
+
+        // currently, p->certain_addresses[cur_addr] must not exist
+        z_addr_dict_set(p->certain_addresses, cur_addr, true);
+
+        for (int i = 1; i < cur_inst->size; i++) {
+            if (z_addr_dict_exist(p->certain_addresses, cur_addr + i)) {
+                // XXX: avoid rewriting the instruction boundary
+                assert(i == 1 &&
+                       z_addr_dict_get(p->certain_addresses, cur_addr + i) &&
+                       cur_inst->detail->x86.prefix[0] == X86_PREFIX_LOCK);
+                break;
+            }
+            z_addr_dict_set(p->certain_addresses, cur_addr + i, false);
+        }
+
+        // step (3.3). update other stuffs, e.g., doing patch
+        // TODO
+
+        // step (3.4). check successors
+        Iter(addr_t, succ_addrs);
+        z_iter_init_from_buf(succ_addrs,
+                             z_disassembler_get_successors(d, cur_addr));
+        while (!z_iter_is_empty(succ_addrs)) {
+            addr_t succ_addr = *(z_iter_next(succ_addrs));
+
+            // ignore the one which is not in .text
+            if (succ_addr < text_addr || succ_addr >= text_addr + text_size) {
+                continue;
+            }
+
+            if (z_addr_dict_exist(p->certain_addresses, succ_addr)) {
+                assert(z_addr_dict_get(p->certain_addresses, cur_addr) ||
+                       (z_addr_dict_get(p->certain_addresses, cur_addr - 1) &&
+                        z_disassembler_get_superset_disasm(d, cur_addr - 1)
+                                ->detail->x86.prefix[0] == X86_PREFIX_LOCK));
+                continue;
+            }
+
+            g_queue_push_tail(queue, GSIZE_TO_POINTER(succ_addr));
+        }
+        z_iter_destroy(succ_addrs);
+    }
+
+    // step (2). free queue
+    g_queue_free(queue);
+}
+
 Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
                                              size_t size, const void *buf) {
     ELF *e = z_binary_get_elf(p->binary);
-
     z_elf_write(e, addr, size, buf);
 }
 
@@ -336,6 +422,8 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->text_addr = text->sh_addr;
     p->text_size = text->sh_size;
 
+    z_addr_dict_init(p->certain_addresses, p->text_addr, p->text_size);
+
     p->checkpoints =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
@@ -346,6 +434,8 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
 }
 
 Z_API void z_patcher_destroy(Patcher *p) {
+    z_addr_dict_destroy(p->certain_addresses);
+
     g_hash_table_destroy(p->checkpoints);
     g_hash_table_destroy(p->bridges);
     z_free(p);
@@ -396,6 +486,9 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
         return;
     }
 #endif
+
+    // update certain_addresses
+    __patcher_new_certain_address(p, ori_addr);
 
     addr_t ori_bridge =
         (addr_t)g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(ori_addr));

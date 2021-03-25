@@ -986,6 +986,12 @@ Z_PRIVATE void __elf_parse_other_info(ELF *e) {
     assert(e != NULL);
 
     // Try to identify the address of main function.
+
+    // XXX: like AFL, we try to instrument the binary before main(). But we may
+    // not always successfully locate the main() function.
+    //  * https://github.com/google/AFL/tree/master/llvm_mode
+    //  * https://github.com/talos-vulndev/afl-dyninst
+
     // TODO: in the future, if failed, let the user configure the main address.
     Rptr *cur_ptr = z_elf_vaddr2ptr(e, e->ori_entry);
     addr_t cur_addr = e->ori_entry;

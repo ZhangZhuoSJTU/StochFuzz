@@ -252,20 +252,17 @@ extern const cs_insn *cs_inst;
             cs_close(&cs);                         \
     } while (0)
 
-#define CS_DISASM(rptr, addr, count)                                         \
-    do {                                                                     \
-        if (cs_inst != NULL)                                                 \
-            cs_free((cs_insn *)cs_inst, cs_count);                           \
-        cs_count = cs_disasm(cs, (rptr)->raw_ptr, (rptr)->size, addr, count, \
-                             (cs_insn **)(&cs_inst));                        \
-    } while (0)
-
 #define CS_DISASM_RAW(ptr, size, addr, count)                              \
     do {                                                                   \
         if (cs_inst != NULL)                                               \
             cs_free((cs_insn *)cs_inst, cs_count);                         \
         cs_count =                                                         \
             cs_disasm(cs, ptr, size, addr, count, (cs_insn **)(&cs_inst)); \
+    } while (0)
+
+#define CS_DISASM(rptr, addr, count)                               \
+    do {                                                           \
+        CS_DISASM_RAW((rptr)->raw_ptr, (rptr)->size, addr, count); \
     } while (0)
 
 /*

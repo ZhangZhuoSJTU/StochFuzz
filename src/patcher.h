@@ -1,6 +1,7 @@
 #ifndef __PATCHER_H
 #define __PATCHER_H
 
+#include "address_dictionary.h"
 #include "binary.h"
 #include "buffer.h"
 #include "config.h"
@@ -17,6 +18,11 @@ STRUCT(Patcher, {
     addr_t text_addr;
     size_t text_size;
 
+    // addresses which are certainly known as code
+    AddrDict(bool, certain_addresses);
+
+    // XXX: followings are out-of-date
+    // TODO: update to the new design
     // *all* possible crash points for patching (checkpoints)
     GHashTable *checkpoints;
 

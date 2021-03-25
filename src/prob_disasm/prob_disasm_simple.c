@@ -11,6 +11,7 @@ Z_PRIVATE void __disassembler_pdisasm_create_S(Disassembler *d) {
 
     __SET_PDISASM(d, z_splay_create(NULL));
 
+    // XXX: pdisasm file is mainly used for debugging purpose.
     if (!z_access(pdisasm_filename, F_OK)) {
         // pdisasm file exits
         z_info(
