@@ -17,26 +17,47 @@ static const char __invalid_inst_buf[16] = {0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f,
  * directly patch all possible instructions without calculating pathcing
  * candidates.
  */
-Z_PRIVATE void __patcher_simply_patch(Patcher *p);
+Z_PRIVATE void __patcher_patch_all_S(Patcher *p);
 
 /*
  * When the underlying fully supports prob-disasm, we need to carefully decide
  * which the patch candidates are.
  */
-Z_PRIVATE void __patcher_fully_patch(Patcher *p);
+Z_PRIVATE void __patcher_patch_all_F(Patcher *p);
 
 /*
- * Do patch on the fly: private API to patch the client when the daemon is up
+ * Real patching function
  */
-Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
-                                             size_t size, const void *buf);
+Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
+                               const void *buf);
 
 /*
- * Find a new certain address
+ * Find new certain addresses via BFS
  */
-Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr);
+Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr);
 
-Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr) {
+/*
+ * Patch a new certain address
+ */
+Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
+                                               bool is_inst_boundary);
+
+Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
+                                               bool is_inst_boundary) {
+    assert(!z_addr_dict_exist(p->certain_addresses, addr));
+
+    // step (1). set certain_addresses
+    z_addr_dict_set(p->certain_addresses, addr, is_inst_boundary);
+
+    // step (2). patch underlying binary
+    __patcher_patch(p, addr, 1, __invalid_inst_buf);
+
+    // TODO: update to uncertain_/certain_ patches
+    g_hash_table_insert(p->checkpoints, GSIZE_TO_POINTER(addr),
+                        GSIZE_TO_POINTER(1));
+}
+
+Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
     // step (0). a quick check of whether addr is already known
     if (z_addr_dict_exist(p->certain_addresses, addr)) {
         return;
@@ -72,10 +93,7 @@ Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr) {
         assert(cur_inst);
         z_trace("find a certain address " CS_SHOW_INST(cur_inst));
 
-        // currently, p->certain_addresses[cur_addr] must not exist
-        z_addr_dict_set(p->certain_addresses, cur_addr, true);
-
-        for (int i = 1; i < cur_inst->size; i++) {
+        for (int i = 0; i < cur_inst->size; i++) {
             if (z_addr_dict_exist(p->certain_addresses, cur_addr + i)) {
                 // XXX: avoid rewriting the instruction boundary
                 assert(i == 1 &&
@@ -83,13 +101,10 @@ Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr) {
                        cur_inst->detail->x86.prefix[0] == X86_PREFIX_LOCK);
                 break;
             }
-            z_addr_dict_set(p->certain_addresses, cur_addr + i, false);
+            __patcher_patch_certain_address(p, cur_addr + i, i == 0);
         }
 
-        // step (3.3). update other stuffs, e.g., doing patch
-        // TODO
-
-        // step (3.4). check successors
+        // step (3.3). check successors
         Iter(addr_t, succ_addrs);
         z_iter_init_from_buf(succ_addrs,
                              z_disassembler_get_successors(d, cur_addr));
@@ -118,13 +133,13 @@ Z_PRIVATE void __patcher_new_certain_address(Patcher *p, addr_t addr) {
     g_queue_free(queue);
 }
 
-Z_PRIVATE void __patcher_do_patch_on_the_fly(Patcher *p, addr_t addr,
-                                             size_t size, const void *buf) {
+Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
+                               const void *buf) {
     ELF *e = z_binary_get_elf(p->binary);
     z_elf_write(e, addr, size, buf);
 }
 
-Z_PRIVATE void __patcher_fully_patch(Patcher *p) {
+Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
     Disassembler *d = p->disassembler;
     ELF *e = z_binary_get_elf(p->binary);
 
@@ -322,31 +337,44 @@ Z_PRIVATE void __patcher_fully_patch(Patcher *p) {
     }
 }
 
-Z_PRIVATE void __patcher_simply_patch(Patcher *p) {
+Z_PRIVATE void __patcher_patch_all_S(Patcher *p) {
     addr_t text_addr = p->text_addr;
     size_t text_size = p->text_size;
 
     Disassembler *d = p->disassembler;
-    ELF *e = z_binary_get_elf(p->binary);
-    Rptr *text_ptr = z_elf_vaddr2ptr(e, text_addr);
 
-    for (addr_t addr = text_addr; addr < text_addr + text_size; addr++) {
+    addr_t cur_addr = text_addr;
+    while (cur_addr < text_addr + text_size) {
 #ifdef BINARY_SEARCH_DEBUG_PATCHER
-        if (addr <= BINARY_SEARCH_DEBUG_PATCHER) {
+        if (cur_addr <= BINARY_SEARCH_DEBUG_PATCHER) {
+            cur_addr += 1;
             continue;
         }
 #endif
 
-        if (z_disassembler_get_prob_disasm(d, addr) > PATCH_THRESHOLD) {
-            g_hash_table_insert(p->checkpoints, GSIZE_TO_POINTER(addr),
-                                GSIZE_TO_POINTER(1));
-            RPTR_MEMSET(text_ptr, 0x2f, sizeof(uint8_t));
+        if (z_disassembler_get_prob_disasm(d, cur_addr) < PATCH_THRESHOLD) {
+            cur_addr += 1;
+            continue;
         }
 
-        RPTR_INCR(text_ptr, uint8_t, 1);
-    }
+        cs_insn *cur_inst = z_disassembler_get_superset_disasm(d, cur_addr);
+        assert(cur_inst);
+        z_trace("handle instruction: " CS_SHOW_INST(cur_inst));
 
-    z_rptr_destroy(text_ptr);
+        // TODO: handle the overlapping instruction introduced by *LOCK* prefix
+        size_t i = 0;
+        do {
+            if (z_disassembler_get_prob_disasm(d, cur_addr) < PATCH_THRESHOLD) {
+                EXITME("invalid address for simple pdisasm " CS_SHOW_INST(
+                    cur_inst));
+            }
+
+            __patcher_patch_certain_address(p, cur_addr, i == 0);
+
+            cur_addr += 1;
+            i += 1;
+        } while (i < cur_inst->size);
+    }
 }
 
 Z_API void z_patcher_describe(Patcher *p) {
@@ -449,9 +477,9 @@ Z_API void z_patcher_patch_all(Patcher *p) {
 
     // fill all patch candidates as HLT (0xf4) or ILLEGAL INSTRUCTION (0x2f)
     if (!z_disassembler_fully_support_prob_disasm(p->disassembler)) {
-        __patcher_simply_patch(p);
+        __patcher_patch_all_S(p);
     } else {
-        __patcher_fully_patch(p);
+        __patcher_patch_all_F(p);
     }
 }
 
@@ -488,7 +516,7 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
 #endif
 
     // update certain_addresses
-    __patcher_new_certain_address(p, ori_addr);
+    __patcher_bfs_certain_addresses(p, ori_addr);
 
     addr_t ori_bridge =
         (addr_t)g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(ori_addr));
@@ -509,7 +537,7 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
         // revoke checkpoints
         g_hash_table_remove(p->checkpoints, GSIZE_TO_POINTER(ori_addr + off));
     }
-    __patcher_do_patch_on_the_fly(p, ori_addr, ks_size, ks_encode);
+    __patcher_patch(p, ori_addr, ks_size, ks_encode);
 }
 
 Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {

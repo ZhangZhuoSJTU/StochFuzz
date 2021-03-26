@@ -153,8 +153,8 @@ asm(
  * in the (.text) section.
  */
 #ifdef DEBUG
-    ASM_STRING(loader_logo_str,
-               "\\033[32mpatched by izhuer, current running path: \\033[0m")
+    ASM_STRING(loader_logo_str, "\\033[32mpatched by " OURTOOL
+                                ", current running path: \\033[0m")
     // sigsegv and sigill info string
     ASM_STRING(sigsegv_sigill_info_str, "SIGSEGV/SIGILL occurs, with ")
     // prctl error
