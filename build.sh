@@ -6,6 +6,10 @@ YELLOW="\033[33m"
 BOLD="\033[1m"
 OFF="\033[0m"
 
+CAPSTONE_VERSION="4.0.2"
+KEYSTONE_VERSION="0.9.2"
+GLIB_VERSION="2.68.0"
+
 #
 # check necessary command
 #
@@ -38,7 +42,7 @@ fi
 # build capstone
 #
 
-CAPSTONE_URL="https://github.com/aquynh/capstone/archive/4.0.1.zip"
+CAPSTONE_URL="https://github.com/aquynh/capstone/archive/$CAPSTONE_VERSION.zip"
 
 if [ ! -d capstone ]
 then
@@ -50,7 +54,7 @@ then
 
     echo -e "${GREEN}$0${OFF}: extracting capstone.zip..."
     unzip capstone.zip
-    mv capstone-4.0.1 capstone
+    mv capstone-$CAPSTONE_VERSION capstone
 
     echo -e "${GREEN}$0${OFF}: building capstone.zip..."
     cd capstone
@@ -63,7 +67,7 @@ fi
 # build keystone
 #
 
-KEYSTONE_URL="https://github.com/keystone-engine/keystone/archive/0.9.1.zip"
+KEYSTONE_URL="https://github.com/keystone-engine/keystone/archive/$KEYSTONE_VERSION.zip"
 
 if [ ! -d keystone ]
 then
@@ -75,7 +79,7 @@ then
 
     echo -e "${GREEN}$0${OFF}: extracting keystone.zip..."
     unzip keystone.zip
-    mv keystone-0.9.1 keystone
+    mv keystone-$KEYSTONE_VERSION keystone
 
     echo -e "${GREEN}$0${OFF}: building keystone.zip..."
     cd keystone
@@ -95,7 +99,7 @@ fi
 # build glib
 #
 
-GLIB_URL="https://github.com/GNOME/glib/archive/2.64.2.zip"
+GLIB_URL="https://github.com/GNOME/glib/archive/$GLIB_VERSION.zip"
 
 if [ ! -d glib ]
 then
@@ -107,7 +111,7 @@ then
 
     echo -e "${GREEN}$0${OFF}: extracting glib.zip..."
     unzip glib.zip
-    mv glib-2.64.2 glib
+    mv glib-$GLIB_VERSION glib
 
     echo -e "${GREEN}$0${OFF}: building glib.zip..."
     cd glib

@@ -14,3 +14,5 @@ if [ -d glib ]
 then
     rm -rf glib
 fi
+
+rm -rf *.zip
