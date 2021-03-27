@@ -3,14 +3,15 @@
 
 #include "config.h"
 
-#define IS_RPTR(x) _Generic((x), Rptr * : true, default : false)
+#define __IS_RPTR(x) _Generic((x), Rptr * : true, default : false)
 
-#define RPTR_DEFER(rptr, type) ((type *)z_rptr_safe_raw_ptr(rptr, sizeof(type)))
+#define z_rptr_get_ptr(rptr, type) \
+    ((type *)z_rptr_safe_raw_ptr(rptr, sizeof(type)))
 
-#define RPTR_IS_NULL(rptr) \
+#define z_rptr_is_null(rptr) \
     ((rptr == NULL) || (rptr->raw_ptr == NULL) || (rptr->size == 0))
 
-#define RPTR_INCR(rptr, type, n)                              \
+#define z_rptr_inc(rptr, type, n)                             \
     do {                                                      \
         if ((rptr)->size < (n) * sizeof(type)) {              \
             EXITME("restricted pointer's size is too small"); \
@@ -19,7 +20,7 @@
         (rptr)->size -= (n) * sizeof(type);                   \
     } while (0)
 
-#define RPTR_MEMSET(s, c, n)                                  \
+#define z_rptr_memset(s, c, n)                                \
     do {                                                      \
         if ((s)->size < n) {                                  \
             EXITME("restricted pointer's size is too small"); \
@@ -27,12 +28,13 @@
         memset((s)->raw_ptr, c, n);                           \
     } while (0)
 
-#define RPTR_MEMCPY(dst, src, n)                                    \
+#define z_rptr_memcpy(dst, src, n)                                  \
     do {                                                            \
-        if (IS_RPTR(dst))                                           \
+        if (__IS_RPTR(dst)) {                                       \
             z_rptr_memcpy_to((Rptr *)(dst), (uint8_t *)(src), n);   \
-        else                                                        \
+        } else {                                                    \
             z_rptr_memcpy_from((Rptr *)(src), (uint8_t *)(dst), n); \
+        }                                                           \
     } while (0)
 
 STRUCT(Rptr, {

@@ -88,10 +88,10 @@ Z_RESERVED Z_PRIVATE void __disassembler_pre_disasm(Disassembler *d) {
     array_addr = init_array->sh_addr;
     array = z_elf_vaddr2ptr(e, array_addr);
     for (int i = 0; i < array_size / sizeof(addr_t); i++) {
-        addr_t fcn = *RPTR_DEFER(array, addr_t);
+        addr_t fcn = *z_rptr_get_ptr(array, addr_t);
         z_info(".init.array[%d]: %#lx", i, fcn);
         g_queue_push_tail(bbs, GSIZE_TO_POINTER(fcn));
-        RPTR_INCR(array, addr_t, 1);
+        z_rptr_inc(array, addr_t, 1);
     }
     z_rptr_destroy(array);
 
@@ -101,10 +101,10 @@ Z_RESERVED Z_PRIVATE void __disassembler_pre_disasm(Disassembler *d) {
     array_addr = fini_array->sh_addr;
     array = z_elf_vaddr2ptr(e, array_addr);
     for (int i = 0; i < array_size / sizeof(addr_t); i++) {
-        addr_t fcn = *RPTR_DEFER(array, addr_t);
+        addr_t fcn = *z_rptr_get_ptr(array, addr_t);
         z_info(".fini.array[%d]: %#lx", i, fcn);
         g_queue_push_tail(bbs, GSIZE_TO_POINTER(fcn));
-        RPTR_INCR(array, addr_t, 1);
+        z_rptr_inc(array, addr_t, 1);
     }
     z_rptr_destroy(array);
 
@@ -226,7 +226,7 @@ Z_PRIVATE void __disassembler_superset_disasm(Disassembler *d) {
 
             cs_inst = NULL;  // avoid double free
         }
-        RPTR_INCR(buf, uint8_t, 1);
+        z_rptr_inc(buf, uint8_t, 1);
     }
 
     z_info("superset disassembly done, found %ld instructions",
@@ -309,7 +309,7 @@ Z_API Disassembler *z_disassembler_create(Binary *b) {
 
         d->text_backup = z_alloc(d->text_size, sizeof(uint8_t));
         Rptr *ptr = z_elf_vaddr2ptr(e, d->text_addr);
-        RPTR_MEMCPY(d->text_backup, ptr, d->text_size);
+        z_rptr_memcpy(d->text_backup, ptr, d->text_size);
         z_rptr_destroy(ptr);
     }
 

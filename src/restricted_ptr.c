@@ -7,7 +7,7 @@
 DEFINE_GETTER(Rptr, rptr, size_t, size);
 
 Z_PRIVATE void __rptr_check_null(Rptr *rptr) {
-    if (RPTR_IS_NULL(rptr)) {
+    if (z_rptr_is_null(rptr)) {
         EXITME("rptr is NULL");
     }
 }

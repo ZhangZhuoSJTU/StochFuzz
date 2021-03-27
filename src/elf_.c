@@ -997,7 +997,7 @@ Z_PRIVATE void __elf_parse_other_info(ELF *e) {
     addr_t cur_addr = e->ori_entry;
 
     while (true) {
-        if (RPTR_IS_NULL(cur_ptr)) {
+        if (z_rptr_is_null(cur_ptr)) {
             EXITME("invalid entrypoint or run out of segment");
         }
 
@@ -1067,7 +1067,7 @@ Z_PRIVATE void __elf_parse_other_info(ELF *e) {
 
     NEXT:
         cur_addr += cs_inst[0].size;
-        RPTR_INCR(cur_ptr, uint8_t, cs_inst[0].size);
+        z_rptr_inc(cur_ptr, uint8_t, cs_inst[0].size);
     }
 LOOP_DONE:
 
@@ -1229,14 +1229,14 @@ Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf) {
     assert(e != NULL);
 
     Rptr *rptr = z_elf_vaddr2ptr(e, addr);
-    if (RPTR_IS_NULL(rptr)) {
+    if (z_rptr_is_null(rptr)) {
         z_error("invalid address: %#lx", addr);
         return 0;
     }
 
     size_t n_ = n < z_rptr_get_size(rptr) ? n : z_rptr_get_size(rptr);
 
-    RPTR_MEMCPY(buf, rptr, n_);
+    z_rptr_memcpy(buf, rptr, n_);
     z_rptr_destroy(rptr);
     return n_;
 }
@@ -1299,7 +1299,7 @@ Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
         // other range
 
         Rptr *rptr = z_elf_vaddr2ptr(e, addr);
-        RPTR_MEMCPY(rptr, buf, n);
+        z_rptr_memcpy(rptr, buf, n);
         z_rptr_destroy(rptr);
     }
 

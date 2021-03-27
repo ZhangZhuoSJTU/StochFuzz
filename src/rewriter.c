@@ -870,12 +870,12 @@ Z_API void z_rewriter_rewrite_beyond_main(Rewriter *r) {
         array_addr = type##_array->sh_addr;                          \
         array = z_elf_vaddr2ptr(e, array_addr);                      \
         for (int i = 0; i < array_size / sizeof(addr_t); i++) {      \
-            addr_t fcn = *RPTR_DEFER(array, addr_t);                 \
+            addr_t fcn = *z_rptr_get_ptr(array, addr_t);             \
             z_info("." #type ".array[%d]: %#lx", i, fcn);            \
             z_rewriter_rewrite(r, fcn);                              \
             addr_t shadow_fcn = z_rewriter_get_shadow_addr(r, fcn);  \
-            *RPTR_DEFER(array, addr_t) = shadow_fcn;                 \
-            RPTR_INCR(array, addr_t, 1);                             \
+            *z_rptr_get_ptr(array, addr_t) = shadow_fcn;             \
+            z_rptr_inc(array, addr_t, 1);                            \
         }                                                            \
         z_rptr_destroy(array);                                       \
     } while (0)

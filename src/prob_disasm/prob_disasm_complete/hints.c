@@ -509,7 +509,7 @@ Z_PRIVATE void __prob_disassembler_collect_str_hints(ProbDisassembler *pd) {
     addr_t prev_string = INVALID_ADDR;
     addr_t prev_null = INVALID_ADDR;
     for (addr_t addr = text_addr; addr < text_addr + text_size; addr++) {
-        uint8_t c = *(RPTR_DEFER(text_ptr, uint8_t));
+        uint8_t c = *(z_rptr_get_ptr(text_ptr, uint8_t));
         if (!c) {
             if (prev_string != INVALID_ADDR) {
                 // we ignore null during string scanning
@@ -544,7 +544,7 @@ Z_PRIVATE void __prob_disassembler_collect_str_hints(ProbDisassembler *pd) {
             prev_null = INVALID_ADDR;
         }
 
-        RPTR_INCR(text_ptr, uint8_t, 1);
+        z_rptr_inc(text_ptr, uint8_t, 1);
     }
 
     z_rptr_destroy(text_ptr);
@@ -584,7 +584,7 @@ Z_PRIVATE void __prob_disassembler_collect_value_hints(ProbDisassembler *pd) {
         double128_t numerical_val = 0.0;                                     \
         for (addr_t addr = text_addr; addr < text_addr + text_size;          \
              addr += sizeof(T)) {                                            \
-            T val = *(RPTR_DEFER(text_ptr, T));                              \
+            T val = *(z_rptr_get_ptr(text_ptr, T));                          \
             double128_t val_f = (double128_t)val;                            \
             size_t n = (addr - numerical_addr) >> (B);                       \
                                                                              \
@@ -622,7 +622,7 @@ Z_PRIVATE void __prob_disassembler_collect_value_hints(ProbDisassembler *pd) {
                 numerical_val = val_f;                                       \
             }                                                                \
                                                                              \
-            RPTR_INCR(text_ptr, T, 1);                                       \
+            z_rptr_inc(text_ptr, T, 1);                                      \
         }                                                                    \
                                                                              \
         z_rptr_destroy(text_ptr);                                            \
