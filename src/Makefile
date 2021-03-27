@@ -143,9 +143,6 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
 ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
-ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
-	$(call test_whatever, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -t 5000' z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
-endif
 endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
 	$(call test_succ, cat timeout.daemon.log)
