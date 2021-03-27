@@ -135,8 +135,12 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
 
 Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
                                const void *buf) {
-    ELF *e = z_binary_get_elf(p->binary);
-    z_elf_write(e, addr, size, buf);
+    assert(addr >= p->text_addr);
+
+    // if addr < p->text_addr, the following inc must be out-of-bounded.
+    z_rptr_inc(p->text_ptr, uint8_t, addr - p->text_addr);
+    z_rptr_memcpy(p->text_ptr, buf, size);
+    z_rptr_reset(p->text_ptr);
 }
 
 Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
@@ -449,6 +453,7 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     Elf64_Shdr *text = z_elf_get_shdr_text(e);
     p->text_addr = text->sh_addr;
     p->text_size = text->sh_size;
+    p->text_ptr = z_elf_vaddr2ptr(e, p->text_addr);
 
     z_addr_dict_init(p->certain_addresses, p->text_addr, p->text_size);
 
@@ -466,6 +471,7 @@ Z_API void z_patcher_destroy(Patcher *p) {
 
     g_hash_table_destroy(p->checkpoints);
     g_hash_table_destroy(p->bridges);
+    z_rptr_destroy(p->text_ptr);
     z_free(p);
 }
 

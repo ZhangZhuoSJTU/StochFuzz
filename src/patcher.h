@@ -17,6 +17,7 @@ STRUCT(Patcher, {
     // .text info
     addr_t text_addr;
     size_t text_size;
+    Rptr *text_ptr;
 
     // addresses which are certainly known as code
     AddrDict(bool, certain_addresses);

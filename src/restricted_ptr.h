@@ -9,7 +9,7 @@
     ((type *)z_rptr_safe_raw_ptr(rptr, sizeof(type)))
 
 #define z_rptr_is_null(rptr) \
-    ((rptr == NULL) || (rptr->raw_ptr == NULL) || (rptr->size == 0))
+    (((rptr) == NULL) || ((rptr)->raw_ptr == NULL) || ((rptr)->size == 0))
 
 #define z_rptr_inc(rptr, type, n)                             \
     do {                                                      \
@@ -37,7 +37,14 @@
         }                                                           \
     } while (0)
 
+#define z_rptr_reset(rptr)                                  \
+    do {                                                    \
+        (rptr)->size += (rptr)->raw_ptr - (rptr)->base_ptr; \
+        (rptr)->raw_ptr = (rptr)->base_ptr;                 \
+    } while (0)
+
 STRUCT(Rptr, {
+    uint8_t *base_ptr;
     uint8_t *raw_ptr;
     size_t size;
 });
@@ -50,7 +57,7 @@ DECLARE_GETTER(Rptr, rptr, size_t, size);
 /*
  * Create a restricted pointer.
  */
-Z_API Rptr *z_rptr_create(uint8_t *raw_ptr, size_t size);
+Z_API Rptr *z_rptr_create(uint8_t *base_ptr, size_t size);
 
 /*
  * Destroy a restricted pointer.

@@ -12,9 +12,10 @@ Z_PRIVATE void __rptr_check_null(Rptr *rptr) {
     }
 }
 
-Z_API Rptr *z_rptr_create(uint8_t *raw_ptr, size_t size) {
+Z_API Rptr *z_rptr_create(uint8_t *base_ptr, size_t size) {
     Rptr *rptr = STRUCT_ALLOC(Rptr);
-    rptr->raw_ptr = raw_ptr;
+    rptr->base_ptr = base_ptr;
+    rptr->raw_ptr = base_ptr;
     rptr->size = size;
     return rptr;
 }
