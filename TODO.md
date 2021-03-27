@@ -37,7 +37,6 @@ There are some known issues which we are trying to resolve.
 + When running, the input file may be modified by previous crashed run (due to the new system design).
 + Timeout needs to be set up separately for AFL and StochFuzz (due to the new system design).
 + Test failed on Github Actions Ubuntu 20.04 (the root cause is unknown currently).
-+ When lazy superset disassemble is enable, the inst\_analyzer may perform erroneously.
 
 ## Tag Info
 

@@ -47,6 +47,8 @@ Z_API void z_inst_analyzer_destroy(InstAnalyzer *a);
  * Add a new instruction into analyzing buffer, *maybe_duplicated* means it is
  * possible that InstAnalyzer already analyzes this address
  */
+// XXX: note that it is ok if the predecessors of addr is unknown, which means
+// it is safe to use this function even the superset disassembly is incomplete.
 Z_API void z_inst_analyzer_add_inst(InstAnalyzer *a, addr_t addr,
                                     const cs_insn *inst, bool maybe_duplicated);
 
