@@ -30,7 +30,7 @@
 /*
  * Magic string to indicate the file is patched
  */
-#define MAGIC_STRING "2015.05.02 Shanghai"
+#define MAGIC_STRING "2015.05.02 Shanghai Snow"
 
 /*
  * Genral macro and types
@@ -71,7 +71,7 @@ typedef long double double128_t;
  *  + RW_PAGE_ADDR: fixed address
  *  + LOOKUP_TABLE_ADDR: fixed address
  */
-#define SHADOW_CODE_ADDR 0x12190000
+#define SHADOW_CODE_ADDR 0x2f2f0000
 
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading
