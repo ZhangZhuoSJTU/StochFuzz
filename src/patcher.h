@@ -10,6 +10,15 @@
 
 #include <gmodule.h>
 
+// XXX: note that patchpoint has priority of:
+//  PP_BRIDEG > PP_CERTAIN > PP_UNCERTAIN
+typedef enum patchpoint_type {
+    PP_INVALID = 0UL,
+    PP_UNCERTAIN = 1UL,
+    PP_CERTAIN = 2UL,
+    PP_BRIDGE = 3UL,
+} PPType;
+
 STRUCT(Patcher, {
     Binary *binary;
     Disassembler *disassembler;
@@ -23,10 +32,9 @@ STRUCT(Patcher, {
     // addresses which are certainly known as code
     AddrDict(bool, certain_addresses);
 
-    // XXX: followings are out-of-date
-    // TODO: update to the new design
-    // *all* possible crash points for patching (checkpoints)
-    GHashTable *checkpoints;
+    // patch information
+    GSequence *uncertain_patches;
+    AddrDictFast(bool, certain_patches);
 
     // patched bridge (bridge entrypoint)
     GHashTable *bridges;
@@ -53,9 +61,9 @@ Z_API void z_patcher_describe(Patcher *p);
 Z_API void z_patcher_initially_patch(Patcher *p);
 
 /*
- * Check whether address is a patched crash points (checkpoint)
+ * Check whether address is a patched crash points (patch point)
  */
-Z_API bool z_patcher_check(Patcher *p, addr_t addr);
+Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr);
 
 /*
  * Patch address as a jump bridge

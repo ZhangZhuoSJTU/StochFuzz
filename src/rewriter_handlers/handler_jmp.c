@@ -132,7 +132,7 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
                     */
                    "  mov [rsp - 136], rdx;\n"
                    "  mov [rsp - 144], rdi;\n"
-                   "  xor rdx, rdx;\n" // fuck keystone (issue #295)
+                   "  xor rdx, rdx;\n" // FUCK keystone (issue #295)
                    "  mov rdi, qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdx];\n"
                    "  mov rdx, rcx;\n"
                    "  shr rdx, " STRING(AFL_MAP_SIZE_POW2) ";\n"
@@ -140,7 +140,7 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
                    "  and rdx, " STRING(AFL_MAP_SIZE_MASK) ";\n"
                    "  xor rdi, rdx;\n"
                    "  inc BYTE PTR [" STRING(AFL_MAP_ADDR) " + rdi];\n"
-                   "  xor rdi, rdi;\n" // fuck keystone (issue #295)
+                   "  xor rdi, rdi;\n" // FUCK keystone (issue #295)
                    "  shr rdx, 1;\n"
                    "  mov qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdi], rdx;\n"
                    "  mov rdi, [rsp - 144];\n"

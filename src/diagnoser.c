@@ -107,7 +107,7 @@ Z_PRIVATE addr_t __diagnoser_validate_crashpoint(Diagnoser *g, addr_t addr) {
         }
     } else {
         // it is cause by patch
-        if (!z_patcher_check(g->patcher, addr)) {
+        if (z_patcher_check_patchpoint(g->patcher, addr) == PP_INVALID) {
             return INVALID_ADDR;
         } else {
             return addr;

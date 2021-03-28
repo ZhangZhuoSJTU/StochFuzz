@@ -235,6 +235,7 @@ static inline void mode_disasm(int argc, const char **argv) {
 
     Core *core = z_core_create(target);
 
+    z_diagnoser_apply_logged_crashpoints(core->diagnoser);
     z_patcher_describe(core->patcher);
 
     z_core_destroy(core);

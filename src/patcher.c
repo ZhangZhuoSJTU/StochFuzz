@@ -42,8 +42,44 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr);
 Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
                                                bool is_inst_boundary);
 
+/*
+ * Patch a new uncertain address
+ */
+Z_PRIVATE void __patcher_patch_uncertain_address(Patcher *p, addr_t addr);
+
+/*
+ * Compare two address
+ */
+Z_PRIVATE int32_t __patcher_compare_address(addr_t a, addr_t b, void *_data);
+
+Z_PRIVATE int32_t __patcher_compare_address(addr_t a, addr_t b, void *_data) {
+    assert(!_data);
+    if (a < b) {
+        return -1;
+    } else if (a > b) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+Z_PRIVATE void __patcher_patch_uncertain_address(Patcher *p, addr_t addr) {
+    // step (1). check whether this address is certain
+    if (z_addr_dict_exist(p->certain_addresses, addr)) {
+        return;
+    }
+
+    // step (2). patch underlying binary
+    __patcher_patch(p, addr, 1, __invalid_inst_buf);
+
+    // step (3). update uncertain_patches
+    g_sequence_insert_sorted(p->uncertain_patches, GSIZE_TO_POINTER(addr),
+                             (GCompareDataFunc)__patcher_compare_address, NULL);
+}
+
 Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
                                                bool is_inst_boundary) {
+    // XXX: one address cannot be set as certain twice
     assert(!z_addr_dict_exist(p->certain_addresses, addr));
 
     // step (1). set certain_addresses
@@ -52,9 +88,14 @@ Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
     // step (2). patch underlying binary
     __patcher_patch(p, addr, 1, __invalid_inst_buf);
 
-    // TODO: update to uncertain_/certain_ patches
-    g_hash_table_insert(p->checkpoints, GSIZE_TO_POINTER(addr),
-                        GSIZE_TO_POINTER(1));
+    // step (3). update certain_patches and uncertain_patches
+    z_addr_dict_set(p->certain_patches, addr, true);
+    GSequenceIter *iter =
+        g_sequence_lookup(p->uncertain_patches, GSIZE_TO_POINTER(addr),
+                          (GCompareDataFunc)__patcher_compare_address, NULL);
+    if (iter) {
+        g_sequence_remove(iter);
+    }
 }
 
 Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
@@ -229,7 +270,7 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
         }
 
         // TODO: advanced patching
-        // check no prior checkpoints are call/cjmp/jmp
+        // check no prior patchpoints are call/cjmp/jmp
         // Iter(addr_t, occ_addrs);
         // z_iter_init_from_buf(occ_addrs,
         //                      z_disassembler_get_occluded_addrs(d, cur_addr));
@@ -252,9 +293,7 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
         }
 #endif
 
-        z_elf_write(e, cur_addr, 1, __invalid_inst_buf);
-        g_hash_table_insert(p->checkpoints, GSIZE_TO_POINTER(cur_addr),
-                            GSIZE_TO_POINTER(1));
+        __patcher_patch_uncertain_address(p, cur_addr);
 
     NEXT_ADDR:
         continue;
@@ -335,9 +374,7 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
         }
 #endif
 
-        z_elf_write(e, ret_addr, 1, __invalid_inst_buf);
-        g_hash_table_insert(p->checkpoints, GSIZE_TO_POINTER(ret_addr),
-                            GSIZE_TO_POINTER(1));
+        __patcher_patch_uncertain_address(p, ret_addr);
     }
 }
 
@@ -393,7 +430,7 @@ Z_API void z_patcher_describe(Patcher *p) {
            "inst hint", "inst lost", "data hint", "D", "P", "SCC", "inst",
            "size", " succs");
 
-    Buffer *checkpoints = z_buffer_create(NULL, 0);
+    Buffer *patchpoints = z_buffer_create(NULL, 0);
 
     for (addr_t addr = text_addr; addr < text_addr + text_size; addr++) {
         cs_insn *inst = NULL;
@@ -409,9 +446,16 @@ Z_API void z_patcher_describe(Patcher *p) {
                                                 &data_hint, &D, &P);
 
         const char *status = "";
-        if (g_hash_table_lookup(p->checkpoints, GSIZE_TO_POINTER(addr))) {
-            status = "C";
-            z_buffer_append_raw(checkpoints, (uint8_t *)&addr, sizeof(addr));
+        PPType pp_type = z_patcher_check_patchpoint(p, addr);
+        if (pp_type != PP_INVALID) {
+            if (pp_type == PP_CERTAIN) {
+                status = "CC";
+            } else if (pp_type == PP_UNCERTAIN) {
+                status = "UC";
+            } else if (pp_type == PP_BRIDGE) {
+                status = "BC";
+            }
+            z_buffer_append_raw(patchpoints, (uint8_t *)&addr, sizeof(addr));
         }
 
         if (!isnan(data_hint) && !isinf(data_hint) &&
@@ -439,8 +483,8 @@ Z_API void z_patcher_describe(Patcher *p) {
         }
     }
 
-    z_buffer_write_file(checkpoints, "checkpoints.log");
-    z_buffer_destroy(checkpoints);
+    z_buffer_write_file(patchpoints, "patchpoints.log");
+    z_buffer_destroy(patchpoints);
 }
 
 Z_API Patcher *z_patcher_create(Disassembler *d) {
@@ -457,9 +501,8 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->text_backup = NULL;
 
     z_addr_dict_init(p->certain_addresses, p->text_addr, p->text_size);
-
-    p->checkpoints =
-        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+    z_addr_dict_init(p->certain_patches, p->text_addr, p->text_size);
+    p->uncertain_patches = g_sequence_new(NULL);
 
     p->bridges =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -469,8 +512,9 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
 
 Z_API void z_patcher_destroy(Patcher *p) {
     z_addr_dict_destroy(p->certain_addresses);
+    z_addr_dict_destroy(p->certain_patches);
+    g_sequence_free(p->uncertain_patches);
 
-    g_hash_table_destroy(p->checkpoints);
     g_hash_table_destroy(p->bridges);
 
     z_rptr_destroy(p->text_ptr);
@@ -503,14 +547,30 @@ Z_API void z_patcher_initially_patch(Patcher *p) {
     }
 }
 
-Z_API bool z_patcher_check(Patcher *p, addr_t addr) {
+Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
 #ifdef BINARY_SEARCH_DEBUG_REWRITER
     z_warn(
         "when debuging rewriter, real crashes may cause unintentional "
         "behaviors");
 #endif
 
-    return !!g_hash_table_lookup(p->checkpoints, GSIZE_TO_POINTER(addr));
+    // step (1). check certain patches
+    if (z_addr_dict_exist(p->certain_patches, addr)) {
+        return PP_CERTAIN;
+    }
+
+    // step (2). check uncertain patches
+    GSequenceIter *iter =
+        g_sequence_lookup(p->uncertain_patches, GSIZE_TO_POINTER(addr),
+                          (GCompareDataFunc)__patcher_compare_address, NULL);
+    if (iter) {
+        return PP_UNCERTAIN;
+    }
+
+    // step (3). check bridge
+    // TODO
+
+    return PP_INVALID;
 }
 
 // TODO: it is a very simple jump instruction patch currently, we may leverage
@@ -554,8 +614,10 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     for (size_t off = 0; off < ks_size; off++) {
         g_hash_table_insert(p->bridges, GSIZE_TO_POINTER(ori_addr + off),
                             GSIZE_TO_POINTER(ori_addr));
-        // revoke checkpoints
-        g_hash_table_remove(p->checkpoints, GSIZE_TO_POINTER(ori_addr + off));
+        // revoke patchpoint of PP_CERTAIN
+        // XXX: note that the uncertain patchpoints have already be replaced by
+        // certain ones till here.
+        z_addr_dict_remove(p->certain_patches, ori_addr + off);
     }
     __patcher_patch(p, ori_addr, ks_size, ks_encode);
 }
