@@ -30,7 +30,9 @@ STRUCT(Patcher, {
     uint8_t *text_backup;  // original data before any patching
 
     // addresses which are certainly known as code
-    AddrDict(bool, certain_addresses);
+    //  for instruction boundary, the value is the length of instruction
+    //  for other places, the value is zero
+    AddrDict(uint8_t, certain_addresses);
 
     // patch information
     GSequence *uncertain_patches;

@@ -40,7 +40,7 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr);
  * Patch a new certain address
  */
 Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
-                                               bool is_inst_boundary);
+                                               uint8_t inst_size);
 
 /*
  * Patch a new uncertain address
@@ -78,12 +78,12 @@ Z_PRIVATE void __patcher_patch_uncertain_address(Patcher *p, addr_t addr) {
 }
 
 Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
-                                               bool is_inst_boundary) {
+                                               uint8_t inst_size) {
     // XXX: one address cannot be set as certain twice
     assert(!z_addr_dict_exist(p->certain_addresses, addr));
 
     // step (1). set certain_addresses
-    z_addr_dict_set(p->certain_addresses, addr, is_inst_boundary);
+    z_addr_dict_set(p->certain_addresses, addr, inst_size);
 
     // step (2). patch underlying binary
     __patcher_patch(p, addr, 1, __invalid_inst_buf);
@@ -142,7 +142,8 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
                        cur_inst->detail->x86.prefix[0] == X86_PREFIX_LOCK);
                 break;
             }
-            __patcher_patch_certain_address(p, cur_addr + i, i == 0);
+            __patcher_patch_certain_address(p, cur_addr + i,
+                                            (i == 0 ? cur_inst->size : 0));
         }
 
         // step (3.3). check successors
@@ -410,7 +411,8 @@ Z_PRIVATE void __patcher_patch_all_S(Patcher *p) {
                     cur_inst));
             }
 
-            __patcher_patch_certain_address(p, cur_addr, i == 0);
+            __patcher_patch_certain_address(p, cur_addr,
+                                            (i == 0 ? cur_inst->size : 0));
 
             cur_addr += 1;
             i += 1;

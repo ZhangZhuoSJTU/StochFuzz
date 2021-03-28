@@ -329,6 +329,7 @@ Z_PUBLIC void z_core_activate(Core *core) {
     z_rewriter_rewrite_main(core->rewriter);
 
     // XXX: it seems not a good idea to do pre-disassembly (linear-disassembly)
+    // due to the heavy overhead of forking a process
     // z_rewriter_heuristics_rewrite(core->rewriter);
 
     z_diagnoser_apply_logged_crashpoints(core->diagnoser);
