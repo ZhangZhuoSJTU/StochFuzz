@@ -323,7 +323,7 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
 }
 
 Z_PUBLIC void z_core_activate(Core *core) {
-    z_patcher_patch_all(core->patcher);
+    z_patcher_initially_patch(core->patcher);
 
     z_rewriter_rewrite_beyond_main(core->rewriter);
     z_rewriter_rewrite_main(core->rewriter);

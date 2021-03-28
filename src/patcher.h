@@ -17,7 +17,8 @@ STRUCT(Patcher, {
     // .text info
     addr_t text_addr;
     size_t text_size;
-    Rptr *text_ptr;
+    Rptr *text_ptr;        // pointer to the shared .text section
+    uint8_t *text_backup;  // original data before any patching
 
     // addresses which are certainly known as code
     AddrDict(bool, certain_addresses);
@@ -47,9 +48,9 @@ Z_API void z_patcher_destroy(Patcher *p);
 Z_API void z_patcher_describe(Patcher *p);
 
 /*
- * Patch all instructions whose probabilities are high enough
+ * Initial patching for the instructions whose probabilities are high enough
  */
-Z_API void z_patcher_patch_all(Patcher *p);
+Z_API void z_patcher_initially_patch(Patcher *p);
 
 /*
  * Check whether address is a patched crash points (checkpoint)

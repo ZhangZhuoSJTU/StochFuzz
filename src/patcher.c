@@ -383,7 +383,7 @@ Z_PRIVATE void __patcher_patch_all_S(Patcher *p) {
 
 Z_API void z_patcher_describe(Patcher *p) {
     // first do patching
-    z_patcher_patch_all(p);
+    z_patcher_initially_patch(p);
 
     Disassembler *d = p->disassembler;
     addr_t text_addr = p->text_addr;
@@ -454,6 +454,7 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->text_addr = text->sh_addr;
     p->text_size = text->sh_size;
     p->text_ptr = z_elf_vaddr2ptr(e, p->text_addr);
+    p->text_backup = NULL;
 
     z_addr_dict_init(p->certain_addresses, p->text_addr, p->text_size);
 
@@ -471,12 +472,25 @@ Z_API void z_patcher_destroy(Patcher *p) {
 
     g_hash_table_destroy(p->checkpoints);
     g_hash_table_destroy(p->bridges);
+
     z_rptr_destroy(p->text_ptr);
+
+    if (p->text_backup) {
+        z_free(p->text_backup);
+    }
+
     z_free(p);
 }
 
-Z_API void z_patcher_patch_all(Patcher *p) {
+Z_API void z_patcher_initially_patch(Patcher *p) {
     assert(p != NULL);
+
+    // backup .text
+    if (p->text_backup) {
+        EXITME("backed up .text before initial patching");
+    }
+    p->text_backup = z_alloc(p->text_size, sizeof(uint8_t));
+    z_rptr_memcpy(p->text_backup, p->text_ptr, p->text_size);
 
     // do prob-disassemble first
     z_disassembler_prob_disasm(p->disassembler);
