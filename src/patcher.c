@@ -556,6 +556,12 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
         "behaviors");
 #endif
 
+    // step (0). check whether addr is in .text (some real crash points are in
+    // the shadow code)
+    if (addr < p->text_size || addr >= p->text_addr + p->text_size) {
+        return PP_INVALID;
+    }
+
     // step (1). check certain patches
     if (z_addr_dict_exist(p->certain_patches, addr)) {
         return PP_CERTAIN;
@@ -575,8 +581,9 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
     return PP_INVALID;
 }
 
-// TODO: it is a very simple jump instruction patch currently, we may leverage
-// E9Patch tech in the future
+// TODO: it is a very simple jump instruction patch (w/ auto fix and delayed
+// patching) currently, we may leverage E9Patch tech in the future
+// TODO: BINARY_SEARCH_DEBUG_XXX may cause bugs for the following new code
 Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                                   addr_t shadow_addr) {
 #ifdef BINARY_SEARCH_DEBUG_REWRITER
