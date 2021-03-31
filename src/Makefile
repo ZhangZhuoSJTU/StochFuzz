@@ -178,10 +178,10 @@ prepare_google_fts:
 	rm -rf test; cp -r ../benchmark test; cp ../test/test_daemon.sh test
 
 $(GOOGLE_FTS): prepare_google_fts
-	$(call test_succ, ../$(TOOLNAME) -R -- $@.normal $@.seed)
-	$(call test_succ, ../$(TOOLNAME) -R -- $@.inline $@.seed)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '' $@.normal $@.seed)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '' $@.inline $@.seed)
+	$(call test_succ, ../$(TOOLNAME) -R -- $@.normal $@.seed)
+	$(call test_succ, ../$(TOOLNAME) -R -- $@.inline $@.seed)
 
 benchmark: prepare_google_fts $(GOOGLE_FTS)
 
