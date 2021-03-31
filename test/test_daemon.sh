@@ -12,7 +12,7 @@ rm -rf $phantom
 $tool $options -- $target 2>$target.daemon.log &
 daemon_pid=$!
 
-for i in {1..100}
+for i in {1..25}
 do
     if [ -f $phantom ]; then
         echo "$target: daemon is up"
@@ -26,4 +26,5 @@ do
 done
 
 echo "$target: timeout"
-kill -9 0
+kill -9 $daemon_pid
+exit 1
