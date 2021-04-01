@@ -1,4 +1,5 @@
 #include "patcher.h"
+#include "capstone_.h"
 #include "interval_splay.h"
 #include "iterator.h"
 #include "utils.h"
@@ -7,11 +8,22 @@
 
 #define PATCH_THRESHOLD 0.99999
 #define PATCH_RET_DEPTH 20
+#define BRIDGE_PRE_DEPTH 5
 
 static const char __invalid_inst_buf[16] = {0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f,
                                             0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f,
                                             0x2f, 0x2f, 0x2f, 0x2f};
 
+typedef struct bridge_point_t {
+    addr_t bridge_addr;
+    addr_t source_addr;
+    addr_t max_addr;  // used for revoke bridge patching
+} BridgePoint;
+
+DEFINE_GETTER(Patcher, patcher, size_t, patched_bridges);
+DEFINE_GETTER(Patcher, patcher, size_t, delayed_bridges);
+DEFINE_GETTER(Patcher, patcher, size_t, resolved_bridges);
+DEFINE_GETTER(Patcher, patcher, size_t, adjusted_bridges);
 /*
  * When the underlying disassembler does not fully support prob-disasm, we
  * directly patch all possible instructions without calculating pathcing
@@ -37,15 +49,17 @@ Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
 Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr);
 
 /*
- * Patch a new certain address
+ * Patch a new certain address, return whether this patch is successfully
+ * applied.
  */
-Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
+Z_PRIVATE bool __patcher_patch_certain_address(Patcher *p, addr_t addr,
                                                uint8_t inst_size);
 
 /*
- * Patch a new uncertain address
+ * Patch a new uncertain address, return whether this patch is successfully
+ * applied.
  */
-Z_PRIVATE void __patcher_patch_uncertain_address(Patcher *p, addr_t addr);
+Z_PRIVATE bool __patcher_patch_uncertain_address(Patcher *p, addr_t addr);
 
 /*
  * Compare two address
@@ -63,24 +77,36 @@ Z_PRIVATE int32_t __patcher_compare_address(addr_t a, addr_t b, void *_data) {
     }
 }
 
-Z_PRIVATE void __patcher_patch_uncertain_address(Patcher *p, addr_t addr) {
+Z_PRIVATE bool __patcher_patch_uncertain_address(Patcher *p, addr_t addr) {
     // step (1). check whether this address is certain
     if (z_addr_dict_exist(p->certain_addresses, addr)) {
-        return;
+        return false;
     }
 
-    // step (2). patch underlying binary
+    // step (2). check whether it is already patched as uncertain patch
+    if (g_sequence_lookup(p->uncertain_patches, GSIZE_TO_POINTER(addr),
+                          (GCompareDataFunc)__patcher_compare_address, NULL)) {
+        return false;
+    }
+
+    // step (3). patch underlying binary
     __patcher_patch(p, addr, 1, __invalid_inst_buf);
 
-    // step (3). update uncertain_patches
+    // step (4). update uncertain_patches
     g_sequence_insert_sorted(p->uncertain_patches, GSIZE_TO_POINTER(addr),
                              (GCompareDataFunc)__patcher_compare_address, NULL);
+
+    return true;
 }
 
-Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
+Z_PRIVATE bool __patcher_patch_certain_address(Patcher *p, addr_t addr,
                                                uint8_t inst_size) {
-    // XXX: one address cannot be set as certain twice
-    assert(!z_addr_dict_exist(p->certain_addresses, addr));
+    // XXX: one address cannot be set as certain twice (except for the ones
+    // which are revoked for adjusting bridges)
+    if (z_addr_dict_exist(p->certain_addresses, addr)) {
+        return false;
+    }
+    z_trace("certain patch: %#lx", addr);
 
     // step (1). set certain_addresses
     z_addr_dict_set(p->certain_addresses, addr, inst_size);
@@ -96,6 +122,8 @@ Z_PRIVATE void __patcher_patch_certain_address(Patcher *p, addr_t addr,
     if (iter) {
         g_sequence_remove(iter);
     }
+
+    return true;
 }
 
 Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
@@ -159,9 +187,9 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
             }
 
             if (z_addr_dict_exist(p->certain_addresses, succ_addr)) {
-                assert(z_addr_dict_get(p->certain_addresses, cur_addr) ||
-                       (z_addr_dict_get(p->certain_addresses, cur_addr - 1) &&
-                        z_disassembler_get_superset_disasm(d, cur_addr - 1)
+                assert(z_addr_dict_get(p->certain_addresses, succ_addr) ||
+                       (z_addr_dict_get(p->certain_addresses, succ_addr - 1) &&
+                        z_disassembler_get_superset_disasm(d, succ_addr - 1)
                                 ->detail->x86.prefix[0] == X86_PREFIX_LOCK));
                 continue;
             }
@@ -495,6 +523,8 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->disassembler = d;
     p->binary = z_disassembler_get_binary(d);
 
+    p->pdisasm_enable = z_disassembler_fully_support_prob_disasm(d);
+
     ELF *e = z_binary_get_elf(p->binary);
     Elf64_Shdr *text = z_elf_get_shdr_text(e);
     p->text_addr = text->sh_addr;
@@ -503,11 +533,16 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->text_backup = NULL;
 
     z_addr_dict_init(p->certain_addresses, p->text_addr, p->text_size);
+
     z_addr_dict_init(p->certain_patches, p->text_addr, p->text_size);
     p->uncertain_patches = g_sequence_new(NULL);
+    p->bridges = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                                       (GDestroyNotify)(&z_free));
 
-    p->bridges =
-        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+    p->patched_bridges = 0;
+    p->delayed_bridges = 0;
+    p->resolved_bridges = 0;
+    p->adjusted_bridges = 0;
 
     return p;
 }
@@ -542,7 +577,7 @@ Z_API void z_patcher_initially_patch(Patcher *p) {
     z_disassembler_prob_disasm(p->disassembler);
 
     // fill all patch candidates as HLT (0xf4) or ILLEGAL INSTRUCTION (0x2f)
-    if (!z_disassembler_fully_support_prob_disasm(p->disassembler)) {
+    if (!p->pdisasm_enable) {
         __patcher_patch_all_S(p);
     } else {
         __patcher_patch_all_F(p);
@@ -576,22 +611,50 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
     }
 
     // step (3). check bridge
-    // TODO
+    if (g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(addr))) {
+        return PP_BRIDGE;
+    }
 
     return PP_INVALID;
 }
 
-// TODO: it is a very simple jump instruction patch (w/ auto fix and delayed
-// patching) currently, we may leverage E9Patch tech in the future
 // TODO: BINARY_SEARCH_DEBUG_XXX may cause bugs for the following new code
+//
+// TODO: it is a basic jump instruction patching algorithm (w/ auto fix and
+// delayed patching) currently, we may leverage E9Patch tech in the future
+//
+// XXX: following is a typical bridge layout (before and after patching), where
+// symbol "|" denotes an instruction boundary.
+//
+//                      Bytes: B B B B B B B B B B B B B B B B B B B B B B B
+//  ---------------------------------------------------------------------------
+//            Before patching:
+//                             |---|-|-----|-------|---|-----|-----|-------|
+//
+//  ---------------------------------------------------------------------------
+//             After patching:
+//                             |*******|???|-------|---|-----|-----|-------|
+//
+//         overlapping inst A:     |---------------------|
+//         overlapping inst B:       |-|
+//
+//                jump values: J J J J J
+//            patching values:           P P P P P P P P P P P P P P P P P P
+//
+//              bridge points: X   X X  X  X       X   X   X
+//       left certain patches:                               C C C C C C C C
+//
+//   bridge-related addresses: A A A A A A A A A A A A A A A
+//
 Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                                   addr_t shadow_addr) {
+    Disassembler *d = p->disassembler;
+
 #ifdef BINARY_SEARCH_DEBUG_REWRITER
     // avoid infinite loop
     ELF *e = z_binary_get_elf(p->binary);
     if (ori_addr == shadow_addr) {
-        cs_insn *inst =
-            z_disassembler_get_superset_disasm(p->disassembler, ori_addr);
+        cs_insn *inst = z_disassembler_get_superset_disasm(d, ori_addr);
         z_elf_write(e, ori_addr, inst->size, inst->bytes);
         return;
     }
@@ -604,34 +667,380 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     }
 #endif
 
-    // update certain_addresses
+    // step (0). check ori_addr range
+    if (ori_addr < p->text_addr || ori_addr >= p->text_addr + p->text_size) {
+        EXITME("invalid address for bridge: %#lx", ori_addr);
+    }
+
+    // step (1). update certain_addresses
+    // TODO: update pdisasm
     __patcher_bfs_certain_addresses(p, ori_addr);
 
-    addr_t ori_bridge =
-        (addr_t)g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(ori_addr));
-    if (ori_bridge) {
+    // step (2). check whether there is a bridge already built on current addr
+    BridgePoint *ori_bp = (BridgePoint *)g_hash_table_lookup(
+        p->bridges, GSIZE_TO_POINTER(ori_addr));
+    if (ori_bp) {
         // it is possible when the address is regarded as external crashpoint
         // and then regarded as retaddr
-        if (ori_bridge != ori_addr) {
-            EXITME("overlapped bridge detected: %#lx / %#lx", ori_addr,
-                   ori_bridge);
+        if (ori_bp->bridge_addr != ori_addr) {
+            EXITME("strange overlapped bridge detected: %#lx / %#lx", ori_addr,
+                   ori_bp->bridge_addr);
         }
         return;
     }
-
-    KS_ASM_JMP(ori_addr, shadow_addr);
-    for (size_t off = 0; off < ks_size; off++) {
-        g_hash_table_insert(p->bridges, GSIZE_TO_POINTER(ori_addr + off),
-                            GSIZE_TO_POINTER(ori_addr));
-        // revoke patchpoint of PP_CERTAIN
-        // XXX: note that the uncertain patchpoints have already be replaced by
-        // certain ones till here.
-        z_addr_dict_remove(p->certain_patches, ori_addr + off);
+    if (!ori_bp && !z_addr_dict_exist(p->certain_patches, ori_addr)) {
+        EXITME("invalid bridge address: %#lx", ori_addr);
     }
-    __patcher_patch(p, ori_addr, ks_size, ks_encode);
+
+    // some important variables for futher operations
+    bool safe_patch = true;
+    bool bridge_patched = false;
+    addr_t bridge_sources[20];  // the longest x64 inst is 15-bytes (5 + 15)
+    addr_t bridge_max_addr = ori_addr;
+    memset(bridge_sources, 0, sizeof(bridge_sources));
+
+    // step (3). all 5 bytes need to be certain patches
+    for (size_t i = 0; i < 5; i++) {
+        if (!z_addr_dict_exist(p->certain_patches, ori_addr + i)) {
+            z_info(
+                "find an unsafe bridge patching, try to resolve it... "
+                "(failed address %#lx, based on bridge address %#lx)",
+                ori_addr + i, ori_addr);
+            safe_patch = false;
+            break;
+        }
+    }
+
+    // step (4). pre-patch bridge and additionally check whether current patch
+    // is valid (for overlapping instructions).
+    if (safe_patch) {
+        // step (4.1). pre-patch bridge (and revoke certain patches).
+        {
+            bridge_patched = true;
+            KS_ASM_JMP(ori_addr, shadow_addr);
+            __patcher_patch(p, ori_addr, ks_size, ks_encode);
+            assert(ks_size == 5);
+
+            for (size_t off = 0; off < 5; off++) {
+                // revoke patchpoints of PP_CERTAIN
+                // XXX: note that the uncertain patchpoints have already be
+                // replaced by certain ones in step (1).
+                z_addr_dict_remove(p->certain_patches, ori_addr + off);
+            }
+        }
+
+        // step (4.2). additionally check whether current patch is valid (for
+        // overlapping instructions)
+        {
+            // step (4.2.0). set up bridge starting point
+            bridge_sources[0] = ori_addr;
+
+            // XXX: The first element is the target address and the second
+            // element is the source address.
+            GQueue *queue = g_queue_new();
+
+            // step (4.2.1). insert the sources of overlapping instruction
+            for (size_t off = 1; off < 5; off++) {
+                if (z_addr_dict_get(p->certain_addresses, ori_addr + off)) {
+                    g_queue_push_tail(queue, GSIZE_TO_POINTER(ori_addr + off));
+                    g_queue_push_tail(queue, GSIZE_TO_POINTER(ori_addr + off));
+                }
+            }
+
+            // step (4.2.2). validate all possible overlapping instructions
+            while (!g_queue_is_empty(queue)) {
+                addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
+                addr_t src_addr = (addr_t)g_queue_pop_head(queue);
+
+                size_t cur_off = cur_addr - ori_addr;
+
+                z_rptr_inc(p->text_ptr, uint8_t, cur_addr - p->text_addr);
+                CS_DISASM(p->text_ptr, cur_addr, 1);
+                z_rptr_reset(p->text_ptr);
+
+                // update bridge information
+                {
+                    if (cur_addr > bridge_max_addr) {
+                        bridge_max_addr = cur_addr;
+                    }
+                    if (!bridge_sources[cur_off] ||
+                        src_addr < bridge_sources[cur_off]) {
+                        bridge_sources[cur_off] = src_addr;
+                    }
+                }
+
+                // TODO: handle control flow transfer instruction (e.g., set
+                // unsafe_patch once any control flow transfer instruction is
+                // involved)
+
+                // invalid instruction (nice!)
+                if (cs_count == 0) {
+                    continue;
+                }
+
+                // check whether the successor is still in the bridge
+                addr_t next_addr = cur_addr + cs_inst->size;
+                size_t next_off = cur_off + cs_inst->size;
+                if (next_addr < ori_addr + 5) {
+                    g_queue_push_tail(queue, GSIZE_TO_POINTER(next_addr));
+                    g_queue_push_tail(queue, GSIZE_TO_POINTER(src_addr));
+                    continue;
+                }
+
+                // check whether the successor is a certain patch
+                if (z_addr_dict_exist(p->certain_patches, next_addr)) {
+                    // additionally handle the next instruction
+                    if (next_addr > bridge_max_addr) {
+                        bridge_max_addr = next_addr;
+                    }
+                    if (!bridge_sources[next_off] ||
+                        src_addr < bridge_sources[next_off]) {
+                        bridge_sources[next_off] = src_addr;
+                    }
+                    continue;
+                }
+
+                z_info(
+                    "find an unsafe bridge patching, try to resolve it... "
+                    "(failed address %#lx, based on bridge address %#lx)",
+                    next_addr, ori_addr);
+                safe_patch = false;
+                break;
+            }
+
+            g_queue_free(queue);
+        }
+
+        // step (4.3). check all affected addresses are in certain_patches.
+        if (safe_patch) {
+            for (addr_t cur_addr = ori_addr + 5; cur_addr <= bridge_max_addr;
+                 cur_addr++) {
+                if (!z_addr_dict_exist(p->certain_patches, cur_addr)) {
+                    safe_patch = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    // step (5). if it is a safe patch, update bridge information
+    if (safe_patch) {
+        for (addr_t cur_addr = ori_addr; cur_addr <= bridge_max_addr;
+             cur_addr++) {
+            assert(
+                !g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(cur_addr)));
+            size_t off = cur_addr - ori_addr;
+
+            // XXX: remember to revoke certain_patches
+            if (z_addr_dict_exist(p->certain_patches, cur_addr)) {
+                z_addr_dict_remove(p->certain_patches, cur_addr);
+            }
+
+            // first check whether it is a patch-influenced detection point
+            if (bridge_sources[off]) {
+                BridgePoint *bp = z_alloc(1, sizeof(BridgePoint));
+                bp->bridge_addr = ori_addr;
+                bp->source_addr = bridge_sources[off];
+                bp->max_addr = bridge_max_addr;
+
+                g_hash_table_insert(p->bridges, GSIZE_TO_POINTER(cur_addr),
+                                    (gpointer)bp);
+                continue;
+            }
+
+            // then chech it is an inst boundary before the patched jmp inst
+            if (off >= 5 && z_addr_dict_get(p->certain_addresses, cur_addr)) {
+                BridgePoint *bp = z_alloc(1, sizeof(BridgePoint));
+                bp->bridge_addr = ori_addr;
+                bp->source_addr = cur_addr;
+                bp->max_addr = bridge_max_addr;
+
+                g_hash_table_insert(p->bridges, GSIZE_TO_POINTER(cur_addr),
+                                    (gpointer)bp);
+                continue;
+            }
+        }
+
+        p->patched_bridges += 1;
+        return;
+    }
+
+    // step (6). for unsafe patches, we need first revoke the patched bridge
+    if (bridge_patched) {
+        // XXX: all 5 bytes, which are patched as bridge (jmp), was origianlly
+        // certain patches. So we can safely reset them as certain patches.
+        z_rptr_inc(p->text_ptr, uint8_t, ori_addr - p->text_addr);
+        z_rptr_memcpy(p->text_ptr, __invalid_inst_buf, 5);
+        z_rptr_reset(p->text_ptr);
+
+        for (size_t i = 0; i < 5; i++) {
+            z_addr_dict_set(p->certain_patches, ori_addr + i, true);
+        }
+    }
+
+    // step (7). for unsafe patches, we try to resolve it
+    // XXX: note that we can only resolve such unsafe patches when pdisasm is
+    // fully supported, because only uncertain patches, which do not exist when
+    // pidasm is not fully supported, can help fix the unsafe patches.
+    if (p->pdisasm_enable) {
+        bool new_uncertain_patch = false;
+
+        // XXX: the first element is the target address, the second is the depth
+        GQueue *queue = g_queue_new();
+
+        // step (7.1). find all possible uncertain precedessor patches
+        g_queue_push_tail(queue, GSIZE_TO_POINTER(ori_addr));
+        g_queue_push_tail(queue, GSIZE_TO_POINTER(0));
+
+        while (!g_queue_is_empty(queue)) {
+            addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
+            size_t depth = (size_t)g_queue_pop_head(queue);
+
+            if (depth > BRIDGE_PRE_DEPTH) {
+                continue;
+            }
+
+            // get predecessors
+            Iter(addr_t, pred_addrs);
+            z_iter_init_from_buf(pred_addrs,
+                                 z_disassembler_get_predecessors(d, cur_addr));
+
+            while (!z_iter_is_empty(pred_addrs)) {
+                // pred_addr must in .text (it may be incomplete when
+                // pre-superset diaasm is not enable)
+                addr_t pred_addr = *(z_iter_next(pred_addrs));
+
+                // check prob
+                if (z_disassembler_get_prob_disasm(d, pred_addr) <
+                    PATCH_THRESHOLD) {
+                    continue;
+                }
+
+                // there are some cases where the following predicate is false:
+                //  case (1). pred_addr is in certain_addresses
+                //  case (2). pred_addr already be patched as uncertain patches
+                //      case (2.a). pred_addr is patched by this BFS
+                //      case (2.b). pred_addr is patched by others
+                if (!__patcher_patch_uncertain_address(p, pred_addr)) {
+                    continue;
+                }
+
+                new_uncertain_patch = true;
+                g_queue_push_tail(queue, GSIZE_TO_POINTER(pred_addr));
+                g_queue_push_tail(queue, GSIZE_TO_POINTER(depth + 1));
+            }
+
+            z_iter_destroy(pred_addrs);
+        }
+
+        g_queue_free(queue);
+
+        // step (7.2) return if we can resolve it by the next execution
+        if (new_uncertain_patch) {
+            p->resolved_bridges += 1;
+            return;
+        }
+    }
+
+    // step (8). if we cannot resolve it, we delay the patches
+    // XXX: avoid touch other patch points
+    z_info("fail to resolve the unsafe patch, let's delay it: %#lx", ori_addr);
+    {
+        z_rptr_inc(p->text_ptr, uint8_t, ori_addr - p->text_addr);
+        addr_t cur_addr = ori_addr;
+
+        while (z_addr_dict_exist(p->certain_addresses, cur_addr) &&
+               z_addr_dict_exist(p->certain_patches, cur_addr)) {
+            assert(z_addr_dict_get(p->certain_addresses, cur_addr));
+
+            cs_insn *cur_inst = z_disassembler_get_superset_disasm(d, cur_addr);
+            assert(cur_inst);
+
+            z_rptr_memcpy(p->text_ptr, cur_inst->bytes, cur_inst->size);
+
+            for (size_t i = 0; i < cur_inst->size; i++) {
+                // XXX: in this case, cur_addr + i belongs to neighter bridges
+                // nor certain_patches, but it belongs to certain_addresses. It
+                // is a special case for delayed bridges.
+                z_addr_dict_remove(p->certain_patches, cur_addr + i);
+            }
+
+            // we end at terminator (e.g., ret) or call
+            if (z_capstone_is_terminator(cur_inst) ||
+                z_capstone_is_call(cur_inst)) {
+                break;
+            }
+
+            cur_addr += cur_inst->size;
+            z_rptr_inc(p->text_ptr, uint8_t, cur_inst->size);
+        }
+
+        z_rptr_reset(p->text_ptr);
+
+        p->delayed_bridges += 1;
+    }
+
+    return;
 }
 
 Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
-    // TODO: support bridge adjustment
-    return addr;
+    BridgePoint *bp = g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(addr));
+
+    // case (1). this is not a bridge point, and we do nothing.
+    if (!bp) {
+        return addr;
+    }
+
+    // case (2). this is the bridge starting point, and we do nothing too.
+    if (bp->bridge_addr == addr) {
+        return addr;
+    }
+
+    // case (3). this crash is caused by an overlapping instruction. We need to
+    // revoke this bridge patching.
+    addr_t bridge_addr = bp->bridge_addr;
+    addr_t source_addr = bp->source_addr;
+    addr_t max_addr = bp->max_addr;
+    z_info("detect a solvable bridge overlapping: %#lx / %#lx", addr,
+           bridge_addr);
+
+    // step (1). revoke the tail part of bridge (after source_addr), if
+    // necessary
+    if (source_addr < bridge_addr + 5) {
+        size_t tail_size = bridge_addr + 5 - source_addr;
+
+        z_rptr_inc(p->text_ptr, uint8_t, source_addr - p->text_addr);
+        z_rptr_memcpy(p->text_ptr, __invalid_inst_buf, tail_size);
+        z_rptr_reset(p->text_ptr);
+    }
+
+    // step (2). revoke the head part of bridge (before source_addr)
+    {
+        assert(source_addr > bridge_addr);
+        size_t head_size = source_addr - bridge_addr;
+
+        // XXX: these addresses are also the special cases for delayed bridges.
+        // Again, them do not belong to certain_patches and bridges, but belong
+        // to certain_addresses.
+        z_rptr_inc(p->text_ptr, uint8_t, bridge_addr - p->text_addr);
+        z_rptr_memcpy(p->text_ptr,
+                      p->text_backup + (bridge_addr - p->text_addr), head_size);
+        z_rptr_reset(p->text_ptr);
+    }
+
+    // step (3). remove all associated bridge information and reset some as
+    // certain patches
+    {
+        for (addr_t cur_addr = bridge_addr; cur_addr <= max_addr; cur_addr++) {
+            if (cur_addr >= source_addr) {
+                z_addr_dict_set(p->certain_patches, cur_addr, true);
+            }
+
+            g_hash_table_remove(p->bridges, GSIZE_TO_POINTER(cur_addr));
+        }
+    }
+
+    p->adjusted_bridges += 1;
+
+    return source_addr;
 }

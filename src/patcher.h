@@ -19,9 +19,48 @@ typedef enum patchpoint_type {
     PP_BRIDGE = 3UL,
 } PPType;
 
+// XXX: some fields of Patcher are essential to understand the underlying logic:
+//
+//  * certain_addresses: all the address which are *certainly* sure to be code
+//                       bytes. The values of this dictionary have two types:
+//                       the instruction size for each instruction boundary, and
+//                       zero for the others.
+//
+//  * uncertain_patches: all the patches which are *uncertainly* sure. Most of
+//                       them are patched based on the calculated probability.
+//
+//  *   certain_patches: all the patches which are *certainly* sure. The only
+//                       patched value of this type is 0x2f (invalid). This kind
+//                       of patches excludes the ones serve for bridge
+//                       overlapping detection. It also exlucdes those code
+//                       which was patched and has been revoked for delayed
+//                       bridges.
+//
+//  *           bridges: all potential patch points which can help detect bridge
+//                       overlapping.
+//
+//
+// There are some relations between aforementioned fields.
+//
+//      keys(uncertain_patches).intersaction(keys(certain_addresses)) = EmptySet
+//
+//        keys(uncertain_patches).intersaction(keys(certain_patches)) = EmptySet
+//                keys(uncertain_patches).intersaction(keys(bridges)) = EmptySet
+//                  keys(certain_patches).intersaction(keys(bridges)) = EmptySet
+//
+//                              keys(certain_patches) in keys(certain_addresses)
+//                                      keys(bridges) in keys(certain_addresses)
+//
+//      keys(certain_addresses)
+//    -  (keys(certain_patches) + keys(bridges))
+//    =  set(address which was patched and has been revoked for delayed bridges)
+//
+// Only uncertain_patches are involved in the delta debugging procedure.
 STRUCT(Patcher, {
     Binary *binary;
     Disassembler *disassembler;
+
+    bool pdisasm_enable;
 
     // .text info
     addr_t text_addr;
@@ -37,10 +76,19 @@ STRUCT(Patcher, {
     // patch information
     GSequence *uncertain_patches;
     AddrDictFast(bool, certain_patches);
+    GHashTable *bridges;  // bridges detection points
 
-    // patched bridge (bridge entrypoint)
-    GHashTable *bridges;
+    // others
+    size_t patched_bridges;
+    size_t delayed_bridges;
+    size_t resolved_bridges;
+    size_t adjusted_bridges;
 });
+
+DECLARE_GETTER(Patcher, patcher, size_t, patched_bridges);
+DECLARE_GETTER(Patcher, patcher, size_t, delayed_bridges);
+DECLARE_GETTER(Patcher, patcher, size_t, resolved_bridges);
+DECLARE_GETTER(Patcher, patcher, size_t, adjusted_bridges);
 
 /*
  * Create a patcher

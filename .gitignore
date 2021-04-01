@@ -69,6 +69,7 @@ stoch-fuzz
 peda*
 handler_main.c
 .stoch-fuzz.*
+local_crashes
 
 # whitelist test
 src/test/

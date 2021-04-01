@@ -299,7 +299,7 @@ Z_API long z_mem_file_ftell(_MEM_FILE *stream) {
 Z_API void z_mem_file_suspend(_MEM_FILE *stream) {
     __mem_file_check_state(stream);
 
-    z_info("suspend file %s", stream->filename);
+    z_trace("suspend file %s", stream->filename);
     if (stream->fd == INVALID_FD && stream->raw_buf == NULL &&
         stream->cur_ptr == NULL) {
         // XXX: a good place to debug by changing return to EXITME
@@ -326,7 +326,7 @@ Z_API void z_mem_file_suspend(_MEM_FILE *stream) {
 }
 
 Z_API void z_mem_file_resume(_MEM_FILE *stream) {
-    z_info("resume file %s", stream->filename);
+    z_trace("resume file %s", stream->filename);
     if (stream->fd != INVALID_FD && stream->raw_buf != NULL &&
         stream->cur_ptr != NULL) {
         // XXX: a good place to debug by changing return to EXITME

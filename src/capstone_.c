@@ -294,6 +294,7 @@ Z_API bool z_capstone_is_rare(cs_insn *inst) {
         case X86_INS_IRETD:
         case X86_INS_FLD:
         case X86_INS_ENTER:
+        case X86_INS_XCHG:
             return true;
         default:
             return false;

@@ -37,6 +37,7 @@ There are some known issues which we are trying to resolve.
 + When running, the input file may be modified by previous crashed run (due to the new system design).
 + Timeout needs to be set up separately for AFL and StochFuzz (due to the new system design).
 + Test failed on Github Actions Ubuntu 20.04 (the root cause is unknown currently).
++ Some CP\_EXTERNAL may be misclassified as CP\_RETADDR due to some non-return library functions (e.g., exit).
 
 ## Tag Info
 
@@ -46,3 +47,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.2.0: adopt a better frontend to parse arguments and automatically decide whether we need a complete probabilistic disassembly.
 + v0.3.0: support timeout for daemon and add benchmark testing for each tag.
 + v0.4.0: support shared .text section for the new system design and simplify the communication between the daemon and binary.
++ v0.5.0: support automatically fixing overlapped bridges (i.e., patched *jmp* instructions in the original code space).

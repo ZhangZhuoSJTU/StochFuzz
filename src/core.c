@@ -242,7 +242,7 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             exit(0);
         } else {
             // parent
-            z_info("start child process [%d]", pid);
+            z_trace("start child process [%d]", pid);
 
             close(st_pipe[1]);
             int signal_fd = st_pipe[0];
