@@ -111,10 +111,13 @@ Z_API void z_patcher_initially_patch(Patcher *p);
 Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr);
 
 /*
- * Patch address as a jump bridge
+ * Patch address as a jump bridge.
+ *
+ * The parameter is_real means the bridge is triggered by a crash during
+ * execution, and vice versa (e.g., logged crashpoint and CP_RETADDR).
  */
 Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
-                                  addr_t shadow_addr);
+                                  addr_t shadow_addr, bool is_real);
 
 /*
  * Adjust the address of a given bridge. This function may also change current

@@ -643,7 +643,7 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
 //   bridge-related addresses: A A A A A A A A A A A A A A A
 //
 Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
-                                  addr_t shadow_addr) {
+                                  addr_t shadow_addr, bool is_real) {
     Disassembler *d = p->disassembler;
 
 #ifdef BINARY_SEARCH_DEBUG_REWRITER
@@ -676,8 +676,11 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     BridgePoint *ori_bp = (BridgePoint *)g_hash_table_lookup(
         p->bridges, GSIZE_TO_POINTER(ori_addr));
     if (ori_bp) {
-        // it is possible when the address is regarded as external crashpoint
-        // and then regarded as retaddr
+        // It is possible when the address is regarded as external crashpoint
+        // and then regarded as retaddr.
+        // Additionally, note that even if this is a fake crashpoint, it still
+        // cannot be a non-leading PP_BRIDGE (i.e., the starting point of a
+        // bridge), as ori_addr should have been adjusted.
         if (ori_bp->bridge_addr != ori_addr) {
             EXITME("strange overlapped bridge detected: %#lx / %#lx", ori_addr,
                    ori_bp->bridge_addr);
@@ -685,6 +688,12 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
         return;
     }
     if (!ori_bp && !z_addr_dict_exist(p->certain_patches, ori_addr)) {
+        if (!is_real) {
+            // XXX: it is possible that a fake bridge, which is not triggered by
+            // a control flow crash, is added on code for another delayed
+            // bridge.
+            return;
+        }
         EXITME("invalid bridge address: %#lx", ori_addr);
     }
 
