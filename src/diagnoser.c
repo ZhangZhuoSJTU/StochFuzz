@@ -304,7 +304,10 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
                 addr_t adjusted_addr =                                  \
                     z_patcher_adjust_bridge_address(g->patcher, addr);  \
                 if (adjusted_addr != addr) {                            \
-                    type = CP_EXTERNAL;                                 \
+                    if (type != CP_EXTERNAL) {                          \
+                        /* XXX: avoid change g->crashpints */           \
+                        continue;                                       \
+                    }                                                   \
                     addr = adjusted_addr;                               \
                 }                                                       \
             }                                                           \

@@ -19,6 +19,10 @@
  *
  *      VCP_CALLEE:     virtual crashpoint (returnable callee)
  */
+// XXX: CP_RETADDR and VCP_CALLEE are only used when pdisasm is not fully
+// supported. Note that in this situation, even we misidentify a CP_RETADDR, it
+// would not impact the rewriting procedure (i.e., any wrong bridge will got
+// fixed later / not uncertain_patches in Patcher).
 typedef enum cp_type_t {
     /*
      * Real crashpoint
