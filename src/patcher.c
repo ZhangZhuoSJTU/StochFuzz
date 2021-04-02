@@ -853,6 +853,11 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                 continue;
             }
 
+            // actually, all affected instruction boudnaries in jmp patching
+            // shoud be handled before
+            assert(
+                !(off < 5 && z_addr_dict_get(p->certain_addresses, cur_addr)));
+
             // then chech it is an inst boundary before the patched jmp inst
             if (off >= 5 && z_addr_dict_get(p->certain_addresses, cur_addr)) {
                 BridgePoint *bp = z_alloc(1, sizeof(BridgePoint));
