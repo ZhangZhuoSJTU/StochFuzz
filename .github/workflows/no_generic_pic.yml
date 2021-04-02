@@ -63,7 +63,7 @@ jobs:
           make debug
         working-directory: ./src
       - name: make test
-        run: make test TEST_OPTIONS='-n -r'
+        run: timeout -k 15m make test TEST_OPTIONS='-n -r'
         working-directory: ./src
   
   release:
@@ -88,5 +88,5 @@ jobs:
           make release
         working-directory: ./src
       - name: make test
-        run: make test TEST_OPTIONS='-n -r'
+        run: timeout -k 15m make test TEST_OPTIONS='-n -r'
         working-directory: ./src
