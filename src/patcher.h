@@ -85,11 +85,6 @@ STRUCT(Patcher, {
     size_t adjusted_bridges;
 });
 
-DECLARE_GETTER(Patcher, patcher, size_t, patched_bridges);
-DECLARE_GETTER(Patcher, patcher, size_t, delayed_bridges);
-DECLARE_GETTER(Patcher, patcher, size_t, resolved_bridges);
-DECLARE_GETTER(Patcher, patcher, size_t, adjusted_bridges);
-
 /*
  * Create a patcher
  */
@@ -126,5 +121,10 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
  * patching.
  */
 Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr);
+
+/*
+ * Show bridge stat
+ */
+Z_API void z_patcher_bridge_stats(Patcher *p);
 
 #endif

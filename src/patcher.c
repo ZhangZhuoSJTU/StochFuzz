@@ -20,10 +20,6 @@ typedef struct bridge_point_t {
     addr_t max_addr;  // used for revoke bridge patching
 } BridgePoint;
 
-DEFINE_GETTER(Patcher, patcher, size_t, patched_bridges);
-DEFINE_GETTER(Patcher, patcher, size_t, delayed_bridges);
-DEFINE_GETTER(Patcher, patcher, size_t, resolved_bridges);
-DEFINE_GETTER(Patcher, patcher, size_t, adjusted_bridges);
 /*
  * When the underlying disassembler does not fully support prob-disasm, we
  * directly patch all possible instructions without calculating pathcing
@@ -981,6 +977,13 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     }
 
     return;
+}
+
+Z_API void z_patcher_bridge_stats(Patcher *p) {
+    z_info("number of patched bridges : %d", p->patched_bridges);
+    z_info("number of delayed bridges : %d", p->delayed_bridges);
+    z_info("number of resolved bridges: %d", p->resolved_bridges);
+    z_info("number of adjusted bridges: %d", p->adjusted_bridges);
 }
 
 Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {

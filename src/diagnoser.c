@@ -317,6 +317,9 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
 
 #undef __APPLY_CPS
 #undef __SHOW_CP
+
+    z_rewriter_optimization_stats(g->rewriter);
+    z_patcher_bridge_stats(g->patcher);
 }
 
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
@@ -350,14 +353,8 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
     // step (4). patch the intentional crash
     __diagnoser_patch_crashpoint(g, real_addr, cp_type);
 
-    z_info("number of patched bridges: %d",
-           z_patcher_get_patched_bridges(g->patcher));
-    z_info("number of delayed bridges: %d",
-           z_patcher_get_delayed_bridges(g->patcher));
-    z_info("number of resolved bridges: %d",
-           z_patcher_get_resolved_bridges(g->patcher));
-    z_info("number of adjusted bridges: %d",
-           z_patcher_get_adjusted_bridges(g->patcher));
+    z_rewriter_optimization_stats(g->rewriter);
+    z_patcher_bridge_stats(g->patcher);
 
     // step (5). check remmap
     if (z_binary_check_state(g->binary, ELFSTATE_SHADOW_EXTENDED)) {

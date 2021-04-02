@@ -1016,18 +1016,18 @@ Z_API void z_rewriter_rewrite(Rewriter *r, addr_t new_addr) {
     g_hash_table_destroy(cf_related_holes);
     g_queue_free(new_bbs);
 
-    z_info("we optimized %d EFLAG context switching (%d / %d)",
-           r->optimized_flg_count, r->optimized_flg_count,
-           r->afl_trampoline_count);
-    z_info("we optimized %d GPR saving (%d / %d)", r->optimized_gpr_count,
-           r->optimized_gpr_count, r->afl_trampoline_count);
-    z_info("we optimized %d single successors (%d / %d)",
-           r->optimized_single_succ, r->optimized_single_succ,
-           r->afl_trampoline_count);
-
     if (sys_config.count_conflict) {
         __rewriter_count_conflicted_ids(r);
     }
+}
+
+Z_API void z_rewriter_optimization_stats(Rewriter *r) {
+    z_info("number of optimized FLG savings: %6d / %d", r->optimized_flg_count,
+           r->afl_trampoline_count);
+    z_info("number of optimized GPR savings: %6d / %d", r->optimized_gpr_count,
+           r->afl_trampoline_count);
+    z_info("number of optimized trampolines: %6d / %d",
+           r->optimized_single_succ, r->afl_trampoline_count);
 }
 
 Z_API addr_t z_rewriter_get_shadow_addr(Rewriter *r, addr_t addr) {

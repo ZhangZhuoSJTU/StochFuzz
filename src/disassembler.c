@@ -588,10 +588,11 @@ Z_API GQueue *z_disassembler_recursive_disasm(Disassembler *d, addr_t addr) {
     g_queue_free(q);
 
     // step (5). output how many instruction are correctly disassembly
-    z_info("we have %ld instruction recursively disassemblied",
+    z_info("number of new basic blocks      : %ld",
+           g_queue_get_length(new_bbs));
+    z_info("number of rewritten instructions: %ld",
            g_hash_table_size(d->recursive_disasm));
 
-    z_info("with %ld new basic block entrys", g_queue_get_length(new_bbs));
     return new_bbs;
 }
 

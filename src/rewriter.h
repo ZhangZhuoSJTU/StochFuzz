@@ -130,4 +130,9 @@ Z_API bool z_rewriter_check_retaddr_crashpoint(Rewriter *r, addr_t addr);
  */
 Z_API Buffer *z_rewriter_new_validate_retaddr(Rewriter *r, addr_t retaddr);
 
+/*
+ * Show optimization stats
+ */
+Z_API void z_rewriter_optimization_stats(Rewriter *r);
+
 #endif
