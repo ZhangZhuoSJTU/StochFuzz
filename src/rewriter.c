@@ -688,12 +688,15 @@ Z_PRIVATE void __rewriter_generate_shadow_block(
             __rewriter_generate_shadow_inst(r, holes, inst, ori_addr, bb_entry);
         }
 
-#ifdef FALL_THROUGH_OPT
-        bb_entry = !!((z_capstone_is_cjmp(inst) || z_capstone_is_loop(inst)));
-        // XXX: if we enable FALL_THROUGH_OPT, we need to insert a jmp here.
-#else
         bb_entry = !!z_disassembler_is_potential_block_entrypoint(
             r->disassembler, ori_addr + inst->size);
+
+#ifdef FALL_THROUGH_OPT
+        if (bb_entry &&
+            !(z_capstone_is_cjmp(inst) || z_capstone_is_loop(inst) ||
+              z_capstone_is_terminator(inst))) {
+            // XXX: insert a short jmp instruction here
+        }
 #endif
 
         // step [3.3]. update cur_addr
