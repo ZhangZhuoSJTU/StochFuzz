@@ -31,6 +31,14 @@ ifneq ($(origin DEBUG_PATCHER), undefined)
 	SHELLCODE_CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_PATCHER=$(strip $(DEBUG_PATCHER))
 endif
 
+# note that the new SINGLE_SUCC_OPT is not well test, as such we add an option to disable it
+ifneq ($(origin SINGLE_SUCC_OPT), undefined)
+ifeq ('$(SINGLE_SUCC_OPT)', 'disable')
+	CFLAGS += -DNSINGLE_SUCC_OPT
+	SHELLCODE_CFLAGS += -DNSINGLE_SUCC_OPT
+endif
+endif
+
 # glib
 CFLAGS += $(shell PKG_CONFIG_PATH=$(realpath ..)/glib/lib/x86_64-linux-gnu/pkgconfig/ pkg-config --cflags glib-2.0)
 LDFLAGS += -lpthread

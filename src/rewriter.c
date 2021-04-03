@@ -313,9 +313,9 @@ Z_PRIVATE void __rewriter_fillin_shadow_hole(Rewriter *r, GHashTable *holes) {
         addr_t shadow_inst_addr = (addr_t)(l->data);
         addr_t ori_tar_addr = (addr_t)g_hash_table_lookup(
             holes, GSIZE_TO_POINTER(shadow_inst_addr));
+
         addr_t shadow_tar_addr = (addr_t)g_hash_table_lookup(
             r->rewritten_bbs, GSIZE_TO_POINTER(ori_tar_addr));
-
         if (shadow_tar_addr == 0) {
             // XXX: ignore invalid hole as it may be false instruction
             z_warn("an invalid hole: %#lx <- %#lx", ori_tar_addr,
@@ -327,6 +327,21 @@ Z_PRIVATE void __rewriter_fillin_shadow_hole(Rewriter *r, GHashTable *holes) {
         uint32_t inst_id;
         z_elf_read(e, shadow_inst_addr, sizeof(uint32_t),
                    (uint8_t *)(&inst_id));
+
+#ifndef NSINGLE_SUCC_OPT
+        // check whether we need to do optimization
+        if (!sys_config.disable_opt) {
+            if ((int32_t)inst_id < 0) {
+                // it is a trampoline-free transfer
+                inst_id = (~inst_id) + 1;
+                shadow_tar_addr = (addr_t)g_hash_table_lookup(
+                    r->shadow_code, GSIZE_TO_POINTER(ori_tar_addr));
+            }
+        } else {
+            assert((int32_t)inst_id >= 0);
+        }
+#endif
+
         size_t hole_size = __rewriter_get_hole_len(inst_id);
 
         // generate code
@@ -597,18 +612,22 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
  */
 /*
  * XXX: Above idea is very reasonable. *However*, it does not consider the cache
- * hit rate. In other words, if every disassembly-found block has an own copy of
- * its complete body, the memory usage will increase. Therefore, the cache hit
- * rate will quickly drop down. When the program is large (e.g., openssl), the
- * missing hit will siginificately influence the execution speed. We have test
- * the fuzzing speed w/ and w/o above optimization, and the results are shown
- * this optimization does hurt performance.
+ * hit rate and forking overhead. In other words, if every disassembly-found
+ * block has an own copy of its complete body, the memory usage will increase.
+ * Therefore, the cache hit rate will quickly drop down. When the program is
+ * large (e.g., openssl), the missing hit will siginificately influence the
+ * execution speed. We have test the fuzzing speed w/ and w/o above
+ * optimization, and the results are shown this optimization does hurt
+ * performance.
  *
  * Hence, we decide to disable this optimization right now.
  */
 /*
- * XXX: FALL_THROUGH opt can be enabled by jump over the trampoline
- * TODO: enable FALL_THROUGH
+ * XXX: FALL_THROUGH opt can be enabled by jumping over the trampoline. However,
+ * considering we can almost elimiate all EFLAGS saving, the overhead of an AFL
+ * trampoline may be smaller than the one caused by a jump instruction.
+ * TODO: decide whether we need to enable FALL_THROUGH (note that in SotchFuzz
+ * paper, this optimization is enabled)
  */
 /*
  * XXX: It is ok for our tool to instrument false instructions or block
@@ -671,14 +690,11 @@ Z_PRIVATE void __rewriter_generate_shadow_block(
 
 #ifdef FALL_THROUGH_OPT
         bb_entry = !!((z_capstone_is_cjmp(inst) || z_capstone_is_loop(inst)));
+        // XXX: if we enable FALL_THROUGH_OPT, we need to insert a jmp here.
 #else
         bb_entry = !!z_disassembler_is_potential_block_entrypoint(
             r->disassembler, ori_addr + inst->size);
 #endif
-        if (bb_entry &&
-            !((z_capstone_is_cjmp(inst) || z_capstone_is_loop(inst)))) {
-            r->optimized_single_succ += 1;
-        }
 
         // step [3.3]. update cur_addr
         ori_addr += inst->size;

@@ -59,7 +59,6 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
     cs_detail *detail = inst->detail;
     cs_x86_op *op = &(detail->x86.operands[0]);
 
-    uint64_t hole_buf = 0;
     addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
     ELF *e = z_binary_get_elf(r->binary);
 
@@ -117,16 +116,35 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
         }
 
         /*
-         * step [2]. get shadow callee
+         * step [2]. get shadow callee and prepare hole_buf
          */
+#ifndef NSINGLE_SUCC_OPT
+        uint64_t hole_buf = 0;
+        addr_t shadow_callee_addr;
+        if (sys_config.disable_opt) {
+            shadow_callee_addr = (addr_t)g_hash_table_lookup(
+                r->rewritten_bbs, GSIZE_TO_POINTER(callee_addr));
+            hole_buf = (uint64_t)X86_INS_JMP;
+        } else {
+            shadow_callee_addr = (addr_t)g_hash_table_lookup(
+                r->shadow_code, GSIZE_TO_POINTER(callee_addr));
+            hole_buf = (uint64_t)(-(int64_t)X86_INS_JMP);
+            assert((int64_t)hole_buf < 0);
+
+            r->optimized_single_succ += 1;
+        }
+#else
+        uint64_t hole_buf = X86_INS_JMP;
         addr_t shadow_callee_addr = (addr_t)g_hash_table_lookup(
             r->rewritten_bbs, GSIZE_TO_POINTER(callee_addr));
+#endif
 
         /*
          * step [3]. rewrite and insrumentation
          */
         if (shadow_callee_addr) {
             if (sys_config.safe_ret) {
+                // TODO: check whether we can simply change it as a call inst
                 KS_ASM(shadow_addr,
                        "push END;\n"
                        "jmp %#lx;\n"
@@ -154,8 +172,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                 z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
             shadow_addr += ks_size;
 
-            // jmp ??? (HOLE)
-            hole_buf = (uint64_t)X86_INS_JMP;
+            // insert hole
             shadow_addr =
                 z_binary_insert_shadow_code(r->binary, (uint8_t *)(&hole_buf),
                                             __rewriter_get_hole_len(hole_buf));

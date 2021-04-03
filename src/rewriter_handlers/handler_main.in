@@ -24,10 +24,15 @@ Z_API void z_rhandler_destroy(RHandler *handler) { z_free(handler); }
 Z_PRIVATE size_t __rewriter_get_hole_len(uint64_t id);
 
 Z_PRIVATE size_t __rewriter_get_hole_len(uint64_t id) {
+    if ((int64_t)id < 0) {
+        id = (~id) + 1;
+    }
+    size_t res = 0;
     switch (id) {
         case X86_INS_CALL:
         case X86_INS_JMP:
-            return 5;
+            res = 5;
+            break;
         case X86_INS_JAE:
         case X86_INS_JA:
         case X86_INS_JBE:
@@ -44,7 +49,8 @@ Z_PRIVATE size_t __rewriter_get_hole_len(uint64_t id) {
         case X86_INS_JO:
         case X86_INS_JP:
         case X86_INS_JS:
-            return 6;
+            res = 6;
+            break;
         case X86_INS_JECXZ:
             EXITME("temporarily not support for jecxz");
         case X86_INS_JRCXZ:
@@ -55,5 +61,6 @@ Z_PRIVATE size_t __rewriter_get_hole_len(uint64_t id) {
             EXITME("invalid hole");
     }
 
-    return 0;
+    assert(res >= 4);
+    return res;
 }

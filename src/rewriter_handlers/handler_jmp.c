@@ -14,12 +14,12 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
     cs_detail *detail = inst->detail;
     cs_x86_op *op = &(detail->x86.operands[0]);
 
-    uint64_t hole_buf = 0;
     ELF *e = z_binary_get_elf(r->binary);
     addr_t text_addr = z_elf_get_shdr_text(e)->sh_addr;
     size_t text_size = z_elf_get_shdr_text(e)->sh_size;
 
     if (detail->x86.op_count == 1 && op->type == X86_OP_IMM) {
+        // direct jump here
         addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
         addr_t jmp_addr = op->imm;
 
@@ -31,17 +31,31 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
             return;
         }
 
-        r->optimized_single_succ += 1;
+#ifndef NSINGLE_SUCC_OPT
+        uint64_t hole_buf = 0;
+        addr_t shadow_jmp_addr;
+        if (sys_config.disable_opt) {
+            shadow_jmp_addr = (addr_t)g_hash_table_lookup(
+                r->rewritten_bbs, GSIZE_TO_POINTER(jmp_addr));
+            hole_buf = (uint64_t)X86_INS_JMP;
+        } else {
+            shadow_jmp_addr = (addr_t)g_hash_table_lookup(
+                r->shadow_code, GSIZE_TO_POINTER(jmp_addr));
+            hole_buf = (uint64_t)(-(int64_t)X86_INS_JMP);
+            assert((int64_t)hole_buf < 0);
 
+            r->optimized_single_succ += 1;
+        }
+#else
+        uint64_t hole_buf = X86_INS_JMP;
         addr_t shadow_jmp_addr = (addr_t)g_hash_table_lookup(
             r->rewritten_bbs, GSIZE_TO_POINTER(jmp_addr));
+#endif
 
         if (shadow_jmp_addr) {
             KS_ASM_JMP(shadow_addr, shadow_jmp_addr);
             z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
         } else {
-            // jmp ??? (HOLE)
-            hole_buf = (uint64_t)X86_INS_JMP;
             shadow_addr =
                 z_binary_insert_shadow_code(r->binary, (uint8_t *)(&hole_buf),
                                             __rewriter_get_hole_len(hole_buf));
