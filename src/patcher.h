@@ -78,6 +78,9 @@ STRUCT(Patcher, {
     AddrDictFast(bool, certain_patches);
     GHashTable *bridges;  // bridges detection points
 
+    // delta debugging info
+    // TODO
+
     // others
     size_t patched_bridges;
     size_t delayed_bridges;
@@ -129,5 +132,16 @@ Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr);
  * Show bridge stat
  */
 Z_API void z_patcher_bridge_stats(Patcher *p);
+
+/*
+ * Show the number of uncertain patches
+ */
+Z_API size_t z_patcher_uncertain_patches_n(Patcher *p);
+
+/*
+ * Enable or disable uncertain patches in a given rangew
+ */
+Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_enable,
+                                            size_t start_idx, size_t end_idx);
 
 #endif
