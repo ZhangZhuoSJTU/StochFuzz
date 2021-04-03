@@ -383,8 +383,8 @@ Z_PRIVATE bool __prob_disassembler_get_propogate_successors(
 // ProbDisassembler Pubilc API
 ///////////////////////////////////
 
-Z_PUBLIC double128_t z_prob_disassembler_get_inst_prob(ProbDisassembler *pd,
-                                                       addr_t addr) {
+Z_PRIVATE double128_t z_prob_disassembler_get_inst_prob(ProbDisassembler *pd,
+                                                        addr_t addr) {
     if (addr < pd->text_addr || addr >= pd->text_addr + pd->text_size) {
         return 0.0;
     }
@@ -413,7 +413,7 @@ Z_PUBLIC double128_t z_prob_disassembler_get_inst_prob(ProbDisassembler *pd,
     return P;
 }
 
-Z_PUBLIC void z_prob_disassembler_get_internal(
+Z_PRIVATE void z_prob_disassembler_get_internal(
     ProbDisassembler *pd, addr_t addr, cs_insn **inst, uint32_t *scc_id,
     double128_t *inst_hint, double128_t *inst_lost, double128_t *data_hint,
     double128_t *D, double128_t *P) {
@@ -430,7 +430,7 @@ Z_PUBLIC void z_prob_disassembler_get_internal(
     *P = z_prob_disassembler_get_inst_prob(pd, addr);
 }
 
-Z_PUBLIC void z_prob_disassembler_start(ProbDisassembler *pd) {
+Z_PRIVATE void z_prob_disassembler_start(ProbDisassembler *pd) {
     /*
      * step [1]. collect hints: please refer to *prob_disasm_complete/hints.c*
      */
@@ -486,7 +486,7 @@ Z_PUBLIC void z_prob_disassembler_start(ProbDisassembler *pd) {
     }
 }
 
-Z_PUBLIC ProbDisassembler *z_prob_disassembler_create(Disassembler *d) {
+Z_PRIVATE ProbDisassembler *z_prob_disassembler_create(Disassembler *d) {
     ProbDisassembler *pd = STRUCT_ALLOC(ProbDisassembler);
 
     pd->base = d;
@@ -533,7 +533,7 @@ Z_PUBLIC ProbDisassembler *z_prob_disassembler_create(Disassembler *d) {
     return pd;
 }
 
-Z_PUBLIC void z_prob_disassembler_destroy(ProbDisassembler *pd) {
+Z_PRIVATE void z_prob_disassembler_destroy(ProbDisassembler *pd) {
     // XXX: note that *base* should not be destroyed here.
     z_addr_dict_destroy(pd->H);
     z_addr_dict_destroy(pd->RH);

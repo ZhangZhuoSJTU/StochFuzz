@@ -934,7 +934,7 @@ Z_API void z_rewriter_rewrite_main(Rewriter *r) {
 
 // XXX: note that its underlying disassembly (linear) is not completed.
 // XXX: useless and hence unused!
-Z_API void z_rewriter_heuristics_rewrite(Rewriter *r) {
+Z_RESERVED Z_API void z_rewriter_heuristics_rewrite(Rewriter *r) {
     assert(r != NULL);
 
     if (!r->__main_rewritten) {

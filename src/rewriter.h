@@ -115,7 +115,7 @@ Z_API void z_rewriter_rewrite_beyond_main(Rewriter *r);
 /*
  * Heuristics rewriting after rewriting main
  */
-Z_API void z_rewriter_heuristics_rewrite(Rewriter *r);
+Z_RESERVED Z_API void z_rewriter_heuristics_rewrite(Rewriter *r);
 
 /*
  * Check whether the address is a potential return address which is already
