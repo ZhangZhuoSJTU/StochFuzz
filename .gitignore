@@ -95,3 +95,5 @@ test/*
 !test/rar
 !test/timeout
 !test/timeout.c
+!test/unintentional_crash
+!test/unintentional_crash.c
