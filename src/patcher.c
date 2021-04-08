@@ -589,7 +589,7 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
 
     // step (0). check whether addr is in .text (some real crash points are in
     // the shadow code)
-    if (addr < p->text_size || addr >= p->text_addr + p->text_size) {
+    if (addr < p->text_addr || addr >= p->text_addr + p->text_size) {
         return PP_INVALID;
     }
 
