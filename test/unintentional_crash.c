@@ -4,8 +4,10 @@ int main(int argc, char **argv) {
     asm volatile(
         ASMSTR(".intel_syntax noprefix")
 
+        ASMSTR("dec rdi;")
         ASMSTR("test rdi, rdi;")
         ASMSTR("jne Y;")
+        ASMSTR("jmp B;")
         ASMSTR("jmp A;")
         ASMSTR("jmp Z;")
         ASMSTR("jmp A;")
