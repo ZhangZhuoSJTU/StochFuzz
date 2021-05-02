@@ -692,6 +692,14 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
             // XXX: it is possible that a fake bridge, which is not triggered by
             // a control flow crash, is added on code for another delayed
             // bridge.
+            // XXX: a very typical case for this branch is, when pdisasm is
+            // fully enabled:
+            //  1. For an unsafe crashpoint A, we resolved this unsafety by
+            //  adding a new crashpoint B.
+            //  2. Crashpoint B was triggered, but it is still unsafe and cannot
+            //  be resolved. So we delayed it.
+            //  3. Both A and B are logged. But later, when applying the log, B
+            //  is first applied.
             return;
         }
         EXITME("invalid bridge address: %#lx", ori_addr);

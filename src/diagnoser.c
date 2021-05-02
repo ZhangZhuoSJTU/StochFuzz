@@ -286,34 +286,38 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
                ((type)&CP_RETADDR) ? "retaddr" : "", addr);                    \
     } while (0)
 
-#define __APPLY_CPS(filter)                                             \
-    do {                                                                \
-        GHashTableIter iter;                                            \
-        gpointer key, value;                                            \
-        g_hash_table_iter_init(&iter, g->crashpoints);                  \
-                                                                        \
-        while (g_hash_table_iter_next(&iter, &key, &value)) {           \
-            addr_t addr = (addr_t)key;                                  \
-            addr_t type = (CPType)value & (filter);                     \
-            if (!type) {                                                \
-                continue;                                               \
-            }                                                           \
-            __SHOW_CP(addr, type);                                      \
-                                                                        \
-            if (type != CP_INTERNAL) {                                  \
-                addr_t adjusted_addr =                                  \
-                    z_patcher_adjust_bridge_address(g->patcher, addr);  \
-                if (adjusted_addr != addr) {                            \
-                    if (type != CP_EXTERNAL) {                          \
-                        /* XXX: avoid change g->crashpints */           \
-                        continue;                                       \
-                    }                                                   \
-                    addr = adjusted_addr;                               \
-                }                                                       \
-            }                                                           \
-                                                                        \
-            __diagnoser_handle_single_crashpoint(g, addr, type, false); \
-        }                                                               \
+#define __APPLY_CPS(filter)                                              \
+    do {                                                                 \
+        GHashTableIter iter;                                             \
+        gpointer key, value;                                             \
+        g_hash_table_iter_init(&iter, g->crashpoints);                   \
+                                                                         \
+        while (g_hash_table_iter_next(&iter, &key, &value)) {            \
+            addr_t addr = (addr_t)key;                                   \
+            addr_t type = (CPType)value & (filter);                      \
+            if (!type) {                                                 \
+                continue;                                                \
+            }                                                            \
+            __SHOW_CP(addr, type);                                       \
+                                                                         \
+            if (type != CP_INTERNAL) {                                   \
+                addr_t adjusted_addr =                                   \
+                    z_patcher_adjust_bridge_address(g->patcher, addr);   \
+                if (adjusted_addr != addr) {                             \
+                    if (type != CP_EXTERNAL) {                           \
+                        /* XXX: avoid change g->crashpints */            \
+                                                                         \
+                        /* XXX: this branch would happen when pdisasm */ \
+                        /* is disabled, and a CP_RETADDR locates on   */ \
+                        /* a bridge range.                            */ \
+                        continue;                                        \
+                    }                                                    \
+                    addr = adjusted_addr;                                \
+                }                                                        \
+            }                                                            \
+                                                                         \
+            __diagnoser_handle_single_crashpoint(g, addr, type, false);  \
+        }                                                                \
     } while (0)
 
     // we do this in two round, where we first ignore CP_RETADDR, and then we
