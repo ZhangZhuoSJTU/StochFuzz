@@ -29,7 +29,8 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Calculate [entropy](https://github.com/NationalSecurityAgency/ghidra/issues/1035) to check the existence of inlined data (ADVANCED).
 + [ ] Fix the bugs when rewriting PIE binary and support it.
 + [ ] When SINGLE\_SUCC\_OPT is enabled and sys\_config.disable\_opt is not set, remove the AFL trampoline before each function entrypoint.
-+ [ ] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
++ [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
++ [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
 
 ## Known Issues
 

@@ -661,8 +661,27 @@ Z_PRIVATE void __rewriter_generate_shadow_block(
         //      Note that it is possible inst is NULL, as no-return / inline
         //      data may cause incorrect disasm.
         if (!inst) {
+            // XXX: it is important to insert an invalid instruction to
+            // terminate the incorrect control flow, for effective unintentional
+            // crash detection.
+
+            // step [3.1.1]. update shadow code
+            if (!g_hash_table_lookup(r->shadow_code,
+                                     GSIZE_TO_POINTER(ori_addr))) {
+                size_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
+                g_hash_table_insert(r->shadow_code, GSIZE_TO_POINTER(ori_addr),
+                                    GSIZE_TO_POINTER(shadow_addr));
+                z_binary_update_lookup_table(r->binary, ori_addr, shadow_addr);
+            }
+
+            // step [3.1.2]. insert invalid instruction
+            uint8_t invalid_opcode_buf[1] = {0x2f};
+            z_binary_insert_shadow_code(r->binary, invalid_opcode_buf, 1);
             return;
         }
+
+        // XXX: instructions was used to build bridges by Rewriter, which is
+        // no longer supported currently.
         if (instructions) {
             if (!g_hash_table_lookup(r->shadow_code,
                                      GSIZE_TO_POINTER(ori_addr))) {
