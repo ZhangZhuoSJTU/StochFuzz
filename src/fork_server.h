@@ -5,9 +5,10 @@
 #include "crs_config.h"
 #include "loader.h"
 
-typedef struct patch_entry_t {
-    unsigned long addr;
-    unsigned long size;
-} PatchEntry;
+typedef enum crs_loop_type {
+    CRSLoopNone = 0,  // not a crs loop
+    CRSLoopFix,       // crs loop caused by incremental rewriting
+    CRSLoopDebug,     // crs loop caused by delta debugging
+} CRSLoopType;
 
 #endif

@@ -386,7 +386,7 @@ NO_INLINE void fork_server_start(char **envp) {
     /*
      * step (7). main while-loop
      */
-    bool crs_loop = false;
+    CRSLoopType crs_loop = CRSLoopNone;
     while (true) {
         // step (7.1). [if: AFL_ATTACHED && !CRS_LOOP]
         //      wait AFL's signal
@@ -522,7 +522,8 @@ NO_INLINE void fork_server_start(char **envp) {
         // XXX: after going into the SUSPECT_STATUS branch, the program is
         // either crashed by a patch (which will lead to a crs_loop) or a
         // subject bug.
-        if (IS_SUSPECT_STATUS(client_status)) {
+        // XXX: a new situation is that the program is under delta debugging.
+        if (IS_ABNORMAL_STATUS(client_status) || crs_loop == CRSLoopDebug) {
             // step (7.7.1). notify the daemon and wait response
             //      + sending out the status
             //      + receiving the status of crash site (CRS)
@@ -547,8 +548,15 @@ NO_INLINE void fork_server_start(char **envp) {
                         RW_PAGE_INFO(shadow_base), PROT_READ | PROT_EXEC);
                 }
 
-                // we are going into the CRS loop which is out of AFL's control
-                crs_loop = true;
+                // check delta debugging mode
+                if (crs_status == CRS_STATUS_DEBUG) {
+                    // the next loop is forced to communicate with the daemon
+                    crs_loop = CRSLoopDebug;
+                } else {
+                    // we are going into the CRS loop which is out of AFL's
+                    // control
+                    crs_loop = CRSLoopFix;
+                }
 
                 // clear shared memory
                 {
@@ -593,7 +601,9 @@ NO_INLINE void fork_server_start(char **envp) {
             // If the program has reached this part, it indicates a real
             // crash has occured. Here, we need to reset client_status as
             // SIGSEGV or SIGILL, here we choose SIGSEGV
-            client_status = 139;
+            if (IS_SUSPECT_STATUS(client_status)) {
+                client_status = 139;
+            }
         }
 
         // step (7.8). handle any other situation which is not caused by
@@ -601,7 +611,7 @@ NO_INLINE void fork_server_start(char **envp) {
         //      [if: AFL_ATTCHED]: notify AFL and loop
         //      [if: !AFL_ATTACHED]: exit as normal or kill self with the same
         //      signal
-        crs_loop = false;
+        crs_loop = CRSLoopNone;
         if (afl_attached) {
             sys_write(AFL_FORKSRV_FD + 1, (char *)&client_status, 4);
         } else {

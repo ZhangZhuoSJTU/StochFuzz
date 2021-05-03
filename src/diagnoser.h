@@ -48,6 +48,18 @@ typedef struct crash_point_t {
 } CrashPoint;
 
 /*
+ * Stage for delta debugging mode
+ */
+typedef enum delta_debugging_stage {
+    DD_STAGE0,  // ready for delta debugging
+    DD_STAGE1,  // validate whether it is a rewriting error
+    DD_STAGE2,  // locate the e_iter in Patcher
+    DD_STAGE3,  // locate the s_iter in Pacther
+
+    DD_NONE = -1,  // not in the delta debugging mode
+} DDStage;
+
+/*
  * Diagnoser distinguishes the intentional crashes and the unintentional ones,
  * while it also manages the schedule of self-recovering.
  */
@@ -57,6 +69,10 @@ STRUCT(Diagnoser, {
     Patcher *patcher;
     Rewriter *rewriter;
     Disassembler *disassembler;
+
+    DDStage dd_stage;
+    int dd_status;
+    addr_t dd_addr;
 
     GHashTable *crashpoints;
     const char *cp_filename;

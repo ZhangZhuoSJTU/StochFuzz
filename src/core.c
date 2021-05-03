@@ -268,9 +268,8 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
 
             CRSStatus crs_status =
                 z_diagnoser_new_crashpoint(core->diagnoser, status, crash_rip);
-
             if (crs_status == CRS_STATUS_CRASH ||
-                crs_status == CRS_STATUS_OTHERS) {
+                crs_status == CRS_STATUS_NORMAL) {
                 z_free(argv_);
                 z_free((char *)patched_filename);
                 return status;
@@ -427,8 +426,9 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     //      + if it is a real crash, the daemon sends CRS_STATUS_CRASH to notify
     //      the client, and (a.) stop the daemon when AFL is not attached or
     //      (b.) continue a new round when AFL is attached;
-    //      + if it is a patch crash, the daemon sends CRS_STATUS_NONE/_REMMAP
-    //      to guide the client do the on-the-fly patch.
+    //      + if it is a patch crash, the daemon sends
+    //      CRS_STATUS_NOTHING/_REMMAP to guide the client do the on-the-fly
+    //      patch.
     while (true) {
         /*
          * step (3.1). recv program status from the client
@@ -467,7 +467,11 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
             }
             goto NOT_PATCHED_CRASH;
         }
-        if (crs_status == CRS_STATUS_OTHERS) {
+
+        if (crs_status == CRS_STATUS_NORMAL) {
+            if (afl_attached) {
+                EXITME("CRS_STATUS_NORMAL is invalid when afl is attached");
+            }
             goto NOT_PATCHED_CRASH;
         }
 

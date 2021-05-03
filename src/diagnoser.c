@@ -170,6 +170,10 @@ Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
     g->rewriter = rewriter;
     g->disassembler = disassembler;
 
+    g->dd_stage = DD_NONE;
+    g->dd_status = 0;
+    g->dd_addr = INVALID_ADDR;
+
     g->crashpoints =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
@@ -336,9 +340,11 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
                                            addr_t addr) {
     // step (0). check whether the status is suspect
+    if (!IS_ABNORMAL_STATUS(status)) {
+        return CRS_STATUS_NORMAL;
+    }
     if (!IS_SUSPECT_STATUS(status)) {
-        z_info("non-suspect status: %d", status);
-        return CRS_STATUS_OTHERS;
+        return CRS_STATUS_CRASH;
     }
     if (addr == CRS_INVALID_IP) {
         EXITME("the client exits as SUSPECT but no suspected address is sent");
@@ -377,6 +383,6 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
 
         return CRS_STATUS_REMMAP;
     } else {
-        return CRS_STATUS_NONE;
+        return CRS_STATUS_NOTHING;
     }
 }

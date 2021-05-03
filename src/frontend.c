@@ -281,8 +281,8 @@ static inline void mode_run(int argc, const char **argv) {
     int status = z_core_perform_dry_run(core, argc, argv);
     z_core_destroy(core);
 
-    if (IS_SUSPECT_STATUS(status)) {
-        EXITME("not a normal exit (status: %#x)", status);
+    if (IS_ABNORMAL_STATUS(status)) {
+        z_error("not a normal exit (status: %#x)", status);
     }
 
     // follow how the client is terminated
