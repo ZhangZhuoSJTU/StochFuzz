@@ -2,6 +2,16 @@
 #include "utils.h"
 
 /*
+ * Perform delta debugging to locate rewriting errors
+ */
+// XXX: note that we currently downgrade the delta debugging into a more
+// efficient dup-binary-search. This simplified algorithm works well as the
+// unintentional crash is caused by a single bad patch in most cases. The delta
+// debugging algorithm can be easily brought back if necessary.
+Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
+                                            addr_t addr);
+
+/*
  * Update a crashpoint's information.
  */
 Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
@@ -160,6 +170,50 @@ Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
     }
 }
 
+Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
+                                            addr_t addr) {
+    if (!z_disassembler_fully_support_prob_disasm(g->disassembler)) {
+        assert(g->dd_stage == DD_NONE);
+        return CRS_STATUS_CRASH;
+    }
+
+    if (g->dd_stage == DD_NONE) {
+        z_info(
+            "check whether the crash is caused by rewriting errors by "
+            "disabling all uncertain patches");
+
+        // step (0.1). set dd_status and dd_addr
+        g->dd_status = status;
+        g->dd_addr = addr;
+
+        // step (0.2). enable delta debugging for patcher
+        g->dd_e_high = z_patcher_uncertain_patches_n(g->patcher);
+        z_patcher_self_correction_start(g->patcher);
+
+        // step (0.3). disable all uncertain patches
+        z_patcher_test_uncertain_patches(g->patcher, false, -g->dd_e_high);
+
+        // step (0.4). update dd_stage
+        g->dd_stage = DD_STAGE0;
+
+        return CRS_STATUS_DEBUG;
+    }
+
+    if (g->dd_stage == DD_STAGE0) {
+        if (status == g->dd_status && addr == g->dd_addr) {
+            z_info("it is a latent bug");
+            z_patcher_self_correction_end(g->patcher);
+            g->dd_stage = DD_NONE;
+            return CRS_STATUS_CRASH;
+        } else {
+            // TODO: update to binary-search
+            EXITME("it is a rewriting error");
+        }
+    }
+
+    return CRS_STATUS_CRASH;
+}
+
 Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
                                     Disassembler *disassembler) {
     Diagnoser *g = STRUCT_ALLOC(Diagnoser);
@@ -170,9 +224,8 @@ Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
     g->rewriter = rewriter;
     g->disassembler = disassembler;
 
+    // all other DD-related fields will be initilized when enabling DD.
     g->dd_stage = DD_NONE;
-    g->dd_status = 0;
-    g->dd_addr = INVALID_ADDR;
 
     g->crashpoints =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -339,18 +392,24 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
 
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
                                            addr_t addr) {
-    // step (0). check whether the status is suspect
+    // step (0). check whether diagnoser is under delta debugging mode
+    if (g->dd_stage != DD_NONE) {
+        return __diagnoser_delta_debug(g, status, addr);
+    }
+
+    // step (1). check whether the status is suspect
     if (!IS_ABNORMAL_STATUS(status)) {
         return CRS_STATUS_NORMAL;
     }
     if (!IS_SUSPECT_STATUS(status)) {
-        return CRS_STATUS_CRASH;
+        assert(g->dd_stage == DD_NONE);
+        return __diagnoser_delta_debug(g, status, addr);
     }
     if (addr == CRS_INVALID_IP) {
         EXITME("the client exits as SUSPECT but no suspected address is sent");
     }
 
-    // step (1). validate crashpoint
+    // step (2). validate crashpoint
     addr_t real_addr = __diagnoser_validate_crashpoint(g, addr);
     // XXX: we have to adjust bridge patch pointer when real_addr is unchanged.
     if (real_addr == addr) {
@@ -358,22 +417,23 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
         real_addr = z_patcher_adjust_bridge_address(g->patcher, real_addr);
     }
 
-    // step (2). check whether real_addr is INVALID_ADDR
+    // step (3). check whether real_addr is INVALID_ADDR
     if (real_addr == INVALID_ADDR) {
-        z_error(COLOR(RED, "real crash! (%#lx)"), addr);
-        return CRS_STATUS_CRASH;
+        z_info(COLOR(RED, "real crash! (%#lx)"), addr);
+        assert(g->dd_stage == DD_NONE);
+        return __diagnoser_delta_debug(g, status, addr);
     }
 
-    // step (3). get CPType
+    // step (4). get CPType
     CPType cp_type = __diagnoser_get_crashpoint_type(g, addr, real_addr);
 
-    // step (4). patch the intentional crash
+    // step (5). patch the intentional crash
     __diagnoser_patch_crashpoint(g, real_addr, cp_type);
 
     z_rewriter_optimization_stats(g->rewriter);
     z_patcher_bridge_stats(g->patcher);
 
-    // step (5). check remmap
+    // step (6). check remmap
     if (z_binary_check_state(g->binary, ELFSTATE_SHADOW_EXTENDED)) {
         z_info("underlying shadow file is extended");
 

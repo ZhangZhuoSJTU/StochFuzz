@@ -73,6 +73,13 @@ STRUCT(Diagnoser, {
     DDStage dd_stage;
     int dd_status;
     addr_t dd_addr;
+    // used for dup-binary-search
+    size_t dd_s_low;
+    size_t dd_s_high;
+    size_t dd_s_cur;
+    size_t dd_e_low;
+    size_t dd_e_high;
+    size_t dd_e_cur;
 
     GHashTable *crashpoints;
     const char *cp_filename;

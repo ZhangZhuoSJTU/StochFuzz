@@ -34,6 +34,12 @@ Z_PRIVATE void __patcher_patch_all_S(Patcher *p);
 Z_PRIVATE void __patcher_patch_all_F(Patcher *p);
 
 /*
+ * Flip uncertain patches (used in delta debugging mode)
+ */
+Z_PRIVATE void __patcher_flip_uncertain_patch(Patcher *p, addr_t addr,
+                                              bool is_enable);
+
+/*
  * Real patching function
  */
 Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
@@ -70,6 +76,19 @@ Z_PRIVATE int32_t __patcher_compare_address(addr_t a, addr_t b, void *_data) {
         return 1;
     } else {
         return 0;
+    }
+}
+
+Z_PRIVATE void __patcher_flip_uncertain_patch(Patcher *p, addr_t addr,
+                                              bool is_enable) {
+    if (is_enable) {
+        __patcher_patch(p, addr, 1, __invalid_inst_buf);
+    } else {
+        size_t off = addr - p->text_addr;
+        if (off >= p->text_size) {
+            EXITME("invalid address: %#lx", addr);
+        }
+        __patcher_patch(p, addr, 1, p->text_backup + off);
     }
 }
 
@@ -445,6 +464,10 @@ Z_PRIVATE void __patcher_patch_all_S(Patcher *p) {
 }
 
 Z_API void z_patcher_describe(Patcher *p) {
+    if (p->s_iter || p->e_iter) {
+        EXITME("cannot make requests when delta debugging mode is enable");
+    }
+
     // first do patching
     z_patcher_initially_patch(p);
 
@@ -535,6 +558,9 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->bridges = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
                                        (GDestroyNotify)(&z_free));
 
+    p->s_iter = NULL;
+    p->e_iter = NULL;
+
     p->patched_bridges = 0;
     p->delayed_bridges = 0;
     p->resolved_bridges = 0;
@@ -561,6 +587,9 @@ Z_API void z_patcher_destroy(Patcher *p) {
 
 Z_API void z_patcher_initially_patch(Patcher *p) {
     assert(p != NULL);
+    if (p->s_iter || p->e_iter) {
+        EXITME("cannot do initial patch in delta debugging mode");
+    }
 
     // backup .text
     if (p->text_backup) {
@@ -581,6 +610,10 @@ Z_API void z_patcher_initially_patch(Patcher *p) {
 }
 
 Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
+    if (p->s_iter || p->e_iter) {
+        EXITME("cannot make requests when delta debugging mode is enable");
+    }
+
 #ifdef BINARY_SEARCH_DEBUG_REWRITER
     z_warn(
         "when debuging rewriter, real crashes may cause unintentional "
@@ -644,6 +677,10 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
 //
 Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                                   addr_t shadow_addr, bool is_real) {
+    if (p->s_iter || p->e_iter) {
+        EXITME("cannot build bridge in delta debugging mode");
+    }
+
     Disassembler *d = p->disassembler;
 
 #ifdef BINARY_SEARCH_DEBUG_REWRITER
@@ -1009,6 +1046,10 @@ Z_API void z_patcher_bridge_stats(Patcher *p) {
 }
 
 Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
+    if (p->s_iter || p->e_iter) {
+        EXITME("cannot adjust bridge in delta debugging mode");
+    }
+
     BridgePoint *bp = g_hash_table_lookup(p->bridges, GSIZE_TO_POINTER(addr));
 
     // case (1). this is not a bridge point, and we do nothing.
@@ -1071,11 +1112,93 @@ Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
 }
 
 Z_API size_t z_patcher_uncertain_patches_n(Patcher *p) {
+    if (p->s_iter || p->e_iter) {
+        EXITME("cannot make requests when delta debugging mode is enable");
+    }
+
     return g_sequence_get_length(p->uncertain_patches);
 }
 
-Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_enable,
-                                            size_t start_idx, size_t end_idx) {
+Z_API void z_patcher_self_correction_start(Patcher *p) {
+    if (p->s_iter || p->e_iter) {
+        EXITME("self correction procedure already started");
+    }
+
+    p->s_iter = g_sequence_get_begin_iter(p->uncertain_patches);
+    p->e_iter = g_sequence_get_end_iter(p->uncertain_patches);
+}
+
+Z_API void z_patcher_self_correction_end(Patcher *p) {
+    if (!p->s_iter || !p->e_iter) {
+        EXITME("self correction procedure did not start");
+    }
+
+    // step (1). repair the buggy rewriting
     // TODO
-    return;
+
+    // step (2). enable all uncertain patches
+    // XXX: note that current all the uncertain patches are disabled
+    GSequenceIter *iter = g_sequence_get_begin_iter(p->uncertain_patches);
+    while (!g_sequence_iter_is_end(iter)) {
+        __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter), true);
+        iter = g_sequence_iter_next(iter);
+    }
+
+    // step (3). disable the s_iter and e_iter flags
+    p->s_iter = NULL;
+    p->e_iter = NULL;
+}
+
+Z_API void z_patcher_test_uncertain_patches(Patcher *p, bool is_s_iter,
+                                            int64_t off) {
+    if (!p->s_iter || !p->e_iter) {
+        EXITME("self correction procedure did not start");
+    }
+    if (!off) {
+        return;
+    }
+
+    // step (1). prepart basic infomation
+    GSequenceIter *iter = (is_s_iter ? p->s_iter : p->e_iter);
+    GSequenceIter *(*change_iter)(GSequenceIter *) =
+        ((off > 0) ? &g_sequence_iter_next : &g_sequence_iter_prev);
+    size_t steps = ((off < 0) ? (size_t)(-off) : (size_t)off);
+
+    // is_enable | is_s_iter | off > 0
+    // ----------+-----------+----------------
+    // True      | True      | False (off < 0)
+    // True      | False     | True  (off > 0)
+    // False     | True      | True  (off > 0)
+    // False     | False     | False (off < 0)
+    bool is_enable = (!!is_s_iter) ^ (!!(off > 0));
+
+    // step (2). flip uncertain patches
+    bool do_before_change = (off > 0);
+    for (size_t i = 0; i < steps; i++) {
+        if (do_before_change) {
+            __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter),
+                                           is_enable);
+        }
+
+        GSequenceIter *tmp = (*change_iter)(iter);
+        assert(tmp != iter);
+        iter = tmp;
+
+        if (!do_before_change) {
+            __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter),
+                                           is_enable);
+        }
+    }
+
+    // step (3). update s_iter/e_iter
+    if (is_s_iter) {
+        p->s_iter = iter;
+    } else {
+        p->e_iter = iter;
+    }
+    assert(p->s_iter && p->e_iter);
+    // it is also possible that s_iter == e_iter
+    assert(__patcher_compare_address((addr_t)g_sequence_get(p->s_iter),
+                                     (addr_t)g_sequence_get(p->e_iter),
+                                     NULL) <= 0);
 }

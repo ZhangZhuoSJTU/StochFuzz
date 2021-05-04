@@ -79,7 +79,8 @@ STRUCT(Patcher, {
     GHashTable *bridges;  // bridges detection points
 
     // delta debugging info
-    // TODO
+    GSequenceIter *s_iter;
+    GSequenceIter *e_iter;
 
     // others
     size_t patched_bridges;
@@ -139,9 +140,19 @@ Z_API void z_patcher_bridge_stats(Patcher *p);
 Z_API size_t z_patcher_uncertain_patches_n(Patcher *p);
 
 /*
- * Enable or disable uncertain patches in a given rangew
+ * Self correction starts
  */
-Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_enable,
-                                            size_t start_idx, size_t end_idx);
+Z_API void z_patcher_self_correction_start(Patcher *p);
+
+/*
+ * Self correction ends
+ */
+Z_API void z_patcher_self_correction_end(Patcher *p);
+
+/*
+ * Enable or disable uncertain patches by moving s_iter/e_iter
+ */
+Z_API void z_patcher_test_uncertain_patches(Patcher *p, bool is_s_iter,
+                                            int64_t off);
 
 #endif
