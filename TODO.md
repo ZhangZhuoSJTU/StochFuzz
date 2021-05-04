@@ -52,3 +52,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.3.0: support timeout for daemon and add benchmark testing for each tag.
 + v0.4.0: support shared .text section for the new system design and simplify the communication between the daemon and binary.
 + v0.5.0: support automatically fixing overlapped bridges (i.e., patched *jmp* instructions in the original code space).
++ v0.6.0: support self correction procedure.
