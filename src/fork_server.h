@@ -6,9 +6,9 @@
 #include "loader.h"
 
 typedef enum crs_loop_type {
-    CRSLoopNone = 0,  // not a crs loop
-    CRSLoopFix,       // crs loop caused by incremental rewriting
-    CRSLoopDebug,     // crs loop caused by delta debugging
+    CRS_LOOP_NONE = 0,  // not a crs loop
+    CRS_LOOP_INCR,      // crs loop caused by incremental rewriting
+    CRS_LOOP_DEBUG,     // crs loop caused by delta debugging
 } CRSLoopType;
 
 #endif
