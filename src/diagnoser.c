@@ -166,55 +166,246 @@ Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
     }
 }
 
+// XXX: it is highly recommended to specify a timeout for AFL by its -t option.
+// Otherwise, the auto-scaled timeout may cause incorrect error diagnosis (e.g.,
+// the dd_status may change when timeout). more information can be found at
+// https://github.com/google/AFL/blob/master/afl-fuzz.c#L3244
 // XXX: note that we currently downgrade the delta debugging into a more
 // efficient dup-binary-search. This simplified algorithm works well as the
 // unintentional crash is caused by a single bad patch in most cases. The delta
 // debugging algorithm can be easily brought back if necessary.
-// XXX: it is highly recommended to specify a timeout for AFL by its -t option.
-// Otherwise, the auto-scaled timeout may cause incorrect error diagnosis (e.g.,
-// the dd_status may change when timeout).
+
+/*
+ * XXX: to explain how and why the simplified algorithm works well, we first
+ * need to give a definition about *key patch*.
+ *
+ * Key patch means if we remove this patch, the original unintentional crash
+ * cannot be reproduced.
+ *
+ * The simplified algorithm works by first finding the last *key patch*. It
+ * ignores all the patches after the last key patch. Then it checks if the
+ * unintentional crash can be reproduced by only keeping the last DD_RANGE
+ * uncertain patches(e.g., if the last key patch is 54-th patch and DD_RANGE ==
+ * 32, then we only keep the 22-nd to 54-th patches).
+ *
+ * If the crash can be reproduced, it means all the rewriting errors are in the
+ * DD_RANGE. Then it use binary search to find the first key patch and regard
+ * all patches between the first and the last key patch are rewriting errors.
+ *
+ * If the crash cannot be repoduced, it only regards the last key patch as an
+ * error and re-runs the program to detect other rewriting errors.
+ *
+ * The algorithm works beacuse of the following two observatoins.
+ *
+ * The first observation is that, all key patches must be rewritting erros. It
+ * is because the correct patches are applied on the instructions and such
+ * patches can only trigger intentional crashes (note that we can safeguard
+ * non-crashing rewriting errors).
+ *
+ * The second observation is that, in most cases, an unintentional crash is
+ * caused by a single rewriting error or a few continuous errors. It is because
+ * the program is very sensitive to incorrect data flow. Once the data flow is
+ * randomly polluted, the program is going to crash very soon.
+ */
 Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
                                             addr_t addr) {
+#define __UPDATE_STAGE_AND_RETURN(stage, ret) \
+    do {                                      \
+        g->dd_stage = (stage);                \
+        return (ret);                         \
+    } while (0)
+
     if (!z_disassembler_fully_support_prob_disasm(g->disassembler)) {
         assert(g->dd_stage == DD_NONE);
-        return CRS_STATUS_CRASH;
+        __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
     }
+
+    z_trace("error diagnosis for status (%d) at %#lx", status, addr);
 
     if (g->dd_stage == DD_NONE) {
         z_info(
             "check whether the crash is caused by rewriting errors by "
             "disabling all uncertain patches");
 
-        // step (0.1). set dd_status and dd_addr
+        // step (1). check whether there is any uncertain patches
+        size_t n = z_patcher_uncertain_patches_n(g->patcher);
+        if (!n) {
+            // we do not need to wrap up the self correction procedure of
+            // patcher here, because it has not been started.
+            __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
+        }
+
+        // step (2). set dd_status and dd_addr
         g->dd_status = status;
         g->dd_addr = addr;
 
-        // step (0.2). enable delta debugging for patcher
-        g->dd_e_high = z_patcher_uncertain_patches_n(g->patcher);
+        // step (3). enable delta debugging for patcher
+        g->dd_high = n;
         z_patcher_self_correction_start(g->patcher);
 
-        // step (0.3). disable all uncertain patches
-        z_patcher_test_uncertain_patches(g->patcher, false, -g->dd_e_high);
+        // step (4). disable all uncertain patches
+        z_patcher_flip_uncertain_patches(g->patcher, false, -n);
 
-        // step (0.4). update dd_stage
-        g->dd_stage = DD_STAGE0;
-
-        return CRS_STATUS_DEBUG;
+        // step (5). update dd_stage and return
+        __UPDATE_STAGE_AND_RETURN(DD_STAGE0, CRS_STATUS_DEBUG);
     }
 
     if (g->dd_stage == DD_STAGE0) {
+        // step (1). check whether the unintentional crash can be reproduced, if
+        // so, we can determine it is caused by a latent bug.
         if (status == g->dd_status && addr == g->dd_addr) {
-            z_info("it is a latent bug");
+            z_info(COLOR(RED, "a latent bug at %#lx with status %d"), addr,
+                   status);
             z_patcher_self_correction_end(g->patcher);
-            g->dd_stage = DD_NONE;
-            return CRS_STATUS_CRASH;
+            __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
+        }
+
+        // step (2). it is caused by a rewriting error, let's setup the error
+        // diagnosis.
+        z_info("we encounter a rewriting error, let's do error diagnosis");
+        g->dd_low = 0;
+        g->dd_e_cur = 0;
+
+        // step (3). set the mid for e_iter, and update e_iter
+        int64_t mid = (g->dd_low + g->dd_high) >> 1;
+        z_patcher_flip_uncertain_patches(g->patcher, false, mid - g->dd_e_cur);
+        g->dd_e_cur = mid;
+
+        // step (4). update stage and return
+        __UPDATE_STAGE_AND_RETURN(DD_STAGE1, CRS_STATUS_DEBUG);
+    }
+
+    if (g->dd_stage == DD_STAGE1) {
+        // step (1). update dd_low and dd_high
+        if (status == g->dd_status && addr == g->dd_addr) {
+            z_info(
+                "error diagnosis stage 1: test e_iter within [0, %ld), "
+                "reproduced: " COLOR(GREEN, "true"),
+                g->dd_e_cur);
+            g->dd_high = g->dd_e_cur;
         } else {
-            // TODO: update to binary-search
-            EXITME("it is a rewriting error");
+            z_info(
+                "error diagnosis stage 1: test e_iter within [0, %ld), "
+                "reproduced: " COLOR(RED, "false"),
+                g->dd_e_cur);
+            g->dd_low = g->dd_e_cur;
+        }
+
+        assert(g->dd_low != g->dd_high);
+
+        // step (2). binary search
+        if (g->dd_low + 1 == g->dd_high) {
+            // step (2.1.1). the binary search is done, move e_iter to
+            // g->dd_high
+            z_patcher_flip_uncertain_patches(g->patcher, false,
+                                             g->dd_high - g->dd_e_cur);
+            g->dd_e_cur = g->dd_high;
+            assert(g->dd_e_cur > 0);
+
+            // step (2.1.2). check whether we need to go into DD_STAGE2
+            if (g->dd_e_cur <= DD_RANGE) {
+                // setup the binary search for s_iter
+                g->dd_low = 0;
+                g->dd_high = g->dd_e_cur;
+                g->dd_s_cur = g->dd_low;
+
+                // ready for s_iter binary search
+                int64_t mid = (g->dd_low + g->dd_high) >> 1;
+                z_patcher_flip_uncertain_patches(g->patcher, true,
+                                                 mid - g->dd_s_cur);
+                g->dd_s_cur = mid;
+                __UPDATE_STAGE_AND_RETURN(DD_STAGE3, CRS_STATUS_DEBUG);
+            } else {
+                g->dd_s_cur = 0;
+                int64_t target = g->dd_e_cur - DD_RANGE;
+                z_patcher_flip_uncertain_patches(g->patcher, true,
+                                                 target - g->dd_s_cur);
+                g->dd_s_cur = target;
+                __UPDATE_STAGE_AND_RETURN(DD_STAGE2, CRS_STATUS_DEBUG);
+            }
+        } else {
+            // step (2.2.1). set the mid for e_iter, and update e_iter
+            int64_t mid = (g->dd_low + g->dd_high) >> 1;
+            z_patcher_flip_uncertain_patches(g->patcher, false,
+                                             mid - g->dd_e_cur);
+            g->dd_e_cur = mid;
+
+            // step (2.2.2). update stage and return
+            __UPDATE_STAGE_AND_RETURN(DD_STAGE1, CRS_STATUS_DEBUG);
         }
     }
 
-    return CRS_STATUS_CRASH;
+    if (g->dd_stage == DD_STAGE2) {
+        if (status == g->dd_status && addr == g->dd_addr) {
+            z_info(
+                "error diagnosis stage 2: dup-binary-search works for [%ld, "
+                "%ld)",
+                g->dd_s_cur, g->dd_e_cur);
+
+            // goto DD_STAGE3 for s_iter binary search
+            g->dd_low = g->dd_s_cur;
+            g->dd_high = g->dd_e_cur;
+
+            int64_t mid = (g->dd_low + g->dd_high) >> 1;
+            z_patcher_flip_uncertain_patches(g->patcher, true,
+                                             mid - g->dd_s_cur);
+            g->dd_s_cur = mid;
+            __UPDATE_STAGE_AND_RETURN(DD_STAGE3, CRS_STATUS_DEBUG);
+        } else {
+            // this branch means the distance between two rewriting errors are
+            // relatively large. So we first repair the last rewriting error.
+            z_info(
+                "error diagnosis stage 2: the distance between two errors is "
+                "large, let's first repair "
+                "the last one: [%ld, %ld)",
+                g->dd_e_cur - 1, g->dd_e_cur);
+            assert(g->dd_e_cur - 1 >= g->dd_s_cur);
+            z_patcher_flip_uncertain_patches(g->patcher, true,
+                                             (g->dd_e_cur - 1) - g->dd_s_cur);
+            z_patcher_self_correction_end(g->patcher);
+            __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_NOTHING);
+        }
+    }
+
+    if (g->dd_stage == DD_STAGE3) {
+        // step (1). update dd_low and dd_high
+        if (status == g->dd_status && addr == g->dd_addr) {
+            z_info(
+                "error diagnosis stage 3: test s_iter within [%ld, %ld), "
+                "reproduced: " COLOR(GREEN, "true"),
+                g->dd_s_cur, g->dd_e_cur);
+            g->dd_low = g->dd_s_cur;
+        } else {
+            z_info(
+                "error diagnosis stage 3: test s_iter within [%ld, %ld), "
+                "reproduced: " COLOR(RED, "false"),
+                g->dd_s_cur, g->dd_e_cur);
+            g->dd_high = g->dd_s_cur;
+        }
+
+        assert(g->dd_low != g->dd_high);
+
+        // step (2). check whether the procedure is done
+        if (g->dd_low + 1 == g->dd_high) {
+            z_patcher_flip_uncertain_patches(g->patcher, true,
+                                             g->dd_low - g->dd_s_cur);
+            g->dd_s_cur = g->dd_low;
+            z_info("locate the error: [%ld, %ld)", g->dd_s_cur, g->dd_e_cur);
+            z_patcher_self_correction_end(g->patcher);
+            __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_NOTHING);
+        }
+
+        // step (3). continue binary search
+        int64_t mid = (g->dd_low + g->dd_high) >> 1;
+        z_patcher_flip_uncertain_patches(g->patcher, true, mid - g->dd_s_cur);
+        g->dd_s_cur = mid;
+        __UPDATE_STAGE_AND_RETURN(DD_STAGE3, CRS_STATUS_DEBUG);
+    }
+
+    EXITME("unreachable code");
+    return CRS_STATUS_CRASH;  // used to emit warnings
+
+#undef __UPDATE_STAGE_AND_RETURN
 }
 
 Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
@@ -397,6 +588,7 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
                                            addr_t addr) {
     // step (0). check whether diagnoser is under delta debugging mode
     if (g->dd_stage != DD_NONE) {
+        // the diagnoser is under delta debugging mode
         return __diagnoser_delta_debug(g, status, addr);
     }
 
@@ -405,6 +597,7 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
         return CRS_STATUS_NORMAL;
     }
     if (!IS_SUSPECT_STATUS(status)) {
+        // it is an unintentional crash
         assert(g->dd_stage == DD_NONE);
         return __diagnoser_delta_debug(g, status, addr);
     }
@@ -422,6 +615,7 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
 
     // step (3). check whether real_addr is INVALID_ADDR
     if (real_addr == INVALID_ADDR) {
+        // it is an unintentional crash
         z_info(COLOR(RED, "real crash with suspect status! (%#lx)"), addr);
         assert(g->dd_stage == DD_NONE);
         return __diagnoser_delta_debug(g, status, addr);

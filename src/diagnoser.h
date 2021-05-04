@@ -48,13 +48,18 @@ typedef struct crash_point_t {
 } CrashPoint;
 
 /*
+ * The range of Dup-Binary-Search
+ */
+#define DD_RANGE 16
+
+/*
  * Stage for delta debugging mode
  */
 typedef enum delta_debugging_stage {
-    DD_STAGE0,  // ready for delta debugging
-    DD_STAGE1,  // validate whether it is a rewriting error
-    DD_STAGE2,  // locate the e_iter in Patcher
-    DD_STAGE3,  // locate the s_iter in Pacther
+    DD_STAGE0,  // validate whether it is a rewriting error
+    DD_STAGE1,  // binary search to locate the e_iter in Patcher
+    DD_STAGE2,  // validate whether all rewriting errors are in a DD_RANGE
+    DD_STAGE3,  // binary search to locate the s_iter in Pacther
 
     DD_NONE = -1,  // not in the delta debugging mode
 } DDStage;
@@ -73,13 +78,11 @@ STRUCT(Diagnoser, {
     DDStage dd_stage;
     int dd_status;
     addr_t dd_addr;
-    // used for dup-binary-search
-    size_t dd_s_low;
-    size_t dd_s_high;
-    size_t dd_s_cur;
-    size_t dd_e_low;
-    size_t dd_e_high;
-    size_t dd_e_cur;
+    // used for dup-binary-search (int64_t to avoid overflow)
+    int64_t dd_low;
+    int64_t dd_high;
+    int64_t dd_s_cur;
+    int64_t dd_e_cur;
 
     GHashTable *crashpoints;
     const char *cp_filename;

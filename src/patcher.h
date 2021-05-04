@@ -152,7 +152,7 @@ Z_API void z_patcher_self_correction_end(Patcher *p);
 /*
  * Enable or disable uncertain patches by moving s_iter/e_iter
  */
-Z_API void z_patcher_test_uncertain_patches(Patcher *p, bool is_s_iter,
+Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_s_iter,
                                             int64_t off);
 
 #endif

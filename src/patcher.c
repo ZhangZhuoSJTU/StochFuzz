@@ -1134,14 +1134,30 @@ Z_API void z_patcher_self_correction_end(Patcher *p) {
     }
 
     // step (1). repair the buggy rewriting
-    // TODO
+    // TODO: update pdisasm and other stuffs
+    if (p->s_iter != p->e_iter) {
+        // disable such uncertain patches
+        GSequenceIter *iter = p->s_iter;
+        while (iter != p->e_iter) {
+            addr_t err_addr = (addr_t)g_sequence_get(iter);
+            z_info("repair rewriting error: %#lx", err_addr);
+            __patcher_flip_uncertain_patch(p, err_addr, false);
+            iter = g_sequence_iter_next(iter);
+        }
+
+        // remove such uncertain patches
+        g_sequence_remove_range(p->s_iter, p->e_iter);
+    }
 
     // step (2). enable all uncertain patches
     // XXX: note that current all the uncertain patches are disabled
-    GSequenceIter *iter = g_sequence_get_begin_iter(p->uncertain_patches);
-    while (!g_sequence_iter_is_end(iter)) {
-        __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter), true);
-        iter = g_sequence_iter_next(iter);
+    {
+        GSequenceIter *iter = g_sequence_get_begin_iter(p->uncertain_patches);
+        while (!g_sequence_iter_is_end(iter)) {
+            __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter),
+                                           true);
+            iter = g_sequence_iter_next(iter);
+        }
     }
 
     // step (3). disable the s_iter and e_iter flags
@@ -1149,7 +1165,7 @@ Z_API void z_patcher_self_correction_end(Patcher *p) {
     p->e_iter = NULL;
 }
 
-Z_API void z_patcher_test_uncertain_patches(Patcher *p, bool is_s_iter,
+Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_s_iter,
                                             int64_t off) {
     if (!p->s_iter || !p->e_iter) {
         EXITME("self correction procedure did not start");
