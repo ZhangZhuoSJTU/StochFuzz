@@ -4,10 +4,6 @@
 /*
  * Perform delta debugging to locate rewriting errors
  */
-// XXX: note that we currently downgrade the delta debugging into a more
-// efficient dup-binary-search. This simplified algorithm works well as the
-// unintentional crash is caused by a single bad patch in most cases. The delta
-// debugging algorithm can be easily brought back if necessary.
 Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
                                             addr_t addr);
 
@@ -170,6 +166,13 @@ Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
     }
 }
 
+// XXX: note that we currently downgrade the delta debugging into a more
+// efficient dup-binary-search. This simplified algorithm works well as the
+// unintentional crash is caused by a single bad patch in most cases. The delta
+// debugging algorithm can be easily brought back if necessary.
+// XXX: it is highly recommended to specify a timeout for AFL by its -t option.
+// Otherwise, the auto-scaled timeout may cause incorrect error diagnosis (e.g.,
+// the dd_status may change when timeout).
 Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
                                             addr_t addr) {
     if (!z_disassembler_fully_support_prob_disasm(g->disassembler)) {
@@ -419,7 +422,7 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
 
     // step (3). check whether real_addr is INVALID_ADDR
     if (real_addr == INVALID_ADDR) {
-        z_info(COLOR(RED, "real crash! (%#lx)"), addr);
+        z_info(COLOR(RED, "real crash with suspect status! (%#lx)"), addr);
         assert(g->dd_stage == DD_NONE);
         return __diagnoser_delta_debug(g, status, addr);
     }
