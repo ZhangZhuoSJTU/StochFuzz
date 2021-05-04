@@ -268,11 +268,19 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
 
             CRSStatus crs_status =
                 z_diagnoser_new_crashpoint(core->diagnoser, status, crash_rip);
+
             if (crs_status == CRS_STATUS_CRASH ||
                 crs_status == CRS_STATUS_NORMAL) {
                 z_free(argv_);
                 z_free((char *)patched_filename);
                 return status;
+            }
+
+            // TODO: try to fix this somehow (no idea how currently)
+            if (crs_status == CRS_STATUS_DEBUG) {
+                EXITME(
+                    "self correction procedure under dry run mode is "
+                    "problematic due to ASLR");
             }
         }
     }

@@ -138,6 +138,8 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- rar)
 	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- timeout mdzz)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- timeout)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash)
+	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- unintentional_crash)
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_whatever, ../$(TOOLNAME) -R -t 5000 $(TEST_OPTIONS) -- z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
@@ -149,6 +151,7 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libpng-1.2.56 seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' unintentional_crash mdzz)
 ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
 endif
