@@ -31,6 +31,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] When SINGLE\_SUCC\_OPT is enabled and sys\_config.disable\_opt is not set, remove the AFL trampoline before each function entrypoint.
 + [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
 + [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
++ [ ] Add a new flag/option to enable early instrumentation for fork server (i.e., before the entrypoint of binary).
 
 ## Known Issues
 
