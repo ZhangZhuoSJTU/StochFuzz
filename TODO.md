@@ -44,6 +44,10 @@ There are some known issues which we are trying to resolve.
 + The auto-scaled timeout of AFL may cause incorrect error diagnosis (the dd\_status may change), so it is recommended to specify a timeout (>= 1000ms or >= AFL\_HANG\_TMOUT if set) to AFL by -t option.
 + Self correction procedure may encounter problems under dry run mode (-R) due to ASLR.
 
+## Undecided Changes
+
++ Hook more signals to collect address information and send real signal in the meantime.
+
 ## Tag Info
 
 We have marked multiple tags when migrating the system, many of which reflect the migration progress.
