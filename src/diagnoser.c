@@ -166,9 +166,10 @@ Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
     }
 }
 
-// XXX: it is highly recommended to specify a timeout for AFL by its -t option.
-// Otherwise, the auto-scaled timeout may cause incorrect error diagnosis (e.g.,
-// the dd_status may change when timeout). more information can be found at
+// XXX: it is highly recommended to specify a timeout (>= 1000ms, or >=
+// AFL_HANG_TMOUT if set) for AFL by its -t option. Otherwise, the auto-scaled
+// timeout may cause incorrect error diagnosis (e.g., the dd_status may change
+// when timeout). more information can be found at
 // https://github.com/google/AFL/blob/master/afl-fuzz.c#L3244
 // XXX: note that we currently downgrade the delta debugging into a more
 // efficient dup-binary-search. This simplified algorithm works well as the
