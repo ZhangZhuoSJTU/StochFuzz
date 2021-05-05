@@ -132,7 +132,7 @@ Z_PRIVATE void __rewriter_count_conflicted_ids(Rewriter *r) {
     g_hash_table_destroy(id_2_bb);
     g_list_free(bbs);
 
-    z_info("we have %d conflicted IDs in total", conflicts);
+    z_info("number of conflicted block IDs : %ld", conflicts);
 }
 
 /*

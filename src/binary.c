@@ -169,7 +169,7 @@ Z_PRIVATE void __binary_setup_fork_server(Binary *b) {
     z_elf_write(b->elf, cur_addr, fork_server_bin_len, fork_server_bin);
     cur_addr += fork_server_bin_len;
 
-    // step (2). left jump gadget (default to original main)
+    // step (2). set jump gadget (default to original main)
     addr_t main_addr = z_elf_get_main(b->elf);
     KS_ASM_JMP(cur_addr, main_addr);
     z_elf_write(b->elf, cur_addr, ks_size, ks_encode);

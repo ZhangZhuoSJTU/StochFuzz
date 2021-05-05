@@ -1213,8 +1213,14 @@ Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_s_iter,
         p->e_iter = iter;
     }
     assert(p->s_iter && p->e_iter);
+
     // it is also possible that s_iter == e_iter
-    assert(__patcher_compare_address((addr_t)g_sequence_get(p->s_iter),
-                                     (addr_t)g_sequence_get(p->e_iter),
-                                     NULL) <= 0);
+    if (!g_sequence_iter_is_end(p->e_iter) &&
+        __patcher_compare_address((addr_t)g_sequence_get(p->s_iter),
+                                  (addr_t)g_sequence_get(p->e_iter),
+                                  NULL) > 0) {
+        EXITME("invalid s_iter and e_iter: %#lx - %#lx",
+               (addr_t)g_sequence_get(p->s_iter),
+               (addr_t)g_sequence_get(p->e_iter));
+    }
 }
