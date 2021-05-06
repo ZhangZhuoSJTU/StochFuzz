@@ -221,7 +221,16 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
         __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
     }
 
-    z_trace("error diagnosis for status (%d) at %#lx", status, addr);
+    if (IS_SUSPECT_STATUS(status)) {
+        z_info("suspect status (%d) at %#lx", status, addr);
+    } else {
+        // XXX: it is very improtant to change addr to CRS_INVALID_IP, because
+        // for non-suspect status, addr is meaningless. In some cases, addr may
+        // vary (e.g., a segment fault caused by invalid stack addresses). See
+        // Undecided Changes in the documents for more information.
+        addr = CRS_INVALID_IP;
+        z_info("non-suspect status (%d)", status);
+    }
 
     if (g->dd_stage == DD_NONE) {
         z_info(

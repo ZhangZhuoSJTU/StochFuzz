@@ -223,7 +223,7 @@ Z_PRIVATE bool __prob_disassembler_get_propogate_successors(
     ProbDisassembler *pd, addr_t addr, size_t *n, addr_t **succs);
 
 /*
- * Apply hints and losts into working environment (H/RH/D), and remove revious
+ * Apply hints and losts into working environment (H/RH/D), and remove previous
  * data when there are no hint and lost. (playground = H + RH + D + P)
  */
 Z_PRIVATE void __prob_disassembler_refresh_playground(ProbDisassembler *pd);
