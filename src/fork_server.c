@@ -622,6 +622,9 @@ NO_INLINE void fork_server_start(char **envp) {
             } else if (WIFSIGNALED(client_status)) {
                 // XXX: if the daemon already identified this crash, it will
                 // stop automatically
+                // XXX: the SIGSEGV/SIGILL will be caught by the signal handler,
+                // which is not desired. But it seems trivial currently so we
+                // ignore it. Improve such code when necessary.
                 sys_kill(sys_getpid(), WTERMSIG(client_status));
             } else {
                 sys_kill(sys_getpid(), WSTOPSIG(client_status));
