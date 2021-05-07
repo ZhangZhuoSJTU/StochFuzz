@@ -21,7 +21,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Read PLT table to get library functions' names, and support the white-list for library functions.
 + [x] Correctly handle timeout from AFL.
 + [x] Use shared memory for .text section, to avoid the expensive patch commands.
-+ [ ] Support self-correction procedure (delta debugging).
++ [x] Support self-correction procedure (delta debugging).
 + [ ] Support non-return analysis on UCFG, with the help of the white-list for library functions.
 + [ ] Support the on-the-fly probability recalculation.
 + [ ] Support other disassembly backends (for the initial disassembly).
@@ -32,6 +32,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
 + [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
 + [ ] Add a new flag/option to enable early instrumentation for fork server (i.e., before the entrypoint of binary).
++ [ ] Enable periodic checking (for coverage feedback) to determine those false postives which do not lead to crashes.
 
 ## Known Issues
 
