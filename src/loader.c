@@ -219,7 +219,6 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
                                             void *context) {
     uint64_t rip = ((ucontext_t *)context)->uc_mcontext.gregs[REG_RIP];
     uint64_t client_pid = RW_PAGE_INFO(client_pid);
-    uint64_t self_pid = sys_getpid();
 
 #ifdef DEBUG
     char s[0x40] = "";
@@ -230,7 +229,7 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
     s[4] = ' ';
     utils_num2hexstr(s + 5, rip);
     s[21] = '(';
-    utils_num2hexstr(s + 22, self_pid);
+    utils_num2hexstr(s + 22, client_pid);
     s[38] = ')';
     s[39] = '\n';
     s[40] = '\x00';
@@ -253,7 +252,9 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
     }
 
     sys_kill(client_pid, SIGUSR1);  // kill client
-    sys_kill(self_pid, SIGUSR1);    // kill itself, if it is not the client
+
+    uint64_t self_pid = sys_getpid();
+    sys_kill(self_pid, SIGUSR1);  // kill itself, if it is not the client
 }
 
 /*
@@ -411,6 +412,10 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
     RW_PAGE_INFO(shared_text_base) = (addr_t)shared_text_base;
 
 #undef __PARSE_FILENAME
+
+    // set the client pid as the pid of fork server (loader) itself
+    // it will be updated every time we fork a new process
+    RW_PAGE_INFO(client_pid) = sys_getpid();
 
     // XXX: currently TP mapping is not used but reserved for advanced patching.
     // However, note that we still to maintain it as it can be quite useful in

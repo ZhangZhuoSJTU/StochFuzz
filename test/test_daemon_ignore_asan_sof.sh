@@ -16,9 +16,13 @@ for i in {1..100}
 do
     if [ -f $phantom ]; then
         echo "$target: daemon is up"
-        ./$phantom ${@:4} &
-        wait $daemon_pid
-        exit $?
+        ./$phantom ${@:4}
+        code=$?
+        kill -0 $daemon_pid
+        if [ "$?" -eq "0" ]; then
+            wait $daemon_pid
+        fi
+        exit $code
     else
         grep -F "SUMMARY: AddressSanitizer: stack-overflow" $target.daemon.log
         if [ "$?" -eq "0" ]; then

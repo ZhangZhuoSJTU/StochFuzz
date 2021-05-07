@@ -139,6 +139,7 @@ test:
 	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- timeout mdzz)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- timeout)
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
+	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash mdzz)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- unintentional_crash)
 endif
@@ -153,13 +154,15 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libpng-1.2.56 seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
+	$(call test_fail, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' crash mdzz)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' crash)
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' unintentional_crash mdzz)
 endif
 ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
 endif
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
+	$(call test_fail, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
 	$(call test_succ, cat timeout.daemon.log)
 	$(call test_succ, grep -F 'get status code: 0x9 (signal: 9)' timeout.daemon.log)
 
