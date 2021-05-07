@@ -366,7 +366,8 @@ Z_PRIVATE cs_insn *__rewriter_translate_shadow_inst(Rewriter *r, cs_insn *inst,
 
     for (int32_t i = 0; i < detail->x86.op_count; i++) {
         cs_x86_op *op = &(detail->x86.operands[i]);
-        if (op->type == X86_OP_MEM && op->mem.base == X86_REG_RIP) {
+        if (op->type == X86_OP_MEM &&
+            (op->mem.base == X86_REG_RIP || op->mem.base == X86_REG_EIP)) {
             goto TRANSLATE_RIP_INS;
         }
     }
@@ -381,6 +382,14 @@ TRANSLATE_RIP_INS:
         "rip-related memory access "
         "instruction " CS_SHOW_INST(inst));
 
+    const char *pc_regname = NULL;
+    if (strstr(inst->op_str, "eip")) {
+        z_warn("translate eip-related instruction: " CS_SHOW_INST(inst));
+        pc_regname = "eip";
+    } else {
+        pc_regname = "rip";
+    }
+
     // step [1]. generate asmline fmt (FMTSTR ATTACK!!!)
     int64_t op_mem_disp = 0;
 
@@ -392,6 +401,8 @@ TRANSLATE_RIP_INS:
         cs_x86_op *op = &(detail->x86.operands[i]);
         switch (op->type) {
             case X86_OP_REG:
+                assert(op->reg != X86_REG_RIP);
+                assert(op->reg != X86_REG_EIP);
                 z_snprintf(asmline_fmt + z_strlen(asmline_fmt),
                            ASMLINE_FMT_SIZE - z_strlen(asmline_fmt), "%s, ",
                            cs_reg_name(cs, op->reg));
@@ -402,7 +413,8 @@ TRANSLATE_RIP_INS:
                            op->imm);
                 continue;
             case X86_OP_MEM:
-                assert(op->mem.base == X86_REG_RIP);
+                assert(op->mem.base == X86_REG_RIP ||
+                       op->mem.base == X86_REG_EIP);
                 assert(op->mem.index == X86_REG_INVALID);
 
                 /*
@@ -421,31 +433,31 @@ TRANSLATE_RIP_INS:
                 switch (hooked_size) {
                     case 1:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "byte ptr [rip%+ld], ");
+                                 "byte ptr [%s%+ld], ");
                         break;
                     case 2:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "word ptr [rip%+ld], ");
+                                 "word ptr [%s%+ld], ");
                         break;
                     case 4:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "dword ptr [rip%+ld], ");
+                                 "dword ptr [%s%+ld], ");
                         break;
                     case 8:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "qword ptr [rip%+ld], ");
+                                 "qword ptr [%s%+ld], ");
                         break;
                     case 10:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "fword ptr [rip%+ld], ");
+                                 "fword ptr [%s%+ld], ");
                         break;
                     case 16:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "xmmword ptr [rip%+ld], ");
+                                 "xmmword ptr [%s%+ld], ");
                         break;
                     default:
                         z_strcpy(asmline_fmt + z_strlen(asmline_fmt),
-                                 "[rip%+ld], ");
+                                 "[%s%+ld], ");
                         break;
                 }
                 op_mem_disp = op->mem.disp;
@@ -469,7 +481,8 @@ TRANSLATE_RIP_INS:
     // most possible address (the longest meanful x64 instruction is 15-byte)
     for (; shadow_pc < shadow_addr + 0x10; shadow_pc++) {
         // step [2.1]. asm and disasm (FMTSTR ATTACK!!!)
-        KS_ASM(shadow_addr, asmline_fmt, ori_pc - shadow_pc + op_mem_disp);
+        KS_ASM(shadow_addr, asmline_fmt, pc_regname,
+               ori_pc - shadow_pc + op_mem_disp);
         assert(ks_size > 0);
         CS_DISASM_RAW(ks_encode, ks_size, shadow_addr, 1);
 

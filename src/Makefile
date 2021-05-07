@@ -108,15 +108,15 @@ handlers:
 binary.o: loader fork_server tps handlers
 
 define test_succ
-	cd test && ${1}
+	cd test && ( ${1} )
 endef
 
 define test_fail
-	cd test && ! ${1}
+	cd test && ( ! ${1} )
 endef
 
 define test_whatever
-	cd test && ${1} || true
+	cd test && ( ${1} || true )
 endef
 
 test:
@@ -190,13 +190,13 @@ GOOGLE_FTS=\
     wpantund-2018-02-27
 
 prepare_google_fts:
-	rm -rf test; cp -r ../benchmark test; cp ../test/test_daemon.sh test
+	rm -rf test; cp -r ../benchmark test; cp ../test/test_daemon_ignore_asan_sof.sh test
 
 $(GOOGLE_FTS): prepare_google_fts
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '' $@.normal $@.seed)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '' $@.inline $@.seed)
-	$(call test_succ, ../$(TOOLNAME) -R -- $@.normal $@.seed)
-	$(call test_succ, ../$(TOOLNAME) -R -- $@.inline $@.seed)
+	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '' $@.normal $@.seed)
+	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '' $@.inline $@.seed)
+	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.normal.daemon.log || ../$(TOOLNAME) -R -- $@.normal $@.seed)
+	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.inline.daemon.log || ../$(TOOLNAME) -R -- $@.inline $@.seed)
 
 benchmark: prepare_google_fts $(GOOGLE_FTS)
 

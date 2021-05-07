@@ -75,6 +75,7 @@ local_crashes
 src/test/
 test/*
 !test/test_daemon.sh
+!test/test_daemon_ignore_asan_sof.sh
 !test/bzip2.no.pie
 !test/test.c.bz2
 !test/libpng-1.2.56
