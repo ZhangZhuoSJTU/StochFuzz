@@ -16,19 +16,8 @@ else
 endif
 
 ifneq ($(origin DEBUG_REWRITER), undefined)
-ifneq ($(origin DEBUG_PATCHER), undefined)
-$(error we cannot debug rewriter and patcher at the same time)
-endif
-endif
-
-ifneq ($(origin DEBUG_REWRITER), undefined)
 	CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_REWRITER=$(strip $(DEBUG_REWRITER))
 	SHELLCODE_CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_REWRITER=$(strip $(DEBUG_REWRITER))
-endif
-
-ifneq ($(origin DEBUG_PATCHER), undefined)
-	CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_PATCHER=$(strip $(DEBUG_PATCHER))
-	SHELLCODE_CFLAGS += -DBINARY_SEARCH_INVALID_CRASH -DBINARY_SEARCH_DEBUG_PATCHER=$(strip $(DEBUG_PATCHER))
 endif
 
 # note that the new SINGLE_SUCC_OPT is not well test, as such we add an option to disable it
@@ -36,6 +25,13 @@ ifneq ($(origin SINGLE_SUCC_OPT), undefined)
 ifeq ('$(SINGLE_SUCC_OPT)', 'disable')
 	CFLAGS += -DNSINGLE_SUCC_OPT
 	SHELLCODE_CFLAGS += -DNSINGLE_SUCC_OPT
+endif
+endif
+
+ifneq ($(origin CONSERVATIVE_PATCH), undefined)
+ifeq ('$(CONSERVATIVE_PATCH)', 'enable')
+	CFLAGS += -DCONSERVATIVE_PATCH
+	SHELLCODE_CFLAGS += -DCONSERVATIVE_PATCH
 endif
 endif
 

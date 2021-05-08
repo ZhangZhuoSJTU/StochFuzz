@@ -509,6 +509,9 @@ Z_PRIVATE void z_prob_disassembler_update(ProbDisassembler *pd, addr_t addr,
         // we have known for sure this addr is not an instruction boundary
         z_addr_dict_remove(pd->H, addr);  // inst_hint
         __prob_disassembler_reset_inst_lost(pd, addr, +INFINITY);
+        // XXX: resetting data_hint should be more carefully handled as there
+        // are two cases of is_inst == false: 1) inside an instrution and 2)
+        // data
         __prob_disassembler_reset_data_hint(pd, addr, +INFINITY);
     }
 }

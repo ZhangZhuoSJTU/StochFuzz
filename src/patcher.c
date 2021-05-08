@@ -7,6 +7,7 @@
 #include <math.h>
 
 #define PATCH_THRESHOLD 0.99999
+#define PATCH_THRESHOLD_FOR_RETADDR (PATCH_THRESHOLD / 2)
 #define PATCH_RET_DEPTH 20
 #define BRIDGE_PRE_DEPTH 5
 
@@ -241,6 +242,7 @@ Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
     z_rptr_reset(p->text_ptr);
 }
 
+#ifdef CONSERVATIVE_PATCH
 Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
     Disassembler *d = p->disassembler;
     ELF *e = z_binary_get_elf(p->binary);
@@ -344,12 +346,6 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
         //     }
         // }
 
-#ifdef BINARY_SEARCH_DEBUG_PATCHER
-        if (cur_addr <= BINARY_SEARCH_DEBUG_PATCHER) {
-            continue;
-        }
-#endif
-
         __patcher_patch_uncertain_address(p, cur_addr);
 
     NEXT_ADDR:
@@ -425,15 +421,88 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
             }
         }
 
-#ifdef BINARY_SEARCH_DEBUG_PATCHER
-        if (ret_addr <= BINARY_SEARCH_DEBUG_PATCHER) {
-            continue;
-        }
-#endif
-
         __patcher_patch_uncertain_address(p, ret_addr);
     }
 }
+#else
+Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
+    Disassembler *d = p->disassembler;
+
+    addr_t text_addr = p->text_addr;
+    size_t text_size = p->text_size;
+
+    // step (1). we first find all potential uncertain patch points including
+    // all call/cjmp/jmp/ret instruction and the ret_addr of any call
+    // instruction.
+    if (!p->potential_uncertain_addresses) {
+        for (addr_t addr = text_addr; addr < text_addr + text_size; addr++) {
+            cs_insn *inst = z_disassembler_get_superset_disasm(d, addr);
+            if (!inst) {
+                continue;
+            }
+
+            if (z_capstone_is_ret(inst) || z_capstone_is_cjmp(inst) ||
+                z_capstone_is_jmp(inst)) {
+                p->potential_uncertain_addresses = g_list_prepend(
+                    p->potential_uncertain_addresses, GSIZE_TO_POINTER(addr));
+                continue;
+            }
+
+            if (z_capstone_is_call(inst)) {
+                p->potential_uncertain_addresses = g_list_prepend(
+                    p->potential_uncertain_addresses, GSIZE_TO_POINTER(addr));
+
+                // TODO: leverage non-return analysis to improve here
+                addr_t ret_addr = addr + inst->size;
+                if (z_disassembler_get_superset_disasm(d, ret_addr)) {
+                    // XXX: we use -ret_addr to indicate it is a return address
+                    addr_t negative_addr = (addr_t)(-(int64_t)ret_addr);
+                    p->potential_uncertain_addresses =
+                        g_list_prepend(p->potential_uncertain_addresses,
+                                       GSIZE_TO_POINTER(negative_addr));
+                }
+            }
+        }
+    }
+
+    // step (2). apply patches
+    {
+        GList *l = p->potential_uncertain_addresses;
+        while (l != NULL) {
+            GList *next = l->next;
+
+            // step (2.1) get address and threshold_p
+            addr_t addr = INVALID_ADDR;
+            double128_t threshold_p = 1.0;
+
+            int64_t addr_r = (int64_t)l->data;
+            if (addr_r >= 0) {
+                addr = (addr_t)addr_r;
+                threshold_p = PATCH_THRESHOLD;
+            } else {
+                addr = (addr_t)(-addr_r);
+                threshold_p = PATCH_THRESHOLD_FOR_RETADDR;
+            }
+
+            // step (2.2). patch the ones which have high probabilities and
+            // which are still uncertain
+            if (z_addr_dict_exist(p->certain_addresses, addr)) {
+                // addr is certain to be code currently, which means it can be
+                // remove from the uncertain patch list
+                p->potential_uncertain_addresses =
+                    g_list_delete_link(p->potential_uncertain_addresses, l);
+            } else {
+                if (z_disassembler_get_prob_disasm(d, addr) > threshold_p) {
+                    __patcher_patch_uncertain_address(p, addr);
+                }
+            }
+
+            // step (2.3). goto next
+            l = next;
+        }
+    }
+}
+#endif
 
 Z_PRIVATE void __patcher_patch_all_S(Patcher *p) {
     addr_t text_addr = p->text_addr;
@@ -443,13 +512,6 @@ Z_PRIVATE void __patcher_patch_all_S(Patcher *p) {
 
     addr_t cur_addr = text_addr;
     while (cur_addr < text_addr + text_size) {
-#ifdef BINARY_SEARCH_DEBUG_PATCHER
-        if (cur_addr <= BINARY_SEARCH_DEBUG_PATCHER) {
-            cur_addr += 1;
-            continue;
-        }
-#endif
-
         if (z_disassembler_get_prob_disasm(d, cur_addr) < PATCH_THRESHOLD) {
             cur_addr += 1;
             continue;
@@ -571,6 +633,8 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
     p->bridges = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
                                        (GDestroyNotify)(&z_free));
 
+    p->potential_uncertain_addresses = NULL;
+
     p->s_iter = NULL;
     p->e_iter = NULL;
 
@@ -593,6 +657,10 @@ Z_API void z_patcher_destroy(Patcher *p) {
 
     if (p->text_backup) {
         z_free(p->text_backup);
+    }
+
+    if (p->potential_uncertain_addresses) {
+        g_list_free(p->potential_uncertain_addresses);
     }
 
     z_free(p);
@@ -706,13 +774,6 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     }
 #endif
 
-#ifdef BINARY_SEARCH_DEBUG_PATCHER
-    // this bridge building may be caused by retaddr
-    if (ori_addr <= BINARY_SEARCH_DEBUG_PATCHER) {
-        return;
-    }
-#endif
-
     // step (0). check ori_addr range
     if (ori_addr < p->text_addr || ori_addr >= p->text_addr + p->text_size) {
         EXITME("invalid address for bridge: %#lx", ori_addr);
@@ -720,8 +781,6 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
 
     // step (1). update certain_addresses
     __patcher_bfs_certain_addresses(p, ori_addr);
-    // TODO: put z_disassembler_prob_disasm at a suitable place
-    z_disassembler_prob_disasm(d);
 
     // step (2). check whether there is a bridge already built on current addr
     BridgePoint *ori_bp = (BridgePoint *)g_hash_table_lookup(
@@ -1137,6 +1196,9 @@ Z_API void z_patcher_self_correction_start(Patcher *p) {
     if (p->s_iter || p->e_iter) {
         EXITME("self correction procedure already started");
     }
+    if (!p->pdisasm_enable) {
+        EXITME("self correction procedure only works when pdisasm is enable");
+    }
 
     p->s_iter = g_sequence_get_begin_iter(p->uncertain_patches);
     p->e_iter = g_sequence_get_end_iter(p->uncertain_patches);
@@ -1145,6 +1207,9 @@ Z_API void z_patcher_self_correction_start(Patcher *p) {
 Z_API void z_patcher_self_correction_end(Patcher *p) {
     if (!p->s_iter || !p->e_iter) {
         EXITME("self correction procedure did not start");
+    }
+    if (!p->pdisasm_enable) {
+        EXITME("self correction procedure only works when pdisasm is enable");
     }
 
     Disassembler *d = p->disassembler;
@@ -1163,23 +1228,20 @@ Z_API void z_patcher_self_correction_end(Patcher *p) {
 
             iter = g_sequence_iter_next(iter);
         }
-
-        // remove such uncertain patches
-        g_sequence_remove_range(p->s_iter, p->e_iter);
     }
 
-    // step (2). enable all uncertain patches
+    // step (2). rerun pdisasm
+    assert(p->pdisasm_enable);
+    z_disassembler_prob_disasm(d);
+
+    // step (3). remove all uncertain patches and recalcualte ones
     // XXX: note that current all the uncertain patches are disabled
-    {
-        GSequenceIter *iter = g_sequence_get_begin_iter(p->uncertain_patches);
-        while (!g_sequence_iter_is_end(iter)) {
-            __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter),
-                                           true);
-            iter = g_sequence_iter_next(iter);
-        }
-    }
+    p->s_iter = g_sequence_get_begin_iter(p->uncertain_patches);
+    p->e_iter = g_sequence_get_end_iter(p->uncertain_patches);
+    g_sequence_remove_range(p->s_iter, p->e_iter);
+    __patcher_patch_all_F(p);
 
-    // step (3). disable the s_iter and e_iter flags
+    // step (4). disable the s_iter and e_iter flags
     p->s_iter = NULL;
     p->e_iter = NULL;
 }
@@ -1188,6 +1250,9 @@ Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_s_iter,
                                             int64_t off) {
     if (!p->s_iter || !p->e_iter) {
         EXITME("self correction procedure did not start");
+    }
+    if (!p->pdisasm_enable) {
+        EXITME("self correction procedure only works when pdisasm is enable");
     }
     if (!off) {
         return;

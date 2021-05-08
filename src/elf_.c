@@ -625,6 +625,10 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e) {
         const char *shdr_name = shstrtab + name_off;
 
         if (!z_strcmp(shdr_name, ".text")) {
+            if ((int64_t)shdr->sh_addr < 0 ||
+                (int64_t)(shdr->sh_addr + shdr->sh_size) < 0) {
+                EXITME("some addresses in .text section are negative");
+            }
             z_elf_set_shdr_text(e, shdr);
             LOOKUP_TABLE_INIT_CELL_NUM(shdr->sh_size);
         } else if (!z_strcmp(shdr_name, ".init")) {

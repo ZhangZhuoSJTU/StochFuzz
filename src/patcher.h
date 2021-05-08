@@ -78,11 +78,15 @@ STRUCT(Patcher, {
     AddrDictFast(bool, certain_patches);
     GHashTable *bridges;  // bridges detection points
 
+    // potential addresses for uncertain patches (only used when pdisasm is
+    // enable and CONSERVATIVE_PATCH is disable)
+    GList *potential_uncertain_addresses;
+
     // delta debugging info
     GSequenceIter *s_iter;
     GSequenceIter *e_iter;
 
-    // others
+    // statistic information
     size_t patched_bridges;
     size_t delayed_bridges;
     size_t resolved_bridges;
