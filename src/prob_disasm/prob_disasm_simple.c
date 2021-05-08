@@ -92,5 +92,12 @@ Z_PRIVATE void __disassembler_pdisasm_get_internal_S(
     EXITME("Probabilisitic Disassembly is not fully supported");
 }
 
+Z_PRIVATE void __disassembler_pdisasm_update_S(Disassembler *d, addr_t addr,
+                                               bool is_inst) {
+    /*
+     * leave it blank
+     */
+}
+
 #undef __GET_PDISASM
 #undef __SET_PDISASM

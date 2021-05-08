@@ -125,7 +125,11 @@ Z_PRIVATE void __prob_disassembler_normalize_prob(ProbDisassembler *pd) {
             __prob_disassembler_get_D(pd, occ_addr, &occ_D);
             assert(!isnan(occ_D));
 
-            s += 1.0 / occ_D;
+            if (__double128_equal(occ_D, 0.0)) {
+                s = +INFINITY;
+            } else {
+                s += 1.0 / occ_D;
+            }
         }
         assert(!isnan(s));
 
@@ -162,7 +166,7 @@ Z_PRIVATE void __prob_disassembler_spread_hints(ProbDisassembler *pd) {
 
         cs_insn *inst = z_disassembler_get_superset_disasm(d, addr);
         if (!inst) {
-            assert(isnan(RH));
+            assert(isnan(RH) || isinf(RH));  // we may update inst_lost as +inf
             __prob_disassembler_reset_D(pd, addr, 1.0);
         }
 
@@ -206,6 +210,7 @@ Z_PRIVATE void __prob_disassembler_spread_hints(ProbDisassembler *pd) {
         // XXX: note here, for a given address, if all addresses occluded with
         // it are 100% data, it should be data. (the threshold 1.0 can be
         // changed in the future -- maybe)
+        // TODO: the logic here is weird.
         if (isnan(min_D) || __double128_equal(min_D, 1.0)) {
             __prob_disassembler_reset_D(pd, addr, 1.0);
         } else {

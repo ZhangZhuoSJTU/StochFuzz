@@ -187,6 +187,19 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
             }
             __patcher_patch_certain_address(p, cur_addr + i,
                                             (i == 0 ? cur_inst->size : 0));
+
+            // update pdisasm here
+            if (i == 0) {
+                z_diassembler_update_prob_disasm(d, cur_addr + i, true);
+            } else if (i == 1 &&
+                       cur_inst->detail->x86.prefix[0] == X86_PREFIX_LOCK) {
+                // XXX: we make it conservative, as we are not sure whether
+                // cur_addr + i will be used as another instruction.
+                //
+                // do nothing
+            } else {
+                z_diassembler_update_prob_disasm(d, cur_addr + i, false);
+            }
         }
 
         // step (3.3). check successors
@@ -706,8 +719,9 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
     }
 
     // step (1). update certain_addresses
-    // TODO: update pdisasm
     __patcher_bfs_certain_addresses(p, ori_addr);
+    // TODO: put z_disassembler_prob_disasm at a suitable place
+    z_disassembler_prob_disasm(d);
 
     // step (2). check whether there is a bridge already built on current addr
     BridgePoint *ori_bp = (BridgePoint *)g_hash_table_lookup(
@@ -1133,15 +1147,20 @@ Z_API void z_patcher_self_correction_end(Patcher *p) {
         EXITME("self correction procedure did not start");
     }
 
+    Disassembler *d = p->disassembler;
+
     // step (1). repair the buggy rewriting
-    // TODO: update pdisasm and other stuffs
+    // TODO: other stuffs
     if (p->s_iter != p->e_iter) {
-        // disable such uncertain patches
+        // disable such uncertain patches and update pdisasm
         GSequenceIter *iter = p->s_iter;
         while (iter != p->e_iter) {
             addr_t err_addr = (addr_t)g_sequence_get(iter);
             z_info("repair rewriting error: %#lx", err_addr);
+
             __patcher_flip_uncertain_patch(p, err_addr, false);
+            z_diassembler_update_prob_disasm(d, err_addr, false);
+
             iter = g_sequence_iter_next(iter);
         }
 

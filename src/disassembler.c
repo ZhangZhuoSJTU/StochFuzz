@@ -362,6 +362,12 @@ Z_API double128_t z_disassembler_get_prob_disasm(Disassembler *d, addr_t addr) {
         d, __disassembler_pdisasm_get_inst_prob, d, addr);
 }
 
+Z_API void z_diassembler_update_prob_disasm(Disassembler *d, addr_t addr,
+                                            bool is_inst) {
+    __disassembler_invoke_prob_disasm(d, __disassembler_pdisasm_update, d, addr,
+                                      is_inst);
+}
+
 // XXX: note that this function is not completed.
 Z_API GQueue *z_disassembler_linear_disasm(Disassembler *d) {
     assert(d != NULL);

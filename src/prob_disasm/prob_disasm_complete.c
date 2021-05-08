@@ -49,7 +49,7 @@ STRUCT(ProbDisassembler, {
         (d)->prob_disasm = (PhantomType *)(v); \
     } while (0)
 
-#define TOTAL_ROUND 3
+#define INIT_ROUND_N 3
 #define PROPAGATE_P 0.1
 #define STRONG_DATA_HINT 1e52
 
@@ -199,6 +199,8 @@ PROB_DISASSEMBLER_DEFINE_PRIVATE_SETTER(data_hint);
 PROB_DISASSEMBLER_DEFINE_PRIVATE_RESETTER(H);
 PROB_DISASSEMBLER_DEFINE_PRIVATE_RESETTER(RH);
 PROB_DISASSEMBLER_DEFINE_PRIVATE_RESETTER(D);
+PROB_DISASSEMBLER_DEFINE_PRIVATE_RESETTER(inst_lost);
+PROB_DISASSEMBLER_DEFINE_PRIVATE_RESETTER(data_hint);
 PROB_DISASSEMBLER_DEFINE_PRIVATE_RESETTER(P);
 
 PROB_DISASSEMBLER_DEFINE_PRIVATE_GETTER(H);
@@ -210,6 +212,7 @@ PROB_DISASSEMBLER_DEFINE_PRIVATE_GETTER(P);
 
 #define __prob_disassembler_update_inst_hint __prob_disassembler_update_H
 #define __prob_disassembler_get_inst_hint __prob_disassembler_get_H
+#define __prob_disassembler_reset_inst_hint __prob_disassembler_reset_H
 
 ///////////////////////////////////
 // Local functions
@@ -223,8 +226,9 @@ Z_PRIVATE bool __prob_disassembler_get_propogate_successors(
     ProbDisassembler *pd, addr_t addr, size_t *n, addr_t **succs);
 
 /*
- * Apply hints and losts into working environment (H/RH/D), and remove previous
- * data when there are no hint and lost. (playground = H + RH + D + P)
+ * Apply hints and losts into working environment (RH/D/P), and remove previous
+ * data when there are no hint and lost. (playground = H + RH + D + P, and H is
+ * for inst_hint)
  */
 Z_PRIVATE void __prob_disassembler_refresh_playground(ProbDisassembler *pd);
 
@@ -245,7 +249,7 @@ Z_PRIVATE void __prob_disassembler_refresh_playground(ProbDisassembler *pd);
 
 #ifdef DEBUG
 
-Z_RESERVED bool __prob_disassembler_path_dfs(
+Z_RESERVED Z_PRIVATE bool __prob_disassembler_path_dfs(
     ProbDisassembler *pd, Buffer *(*get_next)(InstAnalyzer *, addr_t),
     GQueue *stack, GHashTable *seen, addr_t cur_addr, addr_t target) {
     Disassembler *d = pd->base;
@@ -284,8 +288,9 @@ Z_RESERVED bool __prob_disassembler_path_dfs(
     return false;
 }
 
-Z_RESERVED void __prob_disassembler_search_path(ProbDisassembler *pd,
-                                                addr_t src, addr_t dst) {
+Z_RESERVED Z_PRIVATE void __prob_disassembler_search_path(ProbDisassembler *pd,
+                                                          addr_t src,
+                                                          addr_t dst) {
     GHashTable *seen =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
     GQueue *stack = g_queue_new();
@@ -311,7 +316,7 @@ Z_PRIVATE void __prob_disassembler_refresh_playground(ProbDisassembler *pd) {
     size_t text_size = pd->text_size;
 
 #ifdef DEBUG
-    // remove dag_P first
+    // remove dag_P first (it is improtant for the following checking at step 3)
     for (uint32_t scc_id = 0; scc_id < pd->scc_n; scc_id++) {
         z_addr_dict_remove(pd->dag_P, scc_id);
         assert(!z_addr_dict_exist(pd->dag_P, scc_id));
@@ -344,10 +349,15 @@ Z_PRIVATE void __prob_disassembler_refresh_playground(ProbDisassembler *pd) {
 #ifdef DEBUG
             if (z_addr_dict_exist(pd->dag_P, scc_id) &&
                 z_addr_dict_get(pd->dag_P, scc_id) != P) {
-                EXITME("inconsistent dag P: %#lx %d", addr, scc_id);
+                EXITME("inconsistent dag P: %#lx (%Le) v/s %d (%Le)", addr, P,
+                       scc_id, z_addr_dict_get(pd->dag_P, scc_id));
             }
 #endif
             z_addr_dict_set(pd->dag_P, scc_id, P);
+            // XXX: note that we do not perform z_addr_dict_remove(pd->P, addr)
+            // here. It is mainly beacuse we want to maintain a feature that if
+            // an address was thought as 100% non-instruction before, the
+            // address should always be non-instruction.
         }
     }
 }
@@ -432,22 +442,24 @@ Z_PRIVATE void z_prob_disassembler_get_internal(
 
 Z_PRIVATE void z_prob_disassembler_start(ProbDisassembler *pd) {
     /*
-     * step [1]. collect hints: please refer to *prob_disasm_complete/hints.c*
+     * step [1]. collect hints if we haven't: please refer to
+     * *prob_disasm_complete/hints.c*
      */
-    __prob_disassembler_collect_cf_hints(pd);
-    __prob_disassembler_collect_reg_hints(pd);
-    __prob_disassembler_collect_pop_ret_hints(pd);
-    __prob_disassembler_collect_cmp_cjmp_hints(pd);
-    __prob_disassembler_collect_arg_call_hints(pd);
-    __prob_disassembler_collect_str_hints(pd);
-    __prob_disassembler_collect_value_hints(pd);
-    z_info("probabilistic disassembly: hints collection done");
+    if (!pd->round_n) {
+        __prob_disassembler_collect_cf_hints(pd);
+        __prob_disassembler_collect_reg_hints(pd);
+        __prob_disassembler_collect_pop_ret_hints(pd);
+        __prob_disassembler_collect_cmp_cjmp_hints(pd);
+        __prob_disassembler_collect_arg_call_hints(pd);
+        __prob_disassembler_collect_str_hints(pd);
+        __prob_disassembler_collect_value_hints(pd);
+        z_info("probabilistic disassembly: hints collection done");
+    }
 
     /*
-     * step [2]. play TOTAL_ROUND rounds to calculate probabilities
+     * step [2]. play several rounds to calculate probabilities
      */
-
-    while (pd->round_n < TOTAL_ROUND) {
+    do {
         /*
          * step [2.1]. refresh playground
          */
@@ -483,6 +495,21 @@ Z_PRIVATE void z_prob_disassembler_start(ProbDisassembler *pd) {
 
         pd->round_n += 1;
         z_info("probabilistic disassembly round %d done", pd->round_n);
+    } while (pd->round_n < INIT_ROUND_N);
+}
+
+Z_PRIVATE void z_prob_disassembler_update(ProbDisassembler *pd, addr_t addr,
+                                          bool is_inst) {
+    if (is_inst) {
+        // we have known for sure this addr is an instruction boundary
+        __prob_disassembler_reset_inst_hint(pd, addr, 0.0);
+        z_addr_dict_remove(pd->inst_lost, addr);
+        z_addr_dict_remove(pd->data_hint, addr);
+    } else {
+        // we have known for sure this addr is not an instruction boundary
+        z_addr_dict_remove(pd->H, addr);  // inst_hint
+        __prob_disassembler_reset_inst_lost(pd, addr, +INFINITY);
+        __prob_disassembler_reset_data_hint(pd, addr, +INFINITY);
     }
 }
 
@@ -581,6 +608,11 @@ Z_PRIVATE void __disassembler_pdisasm_get_internal(
     double128_t *D, double128_t *P) {
     z_prob_disassembler_get_internal(__GET_PDISASM(d), addr, inst, scc_id,
                                      inst_hint, inst_lost, data_hint, D, P);
+}
+
+Z_PRIVATE void __disassembler_pdisasm_update(Disassembler *d, addr_t addr,
+                                             bool is_inst) {
+    z_prob_disassembler_update(__GET_PDISASM(d), addr, is_inst);
 }
 
 #undef __GET_PDISASM

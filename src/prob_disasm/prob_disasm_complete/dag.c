@@ -10,22 +10,20 @@ typedef struct tarjan_info_t {
 /*
  * Tarjan algorithm to calculate SCC (return low[cur_addr])
  */
-// XXX: disasble ASAN here as its recursion depth may be very huge. ASAN may
-// generate false warning for this function
-Z_PRIVATE __attribute__((no_sanitize("address"))) void
-__prob_disassembler_tarjan(ProbDisassembler *pd, TarjanInfo *info,
-                           GQueue *stack, GHashTable *in_stack,
-                           addr_t cur_addr);
+Z_PRIVATE void __prob_disassembler_tarjan(ProbDisassembler *pd,
+                                          TarjanInfo *info, GQueue *stack,
+                                          GHashTable *in_stack,
+                                          addr_t cur_addr);
 
 /*
  * Bulid DAG using Tarjan algorithm
  */
 Z_PRIVATE void __prob_disassembler_build_dag(ProbDisassembler *pd);
 
-Z_PRIVATE __attribute__((no_sanitize("address"))) void
-__prob_disassembler_tarjan(ProbDisassembler *pd, TarjanInfo *info,
-                           GQueue *stack, GHashTable *in_stack,
-                           addr_t cur_addr) {
+Z_PRIVATE void __prob_disassembler_tarjan(ProbDisassembler *pd,
+                                          TarjanInfo *info, GQueue *stack,
+                                          GHashTable *in_stack,
+                                          addr_t cur_addr) {
     // step [0]. basic info
     Disassembler *d = pd->base;
 

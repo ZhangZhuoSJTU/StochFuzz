@@ -13,6 +13,10 @@ Z_PRIVATE void __prob_disassembler_propogate_inst_hints(ProbDisassembler *pd) {
     AddrDict(double128_t, dag_hints);
     z_addr_dict_init(dag_hints, 0, pd->scc_n);
 
+    // XXX: invalid_sccs means those SCCs whose likelihook of being instructions
+    // is quite small. Hence, we stop propogation when reaching them. Note that
+    // it is different from those SCCs in pd->dag_dead which are 100% not
+    // instruction boundaries.
     AddrDictFast(bool, invalid_sccs);
     z_addr_dict_init(invalid_sccs, 0, pd->scc_n);
 
@@ -35,7 +39,7 @@ Z_PRIVATE void __prob_disassembler_propogate_inst_hints(ProbDisassembler *pd) {
         }
 
         // we do not use hints of very rare instructions
-        // TODO: get a instruction distribution to weak the hints instead of
+        // TODO: get a instruction distribution to weaken the hints instead of
         // directly disabling it.
         cs_insn *inst = z_disassembler_get_superset_disasm(d, addr);
         if (z_capstone_is_rare(inst)) {

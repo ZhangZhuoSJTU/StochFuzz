@@ -81,6 +81,9 @@ Z_API void z_disassembler_destroy(Disassembler *d);
  */
 Z_API double128_t z_disassembler_get_prob_disasm(Disassembler *d, addr_t addr);
 
+Z_API void z_diassembler_update_prob_disasm(Disassembler *d, addr_t addr,
+                                            bool is_inst);
+
 /*
  * Probabilistic disassemble the whole binary
  */
