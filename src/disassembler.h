@@ -11,11 +11,6 @@
 #include <capstone/capstone.h>
 #include <gmodule.h>
 
-typedef struct pdisasm_result_t {
-    addr_t addr;
-    size_t size;
-} PDisasmResult;
-
 STRUCT(Disassembler, {
     // Binary which needs disassembly
     Binary *binary;

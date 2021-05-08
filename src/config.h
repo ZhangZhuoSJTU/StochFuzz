@@ -119,6 +119,7 @@ typedef struct __loading_info_t {
 #define CRASHPOINT_LOG_PREFIX ".crashpoint."
 #define PIPE_FILENAME_PREFIX ".pipe."
 #define PDISASM_FILENAME_PREFIX ".pdisasm."
+#define CODE_SEGMENT_FILE_SUFFIX ".code.segments"
 #define BACKUP_FILE_SUFFIX ".bak"
 #define PATCHED_FILE_SUFFIX ".patch"
 #define PHANTOM_FILE_SUFFIX ".phantom"

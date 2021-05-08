@@ -4,38 +4,43 @@
         (d)->prob_disasm = (PhantomType *)(v); \
     } while (0)
 
+typedef struct code_segment_t {
+    addr_t addr;
+    size_t size;
+} CodeSegment;
+
 Z_PRIVATE void __disassembler_pdisasm_create_S(Disassembler *d) {
     const char *original_filename = z_binary_get_original_filename(d->binary);
-    const char *pdisasm_filename =
-        z_strcat(PDISASM_FILENAME_PREFIX, original_filename);
+    const char *codeseg_filename =
+        z_strcat(original_filename, CODE_SEGMENT_FILE_SUFFIX);
 
     __SET_PDISASM(d, z_splay_create(NULL));
 
-    // XXX: pdisasm file is mainly used for debugging purpose.
-    if (!z_access(pdisasm_filename, F_OK)) {
-        // pdisasm file exits
+    // XXX: code segment file is mainly used for debugging purpose.
+    if (!z_access(codeseg_filename, F_OK)) {
+        // code segment file exits
         z_info(
-            "p-disam file is persent, and we will use its pre-defined code "
-            "segments");
+            "code segment file (for linear disassembly) is persent, and we will"
+            "use those pre-defined code segments");
 
-        Buffer *buf = z_buffer_read_file(pdisasm_filename);
+        Buffer *buf = z_buffer_read_file(codeseg_filename);
 
         // tail (virtual) code segment
         assert(INVALID_ADDR > 0);
-        PDisasmResult virtual_code_segment = {
+        CodeSegment virtual_code_segment = {
             .addr = INVALID_ADDR,
             .size = 0,
         };
         z_buffer_append_raw(buf, (uint8_t *)&virtual_code_segment,
                             sizeof(virtual_code_segment));
 
-        size_t n = z_buffer_get_size(buf) / sizeof(PDisasmResult);
-        PDisasmResult *codes = (PDisasmResult *)z_buffer_get_raw_buf(buf);
+        size_t n = z_buffer_get_size(buf) / sizeof(CodeSegment);
+        CodeSegment *codes = (CodeSegment *)z_buffer_get_raw_buf(buf);
 
         addr_t cur_addr = codes[0].addr;
         size_t cur_size = codes[0].size;
         for (int i = 1; i < n; i++) {
-            PDisasmResult *code = &(codes[i]);
+            CodeSegment *code = &(codes[i]);
 
             if (code->addr <= cur_addr) {
                 EXITME("pre-defined code segments are not in increasing order");
@@ -58,12 +63,12 @@ Z_PRIVATE void __disassembler_pdisasm_create_S(Disassembler *d) {
 
         z_buffer_destroy(buf);
     } else {
-        z_info("no p-disam file found, patch the whole .text section");
+        z_info("no code segment file found, patch the whole .text section");
         Snode *node = z_snode_create(d->text_addr, d->text_size, NULL, NULL);
         z_splay_insert(__GET_PDISASM(d), node);
     }
 
-    z_free((char *)pdisasm_filename);
+    z_free((char *)codeseg_filename);
 }
 
 Z_PRIVATE void __disassembler_pdisasm_destroy_S(Disassembler *d) {
