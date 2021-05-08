@@ -1214,10 +1214,11 @@ Z_API void z_patcher_self_correction_end(Patcher *p) {
 
     Disassembler *d = p->disassembler;
 
-    // step (1). repair the buggy rewriting
-    // TODO: other stuffs
+    // step (1). repair the buggy rewriting if any
+    // XXX: note that we only need to do online re-patching when there are some
+    // rewritting errors.
     if (p->s_iter != p->e_iter) {
-        // disable such uncertain patches and update pdisasm
+        // step (1.1) disable such uncertain patches and update pdisasm
         GSequenceIter *iter = p->s_iter;
         while (iter != p->e_iter) {
             addr_t err_addr = (addr_t)g_sequence_get(iter);
@@ -1228,20 +1229,29 @@ Z_API void z_patcher_self_correction_end(Patcher *p) {
 
             iter = g_sequence_iter_next(iter);
         }
+
+        // step (1.2). rerun pdisasm
+        assert(p->pdisasm_enable);
+        z_disassembler_prob_disasm(d);
+
+        // step (1.3). remove all uncertain patches and re-patch
+        // XXX: note that current all the uncertain patches are disabled
+        GSequenceIter *s_iter = g_sequence_get_begin_iter(p->uncertain_patches);
+        GSequenceIter *e_iter = g_sequence_get_end_iter(p->uncertain_patches);
+        g_sequence_remove_range(s_iter, e_iter);
+        __patcher_patch_all_F(p);
+    } else {
+        // XXX: it means there is no rewritting error. We just need to re-enable
+        // all uncertain patches.
+        GSequenceIter *iter = g_sequence_get_begin_iter(p->uncertain_patches);
+        while (!g_sequence_iter_is_end(iter)) {
+            __patcher_flip_uncertain_patch(p, (addr_t)g_sequence_get(iter),
+                                           true);
+            iter = g_sequence_iter_next(iter);
+        }
     }
 
-    // step (2). rerun pdisasm
-    assert(p->pdisasm_enable);
-    z_disassembler_prob_disasm(d);
-
-    // step (3). remove all uncertain patches and recalcualte ones
-    // XXX: note that current all the uncertain patches are disabled
-    p->s_iter = g_sequence_get_begin_iter(p->uncertain_patches);
-    p->e_iter = g_sequence_get_end_iter(p->uncertain_patches);
-    g_sequence_remove_range(p->s_iter, p->e_iter);
-    __patcher_patch_all_F(p);
-
-    // step (4). disable the s_iter and e_iter flags
+    // step (2). disable the s_iter and e_iter flags
     p->s_iter = NULL;
     p->e_iter = NULL;
 }
