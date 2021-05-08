@@ -83,7 +83,7 @@ test/*
 !test/crash
 !test/crash.c
 !test/openssl-1.0.1f
-!test/.pdisasm.openssl-1.0.1f
+!test/openssl-1.0.1f.code.segments
 !test/leak-268f0e85f4bc45cbaf4d257222b830eac18977f3
 !test/runtime
 !test/check_avx512.c
