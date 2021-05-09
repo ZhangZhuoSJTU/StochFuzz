@@ -20,7 +20,7 @@
  * Tool name and version
  */
 #define OURTOOL "stoch-fuzz"
-#define VERSION "0.5.0"
+#define VERSION "0.7.0"
 
 /*
  * Default system settings
@@ -71,7 +71,8 @@ typedef long double double128_t;
  *  + RW_PAGE_ADDR: fixed address
  *  + LOOKUP_TABLE_ADDR: fixed address
  */
-#define SHADOW_CODE_ADDR 0x2f2f0000
+// XXX: see http://ref.x86asm.net/coder64.html for x64 encoding
+#define SHADOW_CODE_OFFSET 0x61618000
 
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading

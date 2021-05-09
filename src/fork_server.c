@@ -600,7 +600,7 @@ NO_INLINE void fork_server_start(char **envp) {
 
             // If the program has reached this part, it indicates a real
             // crash has occured. Here, we need to reset client_status as
-            // SIGSEGV or SIGILL, here we choose SIGSEGV
+            // any suspect status, here we choose SIGSEGV
             if (IS_SUSPECT_STATUS(client_status)) {
                 client_status = 139;
             }
@@ -622,7 +622,7 @@ NO_INLINE void fork_server_start(char **envp) {
             } else if (WIFSIGNALED(client_status)) {
                 // XXX: if the daemon already identified this crash, it will
                 // stop automatically
-                // XXX: the SIGSEGV/SIGILL will be caught by the signal handler,
+                // XXX: any suspect signal will be caught by the signal handler,
                 // which is not desired. But it seems trivial currently so we
                 // ignore it. Improve such code when necessary.
                 sys_kill(sys_getpid(), WTERMSIG(client_status));

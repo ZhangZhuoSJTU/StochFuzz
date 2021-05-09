@@ -56,7 +56,7 @@
 
 #ifdef DEBUG
 extern const char loader_logo_str[];
-extern const char sigsegv_sigill_info_str[];
+extern const char suspect_signal_info_str[];
 extern const char loader_err_str[];
 extern const char prctl_err_str[];
 extern const char handler_err_str[];
@@ -155,8 +155,8 @@ asm(
 #ifdef DEBUG
     ASM_STRING(loader_logo_str, "\\033[32mpatched by " OURTOOL
                                 ", current running path: \\033[0m")
-    // sigsegv and sigill info string
-    ASM_STRING(sigsegv_sigill_info_str, "SIGSEGV/SIGILL occurs, with ")
+    // suspect signal info string
+    ASM_STRING(suspect_signal_info_str, "suspect signal occurs, with ")
     // prctl error
     ASM_STRING(prctl_err_str, "prctl error")
     // handler error
@@ -215,8 +215,8 @@ static inline void loader_mmap_data_page(size_t rip_base) {
 /*
  * signal handler
  */
-static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
-                                            void *context) {
+static void loader_catch_suspect_signals(int signal, siginfo_t *siginfo,
+                                         void *context) {
     uint64_t rip = ((ucontext_t *)context)->uc_mcontext.gregs[REG_RIP];
     uint64_t client_pid = RW_PAGE_INFO(client_pid);
 
@@ -233,7 +233,7 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
     s[38] = ')';
     s[39] = '\n';
     s[40] = '\x00';
-    utils_puts(sigsegv_sigill_info_str, false);
+    utils_puts(suspect_signal_info_str, false);
     utils_puts(s, false);
 #endif
 
@@ -258,13 +258,12 @@ static void loader_catch_sigsegv_and_sigill(int signal, siginfo_t *siginfo,
 }
 
 /*
- * Register signal handlers for SIGSEGV and SIGILL to send crash site
- * information.
+ * Register signal handlers for suspect signals to send crash site information.
  */
 static inline void loader_set_signal_handler() {
     struct kernel_sigaction sa = {};
 
-    sa.k_sa_handler = &loader_catch_sigsegv_and_sigill;
+    sa.k_sa_handler = &loader_catch_suspect_signals;
     sa.sa_flags = SA_SIGINFO | SA_RESTORER;
     sa.sa_restorer = &restorer;
 
@@ -275,10 +274,15 @@ static inline void loader_set_signal_handler() {
     if (sys_rt_sigaction(SIGILL, &sa, NULL, _NSIG / 8)) {
         utils_error(loader_err_str, true);
     }
+
+    // XXX: overlapping bridges may cause SIGTRAP
+    if (sys_rt_sigaction(SIGTRAP, &sa, NULL, _NSIG / 8)) {
+        utils_error(loader_err_str, true);
+    }
 }
 
 /*
- * Install seccomp filter to avoid modify SIGSEGV/SIGILL handler
+ * Install seccomp filter to avoid modify suspect signal handler
  */
 static inline void loader_set_seccomp() {
     if (sys_prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
@@ -292,9 +296,10 @@ static inline void loader_set_seccomp() {
      *    struct sock_filter filter[] = {
      *        BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
      *                 (offsetof(struct seccomp_data, nr))),
-     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_rt_sigaction, 0, 4),
+     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_rt_sigaction, 0, 5),
      *        BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
      *                 (offsetof(struct seccomp_data, args[0]))),
+     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGTRAP, 4, 0),
      *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGUSR1, 3, 0),
      *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGSEGV, 2, 0),
      *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGILL, 1, 0),
@@ -311,13 +316,14 @@ static inline void loader_set_seccomp() {
         "_filter:\n\t"
         ".ascii \""
         "\\040\\000\\000\\000\\000\\000\\000\\000"  // 0. BPF_STMT
-        "\\025\\000\\000\\004\\015\\000\\000\\000"  // 1. BPF_JUMP
+        "\\025\\000\\000\\005\\015\\000\\000\\000"  // 1. BPF_JUMP
         "\\040\\000\\000\\000\\020\\000\\000\\000"  // 2. BPF_STMT
-        "\\025\\000\\003\\000\\012\\000\\000\\000"  // 3. BPF_JUMP
-        "\\025\\000\\002\\000\\013\\000\\000\\000"  // 4. BPF_JUMP
-        "\\025\\000\\001\\000\\004\\000\\000\\000"  // 5. BPF_JUMP
-        "\\006\\000\\000\\000\\000\\000\\377\\177"  // 6. BPF_STMT
-        "\\006\\000\\000\\000\\000\\000\\005\\000"  // 7. BPF_STME
+        "\\025\\000\\004\\000\\005\\000\\000\\000"  // 3. BPF_JUMP
+        "\\025\\000\\003\\000\\012\\000\\000\\000"  // 4. BPF_JUMP
+        "\\025\\000\\002\\000\\013\\000\\000\\000"  // 5. BPF_JUMP
+        "\\025\\000\\001\\000\\004\\000\\000\\000"  // 6. BPF_JUMP
+        "\\006\\000\\000\\000\\000\\000\\377\\177"  // 7. BPF_STMT
+        "\\006\\000\\000\\000\\000\\000\\005\\000"  // 8. BPF_STME
         "\"\n\t"
         "_out:"
         : "=rax"(filter)
@@ -325,7 +331,7 @@ static inline void loader_set_seccomp() {
         :);
 
     struct sock_fprog prog = {
-        .len = 8,  // (unsigned short)(sizeof(filter) / sizeof(filter[0])),
+        .len = 9,  // (unsigned short)(sizeof(filter) / sizeof(filter[0])),
         .filter = filter,
     };
 
