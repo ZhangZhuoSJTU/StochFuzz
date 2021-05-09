@@ -1053,6 +1053,8 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                     continue;
                 }
 
+                // XXX: decide whther this new uncertain patch should be added
+                // into the list of potential_uncertain_addresses
                 new_uncertain_patch = true;
                 g_queue_push_tail(queue, GSIZE_TO_POINTER(pred_addr));
                 g_queue_push_tail(queue, GSIZE_TO_POINTER(depth + 1));
@@ -1065,6 +1067,7 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
 
         // step (7.2) return if we can resolve it by the next execution
         if (new_uncertain_patch) {
+            z_info("successfully resolve the unsafe patch");
             p->resolved_bridges += 1;
             return;
         }

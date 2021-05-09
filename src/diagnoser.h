@@ -50,7 +50,7 @@ typedef struct crash_point_t {
 /*
  * The range of Dup-Binary-Search
  */
-#define DD_RANGE 16
+#define DD_RANGE 4
 
 /*
  * Stage for delta debugging mode

@@ -296,14 +296,14 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
         // step (1). update dd_low and dd_high
         if (status == g->dd_status && addr == g->dd_addr) {
             z_info(
-                "error diagnosis stage 1: test e_iter within [0, %ld), "
-                "reproduced: " COLOR(GREEN, "true"),
+                "error diagnosis stage 1: test uncertain patches within [0, "
+                "%ld), reproduced: " COLOR(GREEN, "true"),
                 g->dd_e_cur);
             g->dd_high = g->dd_e_cur;
         } else {
             z_info(
-                "error diagnosis stage 1: test e_iter within [0, %ld), "
-                "reproduced: " COLOR(RED, "false"),
+                "error diagnosis stage 1: test uncertain patches within [0, "
+                "%ld), reproduced: " COLOR(RED, "false"),
                 g->dd_e_cur);
             g->dd_low = g->dd_e_cur;
         }
@@ -388,14 +388,14 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
         // step (1). update dd_low and dd_high
         if (status == g->dd_status && addr == g->dd_addr) {
             z_info(
-                "error diagnosis stage 3: test s_iter within [%ld, %ld), "
-                "reproduced: " COLOR(GREEN, "true"),
+                "error diagnosis stage 3: test uncertain patches within [%ld, "
+                "%ld), reproduced: " COLOR(GREEN, "true"),
                 g->dd_s_cur, g->dd_e_cur);
             g->dd_low = g->dd_s_cur;
         } else {
             z_info(
-                "error diagnosis stage 3: test s_iter within [%ld, %ld), "
-                "reproduced: " COLOR(RED, "false"),
+                "error diagnosis stage 3: test uncertain patches within [%ld, "
+                "%ld), reproduced: " COLOR(RED, "false"),
                 g->dd_s_cur, g->dd_e_cur);
             g->dd_high = g->dd_s_cur;
         }
