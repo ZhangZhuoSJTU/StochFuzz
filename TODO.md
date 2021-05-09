@@ -23,7 +23,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [x] Use shared memory for .text section, to avoid the expensive patch commands.
 + [x] Support self-correction procedure (delta debugging).
 + [ ] Support non-return analysis on UCFG, with the help of the white-list for library functions.
-+ [ ] Support the on-the-fly probability recalculation.
++ [x] Support the on-the-fly probability recalculation.
 + [ ] Support other disassembly backends (for the initial disassembly).
 + [x] Use simple linear disassembly to check the existence of inlined data.
 + [ ] Calculate [entropy](https://github.com/NationalSecurityAgency/ghidra/issues/1035) to check the existence of inlined data (ADVANCED).
@@ -59,3 +59,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.4.0: support shared .text section for the new system design and simplify the communication between the daemon and binary.
 + v0.5.0: support automatically fixing overlapped bridges (i.e., patched *jmp* instructions in the original code space).
 + v0.6.0: support self correction procedure.
++ v0.7.0: support online probablity calculation and dynamic hint logging.
