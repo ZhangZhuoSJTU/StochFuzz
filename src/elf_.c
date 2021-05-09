@@ -406,11 +406,7 @@ Z_PRIVATE void __elf_setup_trampolines(ELF *e, const char *filename) {
     assert(e != NULL);
 
     // step (0). update trampolines_addr
-    Elf64_Shdr *text = z_elf_get_shdr_text(e);
-    addr_t text_addr = text->sh_addr;
-    e->trampolines_addr =
-        ((text_addr >> PAGE_SIZE_POW2) << PAGE_SIZE_POW2) + SHADOW_CODE_OFFSET;
-    z_info("shadow code address: %#lx", e->trampolines_addr);
+    e->trampolines_addr = SHADOW_CODE_ADDR;
 
     // step (1). get filename
     assert(!z_strchr(filename, '/'));
@@ -1254,7 +1250,7 @@ Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
 
     // TODO: we should guarantee there is no other pages between the trampolines
     // and the lookup table.
-    if (addr >= e->trampolines_addr && addr < LOOKUP_TABLE_ADDR) {
+    if (addr >= e->trampolines_addr && addr < e->lookup_table_addr) {
         // write on trampolines, which is extensive.
 
         size_t tp_off = __elf_stream_vaddr2off(e, e->trampolines_addr);

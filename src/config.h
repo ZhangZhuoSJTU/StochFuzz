@@ -72,7 +72,7 @@ typedef long double double128_t;
  *  + LOOKUP_TABLE_ADDR: fixed address
  */
 // XXX: see http://ref.x86asm.net/coder64.html for x64 encoding
-#define SHADOW_CODE_OFFSET 0x61618000
+#define SHADOW_CODE_ADDR 0x1f1f8000
 
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading

@@ -294,23 +294,28 @@ extern const uint8_t *tp_code;
 /*
  * System
  */
-#define __PRE_CHECK                                                  \
-    do {                                                             \
-        if (AFL_PREV_ID_PTR != RW_PAGE_INFO_ADDR(afl_prev_id)) {     \
-            EXITME("invalid AFL_PREV_ID_PTR value: %#lx v/s %#lx",   \
-                   AFL_PREV_ID_PTR, RW_PAGE_INFO_ADDR(afl_prev_id)); \
-        }                                                            \
-        if (RW_PAGE_SIZE < RW_PAGE_USED_SIZE) {                      \
-            EXITME("use too much space on RW_PAGE: %#lx v/s %#lx",   \
-                   RW_PAGE_SIZE, RW_PAGE_USED_SIZE);                 \
-        }                                                            \
-        if (CRS_MAP_SIZE < CRS_USED_SIZE) {                          \
-            EXITME("use too much space on CRS PAGE: %#lx v/s %#lx",  \
-                   CRS_MAP_SIZE, CRS_USED_SIZE);                     \
-        }                                                            \
-        if (SIGUSR1 != 10) {                                         \
-            EXITME("SIGUSR1 is not equal to 10 on this machine");    \
-        }                                                            \
+#define __PRE_CHECK                                                         \
+    do {                                                                    \
+        if (AFL_PREV_ID_PTR != RW_PAGE_INFO_ADDR(afl_prev_id)) {            \
+            EXITME("invalid AFL_PREV_ID_PTR value: %#lx v/s %#lx",          \
+                   AFL_PREV_ID_PTR, RW_PAGE_INFO_ADDR(afl_prev_id));        \
+        }                                                                   \
+        if (RW_PAGE_SIZE < RW_PAGE_USED_SIZE) {                             \
+            EXITME("use too much space on RW_PAGE: %#lx v/s %#lx",          \
+                   RW_PAGE_SIZE, RW_PAGE_USED_SIZE);                        \
+        }                                                                   \
+        if (CRS_MAP_SIZE < CRS_USED_SIZE) {                                 \
+            EXITME("use too much space on CRS PAGE: %#lx v/s %#lx",         \
+                   CRS_MAP_SIZE, CRS_USED_SIZE);                            \
+        }                                                                   \
+        if (SIGUSR1 != 10) {                                                \
+            EXITME("SIGUSR1 is not equal to 10 on this machine");           \
+        }                                                                   \
+        if (SHADOW_CODE_ADDR >= LOOKUP_TABLE_ADDR) {                        \
+            EXITME(                                                         \
+                "the address of the shadow code is higher than the one of " \
+                "lookup table.");                                           \
+        }                                                                   \
     } while (0)
 
 #define Z_INIT       \
