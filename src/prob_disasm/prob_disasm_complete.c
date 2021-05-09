@@ -6,6 +6,17 @@
 #include <ctype.h>
 #include <math.h>
 
+typedef enum dynamic_hint_type_t {
+    DHINT_NONE = 0,
+    DHINT_CODE = 1,  // XXX: we skip 0 for easy use of GHashTable
+    DHINT_DATA,
+} DHintType;
+
+typedef struct dynamic_hint_t {
+    addr_t addr;
+    DHintType type;
+} DHint;
+
 ///////////////////////////////////
 // ProbDisassembler
 ///////////////////////////////////
@@ -27,6 +38,11 @@ STRUCT(ProbDisassembler, {
     Binary *binary;
     addr_t text_addr;
     size_t text_size;
+
+    // logged dynamic hints (i.e., certain code/data information collected
+    // during previous runs)
+    const char *dhint_filename;
+    GHashTable *dynamic_hints;
 
     // DAG information
     // TODO: we should do this for other address-keyed hash table.
@@ -440,12 +456,47 @@ Z_PRIVATE void z_prob_disassembler_get_internal(
     *P = z_prob_disassembler_get_inst_prob(pd, addr);
 }
 
+Z_PRIVATE void z_prob_disassembler_update(ProbDisassembler *pd, addr_t addr,
+                                          bool is_inst, bool need_log) {
+    if (is_inst) {
+        // we have known for sure this addr is an instruction boundary
+        __prob_disassembler_reset_inst_hint(pd, addr, 0.0);
+        z_addr_dict_remove(pd->inst_lost, addr);
+        z_addr_dict_remove(pd->data_hint, addr);
+    } else {
+        // we have known for sure this addr is not an instruction boundary
+        z_addr_dict_remove(pd->H, addr);  // inst_hint
+        __prob_disassembler_reset_inst_lost(pd, addr, +INFINITY);
+        // XXX: resetting data_hint should be more carefully handled as there
+        // are two cases of is_inst == false: 1) inside an instrution and 2)
+        // data
+        __prob_disassembler_reset_data_hint(pd, addr, +INFINITY);
+    }
+
+    if (need_log) {
+        // log the hint
+        DHintType type = (is_inst ? DHINT_CODE : DHINT_DATA);
+
+#ifdef DEBUG
+        DHintType old_type = (DHintType)g_hash_table_lookup(
+            pd->dynamic_hints, GSIZE_TO_POINTER(addr));
+        if (old_type && (old_type != type)) {
+            EXITME("inconstatn type of the dynamic hint at %#lx", addr);
+        }
+#endif
+
+        g_hash_table_insert(pd->dynamic_hints, GSIZE_TO_POINTER(addr),
+                            GSIZE_TO_POINTER(type));
+    }
+}
+
 Z_PRIVATE void z_prob_disassembler_start(ProbDisassembler *pd) {
     /*
      * step [1]. collect hints if we haven't: please refer to
      * *prob_disasm_complete/hints.c*
      */
     if (!pd->round_n) {
+        // calculate static hints
         __prob_disassembler_collect_cf_hints(pd);
         __prob_disassembler_collect_reg_hints(pd);
         __prob_disassembler_collect_pop_ret_hints(pd);
@@ -453,6 +504,20 @@ Z_PRIVATE void z_prob_disassembler_start(ProbDisassembler *pd) {
         __prob_disassembler_collect_arg_call_hints(pd);
         __prob_disassembler_collect_str_hints(pd);
         __prob_disassembler_collect_value_hints(pd);
+
+        // apply logged dynamic hint
+        {
+            GHashTableIter iter;
+            gpointer key, value;
+            g_hash_table_iter_init(&iter, pd->dynamic_hints);
+
+            while (g_hash_table_iter_next(&iter, &key, &value)) {
+                addr_t addr = (addr_t)key;
+                bool is_inst = ((DHintType)value == DHINT_CODE);
+                z_prob_disassembler_update(pd, addr, is_inst, false);
+            }
+        }
+
         z_info("probabilistic disassembly: hints collection done");
     }
 
@@ -498,24 +563,6 @@ Z_PRIVATE void z_prob_disassembler_start(ProbDisassembler *pd) {
     } while (pd->round_n < INIT_ROUND_N);
 }
 
-Z_PRIVATE void z_prob_disassembler_update(ProbDisassembler *pd, addr_t addr,
-                                          bool is_inst) {
-    if (is_inst) {
-        // we have known for sure this addr is an instruction boundary
-        __prob_disassembler_reset_inst_hint(pd, addr, 0.0);
-        z_addr_dict_remove(pd->inst_lost, addr);
-        z_addr_dict_remove(pd->data_hint, addr);
-    } else {
-        // we have known for sure this addr is not an instruction boundary
-        z_addr_dict_remove(pd->H, addr);  // inst_hint
-        __prob_disassembler_reset_inst_lost(pd, addr, +INFINITY);
-        // XXX: resetting data_hint should be more carefully handled as there
-        // are two cases of is_inst == false: 1) inside an instrution and 2)
-        // data
-        __prob_disassembler_reset_data_hint(pd, addr, +INFINITY);
-    }
-}
-
 Z_PRIVATE ProbDisassembler *z_prob_disassembler_create(Disassembler *d) {
     ProbDisassembler *pd = STRUCT_ALLOC(ProbDisassembler);
 
@@ -526,6 +573,33 @@ Z_PRIVATE ProbDisassembler *z_prob_disassembler_create(Disassembler *d) {
     pd->text_size = d->text_size;
 
     pd->round_n = 0;
+
+    // read p-disasm file
+    pd->dynamic_hints =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+    const char *original_filename = z_binary_get_original_filename(d->binary);
+    pd->dhint_filename = z_strcat(PDISASM_FILENAME_PREFIX, original_filename);
+    {
+        if (!z_access(pd->dhint_filename, F_OK)) {
+            z_info(
+                "pdisasm file exists, so we will read those pre-calcualted "
+                "hints");
+            Buffer *buf = z_buffer_read_file(pd->dhint_filename);
+
+            size_t n = z_buffer_get_size(buf) / sizeof(DHint);
+            DHint *hints = (DHint *)z_buffer_get_raw_buf(buf);
+
+            // XXX: note that we will apply those dynamic hints after collecting
+            // static hints.
+            for (size_t i = 0; i < n; i++) {
+                g_hash_table_insert(pd->dynamic_hints,
+                                    GSIZE_TO_POINTER(hints[i].addr),
+                                    GSIZE_TO_POINTER(hints[i].type));
+            }
+
+            z_buffer_destroy(buf);
+        }
+    }
 
     /*
      * H: instruction hint source for each address, which is also the
@@ -581,6 +655,31 @@ Z_PRIVATE void z_prob_disassembler_destroy(ProbDisassembler *pd) {
 
     z_addr_dict_destroy(pd->dag_P);
 
+    // write down dynamic hints
+    {
+        FILE *f = z_fopen(pd->dhint_filename, "wb");
+        DHint hint = {
+            .addr = INVALID_ADDR,
+            .type = DHINT_NONE,
+        };
+
+        GHashTableIter iter;
+        gpointer key, value;
+        g_hash_table_iter_init(&iter, pd->dynamic_hints);
+
+        while (g_hash_table_iter_next(&iter, &key, &value)) {
+            hint.addr = (addr_t)key;
+            hint.type = (DHintType)value;
+            if (z_fwrite(&hint, sizeof(DHint), 1, f) != 1) {
+                EXITME("error on writing dynamic hint file");
+            }
+        }
+
+        z_fclose(f);
+    }
+    z_free((char *)pd->dhint_filename);
+    g_hash_table_destroy(pd->dynamic_hints);
+
     z_free(pd);
 }
 
@@ -615,7 +714,7 @@ Z_PRIVATE void __disassembler_pdisasm_get_internal(
 
 Z_PRIVATE void __disassembler_pdisasm_update(Disassembler *d, addr_t addr,
                                              bool is_inst) {
-    z_prob_disassembler_update(__GET_PDISASM(d), addr, is_inst);
+    z_prob_disassembler_update(__GET_PDISASM(d), addr, is_inst, true);
 }
 
 #undef __GET_PDISASM
