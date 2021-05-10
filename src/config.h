@@ -68,11 +68,15 @@ typedef long double double128_t;
 /*
  * XXX:
  *  + SHADOW_CODE_ADDR: random address based on ASLR/PIE
+ *  + SIGNAL_STACK_ADDR: random address based on ASLR/PIE
  *  + RW_PAGE_ADDR: fixed address
  *  + LOOKUP_TABLE_ADDR: fixed address
  */
 // XXX: see http://ref.x86asm.net/coder64.html for x64 encoding
 #define SHADOW_CODE_ADDR 0x1f1f8000
+
+#define SIGNAL_STACK_SIZE PAGE_SIZE
+#define SIGNAL_STACK_ADDR (SHADOW_CODE_ADDR - SIGNAL_STACK_SIZE)
 
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading

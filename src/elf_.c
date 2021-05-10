@@ -945,9 +945,17 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
                 offset);
     }
 
+    // XXX: note that max_addr is only used to find the max address of those
+    // segments in the orignal ELF, which excludes those pages mapped by us
+    if (!e->max_addr) {
+        EXITME("no loaded segment found");
+    }
+    z_trace("max address for original ELF: %#lx", e->max_addr - 1);
+
     // Add constant address into vmmaping
     if (!e->is_pie) {
-        // For PIE binary, it is almost impossible to touch the constant address
+        // For PIE binary, it is almost impossible to touch the constant
+        // address, so we ignore them
         if (!z_splay_insert(
                 e->vmapping,
                 z_snode_create(RW_PAGE_ADDR, RW_PAGE_USED_SIZE, NULL, NULL))) {
@@ -980,10 +988,20 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
         }
     }
 
-    if (!e->max_addr) {
-        EXITME("no loaded segment found");
+    // We additionally need to add those mapped pages whose address is based on
+    // ASLR/PIE
+    {
+        if (!z_splay_insert(e->vmapping,
+                            z_snode_create(SIGNAL_STACK_ADDR, SIGNAL_STACK_SIZE,
+                                           NULL, NULL))) {
+            EXITME("signal stack is occupied");
+        }
+        if (!z_splay_insert(e->mmapped_pages,
+                            z_snode_create(SIGNAL_STACK_ADDR, SIGNAL_STACK_SIZE,
+                                           NULL, NULL))) {
+            EXITME("signal stack is occupied");
+        }
     }
-    z_trace("max address for original ELF: %#lx", e->max_addr - 1);
 }
 
 Z_PRIVATE void __elf_parse_other_info(ELF *e) {
@@ -1248,8 +1266,10 @@ Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf) {
 Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
     assert(e != NULL);
 
-    // TODO: we should guarantee there is no other pages between the trampolines
+    // XXX: we should guarantee there is no other pages between the trampolines
     // and the lookup table.
+    // TODO: as trampolines_addr is based on ASLR/PIE but lookup_table_addr is
+    // not, it may have problems when instrumenting PIE binary.
     if (addr >= e->trampolines_addr && addr < e->lookup_table_addr) {
         // write on trampolines, which is extensive.
 

@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/shm.h>
@@ -216,6 +217,21 @@ Z_SYSCALL int sys_write(int fd_0, const char *buf_0, size_t len_0) {
         "syscall"
         : "=rax"(err)
         : "r"(fd), "r"(buf), "r"(len)
+        : "rcx", "r11");
+
+    return (int)err;
+}
+
+Z_SYSCALL int sys_sigaltstack(stack_t *uss_0, stack_t *uoss_0) {
+    register uintptr_t uss asm("rdi") = (uintptr_t)uss_0;
+    register uintptr_t uoss asm("rsi") = (uintptr_t)uoss_0;
+    register intptr_t err asm("rax");
+
+    asm volatile(
+        "mov $131, %%eax\n\t"  // SYS_SIGALTSTACK
+        "syscall"
+        : "=rax"(err)
+        : "r"(uss), "r"(uoss)
         : "rcx", "r11");
 
     return (int)err;

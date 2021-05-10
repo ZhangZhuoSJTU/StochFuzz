@@ -260,11 +260,30 @@ static void loader_catch_suspect_signals(int signal, siginfo_t *siginfo,
 /*
  * Register signal handlers for suspect signals to send crash site information.
  */
-static inline void loader_set_signal_handler() {
+static inline void loader_set_signal_handler(addr_t rip_base) {
+    /*
+     * Before we set signal handler, we will first mmap a new stack for the
+     * handler. As such, even if the stack gets polluted, we can send the crash
+     * address to the daemon. More details can be found in:
+     *   https://man7.org/linux/man-pages/man2/sigaltstack.2.html
+     *   https://stackoverflow.com/questions/39297207/catching-sigsegv-when-triggered-by-corrupt-stack
+     */
+    addr_t ss_addr = rip_base + SIGNAL_STACK_ADDR;
+    if (sys_mmap(ss_addr, SIGNAL_STACK_SIZE, PROT_READ | PROT_WRITE,
+                 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) != ss_addr) {
+        utils_error(loader_err_str, true);
+    }
+    stack_t ss = {
+        .ss_sp = (void *)ss_addr,
+        .ss_flags = 0,
+        .ss_size = SIGNAL_STACK_SIZE,
+    };
+    sys_sigaltstack(&ss, NULL);
+
     struct kernel_sigaction sa = {};
 
     sa.k_sa_handler = &loader_catch_suspect_signals;
-    sa.sa_flags = SA_SIGINFO | SA_RESTORER;
+    sa.sa_flags = SA_SIGINFO | SA_RESTORER | SA_ONSTACK;
     sa.sa_restorer = &restorer;
 
     if (sys_rt_sigaction(SIGSEGV, &sa, NULL, _NSIG / 8)) {
@@ -350,7 +369,7 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
     void *mmap_addr, *tp_addr;
     unsigned long mmap_size, tp_size, next_tp_offset;
 
-    loader_set_signal_handler();
+    loader_set_signal_handler((addr_t)rip_base);
     loader_set_seccomp();
 
     loader_mmap_data_page(rip_base);
