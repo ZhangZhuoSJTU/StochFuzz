@@ -75,8 +75,9 @@ typedef long double double128_t;
 // XXX: see http://ref.x86asm.net/coder64.html for x64 encoding
 #define SHADOW_CODE_ADDR 0x1f1f8000
 
-#define SIGNAL_STACK_SIZE PAGE_SIZE
-#define SIGNAL_STACK_ADDR (SHADOW_CODE_ADDR - SIGNAL_STACK_SIZE)
+// XXX: we pick a high address to avoid overflow with other important pages
+#define SIGNAL_STACK_SIZE SIGSTKSZ
+#define SIGNAL_STACK_ADDR (0x100000000 + SIGNAL_STACK_SIZE)
 
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading

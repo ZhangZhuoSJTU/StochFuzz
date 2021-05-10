@@ -329,6 +329,9 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
         }
 
         // TODO: advanced patching
+        // XXX: advanced patching is not that necessary for now, as the error
+        // diagnosis can help find such erroneous patchings
+
         // check no prior patchpoints are call/cjmp/jmp
         // Iter(addr_t, occ_addrs);
         // z_iter_init_from_buf(occ_addrs,
@@ -440,6 +443,9 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
             if (!inst) {
                 continue;
             }
+
+            // TODO: patch some predecessors to reduce the number of delayed
+            // bridges
 
             if (z_capstone_is_ret(inst) || z_capstone_is_cjmp(inst) ||
                 z_capstone_is_jmp(inst)) {

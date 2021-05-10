@@ -194,8 +194,9 @@ prepare_google_fts:
 $(GOOGLE_FTS): prepare_google_fts
 	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '' $@.normal $@.seed)
 	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '' $@.inline $@.seed)
-	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.normal.daemon.log || ../$(TOOLNAME) -R -- $@.normal $@.seed)
-	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.inline.daemon.log || ../$(TOOLNAME) -R -- $@.inline $@.seed)
+	$(call test_succ, rm -f .pdisasm.$@.normal .pdisasm.$@.inline)
+	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.normal.daemon.log || ../$(TOOLNAME) -R -- $@.normal $@.seed || grep -F "we encounter a rewriting error" $@.normal.daemon.log)
+	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.inline.daemon.log || ../$(TOOLNAME) -R -- $@.inline $@.seed || grep -F "we encounter a rewriting error" $@.inline.daemon.log)
 
 benchmark: prepare_google_fts $(GOOGLE_FTS)
 
