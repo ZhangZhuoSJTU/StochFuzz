@@ -8,12 +8,6 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
                                             addr_t addr);
 
 /*
- * Update a crashpoint's information.
- */
-Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
-                                                  CPType type);
-
-/*
  * Handler a single crashpoint (the real function while handles patching).
  */
 Z_PRIVATE void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
@@ -40,11 +34,8 @@ Z_PRIVATE void __diagnoser_patch_crashpoint(Diagnoser *g, addr_t addr,
 /*
  * Getter and Setter
  */
-DEFINE_GETTER(Diagnoser, diagnoser, GHashTable *, crashpoints);
+DEFINE_GETTER(Diagnoser, diagnoser, GQueue *, crashpoints);
 
-// XXX: note that __diagnoser_patch_crashpoint's parameter *cp_type* must be a
-// single type (e.g., CP_INTERNAL), instead of multiple types (e.g., CP_RETADDR
-// | CP_EXTERNAL)
 // XXX: this function is only used for those new crashpoints detected during
 // execution.
 Z_PRIVATE void __diagnoser_patch_crashpoint(Diagnoser *g, addr_t addr,
@@ -58,7 +49,15 @@ Z_PRIVATE void __diagnoser_patch_crashpoint(Diagnoser *g, addr_t addr,
         addr_t *addrs = (addr_t *)z_buffer_get_raw_buf(retaddrs);
         z_info("we found %d CP_RETADDR sharing the same callee", n);
 
+        // we first patch the addr itself as real crashpoint
+        __diagnoser_handle_single_crashpoint(g, addr, CP_RETADDR, true, true);
+
+        // we then patch other retaddrs sharing with the same callee
         for (int i = 0; i < n; i++) {
+            if (addrs[i] == addr) {
+                continue;
+            }
+
             // XXX: note that the following check is very necessary. Although
             // CP_RETADDR cannot be an internal PP_BRIDGE (i.e., overlapping
             // bridge), it can be a PP_BRIDGE after the patched jmp instruction.
@@ -66,19 +65,14 @@ Z_PRIVATE void __diagnoser_patch_crashpoint(Diagnoser *g, addr_t addr,
                 continue;
             }
 
-            __diagnoser_handle_single_crashpoint(g, addrs[i], cp_type, false,
+            __diagnoser_handle_single_crashpoint(g, addrs[i], CP_RETADDR, false,
                                                  true);
         }
 
         z_buffer_destroy(retaddrs);
     } else {
-        assert(!(cp_type & CP_RETADDR));
         __diagnoser_handle_single_crashpoint(g, addr, cp_type, true, true);
     }
-
-    /*
-     * TODO: re-analyze probability here
-     */
 }
 
 Z_PRIVATE CPType __diagnoser_get_crashpoint_type(Diagnoser *g, addr_t addr,
@@ -90,8 +84,8 @@ Z_PRIVATE CPType __diagnoser_get_crashpoint_type(Diagnoser *g, addr_t addr,
         // XXX: retaddr patch may cause crash when enabling pdisasm.
         // XXX: note that if diagnoser does not generate any CP_RETADDR, all
         // ret-related functions of rewriter will not be invoked and no
-        // VCP_CALLEE will be generated. That is why this check is extremely
-        // important.
+        // callee will be regarded as returnable. That is why this check is
+        // extremely important.
         if (!z_disassembler_fully_support_prob_disasm(g->disassembler) &&
             z_rewriter_check_retaddr_crashpoint(g->rewriter, real_addr) &&
             real_addr == addr) {
@@ -139,14 +133,12 @@ Z_PRIVATE addr_t __diagnoser_validate_crashpoint(Diagnoser *g, addr_t addr) {
 Z_PRIVATE void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
                                                     CPType type, bool is_real,
                                                     bool need_log) {
-    assert(!is_real || !(type & CP_RETADDR));
-
-    if (!(type & CP_RETADDR)) {
+    if (type != CP_RETADDR) {
         // The recursive disassembly treats all library function as returnable.
         z_rewriter_rewrite(g->rewriter, addr);
     }
 
-    if (!(type & CP_INTERNAL)) {
+    if (type != CP_INTERNAL) {
         // XXX: note that if it is a retaddr crashpoint, its corresponding
         // shadow code should not start with an AFL trampoline.
         addr_t shadow_addr = z_rewriter_get_shadow_addr(g->rewriter, addr);
@@ -155,21 +147,9 @@ Z_PRIVATE void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
     }
 
     if (need_log) {
-        // update crashpoint log
-        __diagnoser_update_crashpoint_type(g, addr, type);
-    }
-}
-
-Z_PRIVATE void __diagnoser_update_crashpoint_type(Diagnoser *g, addr_t addr,
-                                                  CPType type) {
-    CPType type_ =
-        (CPType)g_hash_table_lookup(g->crashpoints, GSIZE_TO_POINTER(addr));
-    if ((type | type_) != type_) {
-        // this check is very important, which is used to avoid modifying
-        // g->crashpoints and invalidating any iterator associated with the
-        // hash table
-        g_hash_table_insert(g->crashpoints, GSIZE_TO_POINTER(addr),
-                            GSIZE_TO_POINTER(type | type_));
+        g_queue_push_tail(g->crashpoints, GSIZE_TO_POINTER(addr));
+        g_queue_push_tail(g->crashpoints, GSIZE_TO_POINTER(type));
+        g_queue_push_tail(g->crashpoints, GINT_TO_POINTER(!!is_real));
     }
 }
 
@@ -438,8 +418,7 @@ Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
     // all other DD-related fields will be initilized when enabling DD.
     g->dd_stage = DD_NONE;
 
-    g->crashpoints =
-        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+    g->crashpoints = g_queue_new();
 
     const char *binary_filename = z_binary_get_original_filename(g->binary);
     g->cp_filename = z_strcat(CRASHPOINT_LOG_PREFIX, binary_filename);
@@ -448,7 +427,7 @@ Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
 }
 
 Z_API void z_diagnoser_destroy(Diagnoser *g) {
-    g_hash_table_destroy(g->crashpoints);
+    g_queue_free(g->crashpoints);
     z_free((void *)g->cp_filename);
     z_free(g);
 }
@@ -463,137 +442,91 @@ Z_API void z_diagnoser_read_crashpoint_log(Diagnoser *g) {
     CrashPoint *cp = (CrashPoint *)z_buffer_get_raw_buf(buffer);
     size_t file_size = z_buffer_get_size(buffer);
     for (size_t i = 0; i < file_size; i += sizeof(CrashPoint), cp++) {
-        // handle virtual crashpoints
-        if (cp->type & VCP_CALLEE) {
-            if (z_disassembler_fully_support_prob_disasm(g->disassembler)) {
-                // TODO: skip this VCP_CALLEE instead of directly exiting
-                EXITME(
-                    "while pdisasm is fully enabled, currently we cannot "
-                    "support this VCP_CALLEE: %#lx",
-                    cp->addr);
-            }
-            z_rewriter_set_returned_callees(g->rewriter, cp->addr);
-            if (!(cp->type = cp->type & (~VCP_CALLEE))) {
-                continue;
-            }
-        }
-
-        __diagnoser_update_crashpoint_type(g, cp->addr, cp->type);
+        g_queue_push_tail(g->crashpoints, GSIZE_TO_POINTER(cp->addr));
+        g_queue_push_tail(g->crashpoints, GSIZE_TO_POINTER(cp->type));
+        g_queue_push_tail(g->crashpoints, GINT_TO_POINTER(!!cp->is_real));
     }
 
     z_buffer_destroy(buffer);
 }
 
 Z_API void z_diagnoser_write_crashpoint_log(Diagnoser *g) {
-    // before write crashpoints, we need to store unlogged retaddr crashpoints
-    {
-        GHashTable *unlogged_retaddr_crashpoints =
-            z_rewriter_get_unlogged_retaddr_crashpoints(g->rewriter);
-
-        GHashTableIter iter;
-        gpointer key, value;
-        g_hash_table_iter_init(&iter, unlogged_retaddr_crashpoints);
-
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-            addr_t addr = (addr_t)key;
-            __diagnoser_update_crashpoint_type(g, addr, CP_RETADDR);
-        }
-    }
-
-    // update VCP_CALLEE
-    {
-        GHashTable *returned_callees =
-            z_rewriter_get_returned_callees(g->rewriter);
-
-        GHashTableIter iter;
-        gpointer key, value;
-        g_hash_table_iter_init(&iter, returned_callees);
-
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-            addr_t addr = (addr_t)key;
-            __diagnoser_update_crashpoint_type(g, addr, VCP_CALLEE);
-        }
-    }
-
-    {
 #ifndef BINARY_SEARCH_INVALID_CRASH
-        // write down all crashpoints
-        FILE *f = z_fopen(g->cp_filename, "wb");
-        CrashPoint cp = {
-            .addr = INVALID_ADDR,
-            .type = CP_NONE,
-        };
+    // write down all crashpoints
+    FILE *f = z_fopen(g->cp_filename, "wb");
+    CrashPoint cp = {
+        .addr = INVALID_ADDR,
+        .type = CP_NONE,
+        .is_real = false,
+    };
 
-        GHashTableIter iter;
-        gpointer key, value;
-        g_hash_table_iter_init(&iter, g->crashpoints);
+    GList *l = g->crashpoints->head;
+    while (l != NULL) {
+        // get address first
+        cp.addr = (addr_t)l->data;
 
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-            cp.addr = (addr_t)key;
-            cp.type = (CPType)value;
-            if (z_fwrite(&cp, sizeof(CrashPoint), 1, f) != 1) {
-                EXITME("error on writing crashpoint log file");
-            }
+        // get status
+        l = l->next;
+        cp.type = (CPType)l->data;
+
+        // get is_real
+        l = l->next;
+        cp.is_real = !!(l->data);
+
+        if (z_fwrite(&cp, sizeof(CrashPoint), 1, f) != 1) {
+            EXITME("error on writing crashpoint log file");
         }
 
-        z_fclose(f);
-#endif
+        // go to next CrashPoint struct
+        l = l->next;
     }
+
+    z_fclose(f);
+#endif
 }
 
 Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
-#define __SHOW_CP(addr, type)                                                  \
-    do {                                                                       \
-        z_info("logged crashpoint [%s%s%s%s%s]: " COLOR(GREEN, "%#lx"),        \
-               ((type)&CP_INTERNAL) ? "internal" : "",                         \
-               (((type)&CP_INTERNAL) && ((type)&CP_EXTERNAL)) ? "|" : "",      \
-               ((type)&CP_EXTERNAL) ? "external" : "",                         \
-               (((type) & (CP_INTERNAL | CP_EXTERNAL)) && ((type)&CP_RETADDR)) \
-                   ? "|"                                                       \
-                   : "",                                                       \
-               ((type)&CP_RETADDR) ? "retaddr" : "", addr);                    \
-    } while (0)
+    // replay all
+    GList *l = g->crashpoints->head;
+    while (l != NULL) {
+        // get address first
+        addr_t addr = (addr_t)l->data;
 
-#define __APPLY_CPS(filter)                                                    \
-    do {                                                                       \
-        GHashTableIter iter;                                                   \
-        gpointer key, value;                                                   \
-        g_hash_table_iter_init(&iter, g->crashpoints);                         \
-                                                                               \
-        while (g_hash_table_iter_next(&iter, &key, &value)) {                  \
-            addr_t addr = (addr_t)key;                                         \
-            addr_t type = (CPType)value & (filter);                            \
-            if (!type) {                                                       \
-                continue;                                                      \
-            }                                                                  \
-            __SHOW_CP(addr, type);                                             \
-                                                                               \
-            if (type != CP_INTERNAL) {                                         \
-                addr_t adjusted_addr =                                         \
-                    z_patcher_adjust_bridge_address(g->patcher, addr);         \
-                if (adjusted_addr != addr) {                                   \
-                    if (type != CP_EXTERNAL) {                                 \
-                        /* XXX: this branch would happen when pdisasm */       \
-                        /* is disabled, and a CP_RETADDR locates on   */       \
-                        /* a bridge range.                            */       \
-                        continue;                                              \
-                    }                                                          \
-                    addr = adjusted_addr;                                      \
-                }                                                              \
-            }                                                                  \
-                                                                               \
-            __diagnoser_handle_single_crashpoint(g, addr, type, false, false); \
-        }                                                                      \
-    } while (0)
+        // get status
+        l = l->next;
+        CPType type = (CPType)l->data;
 
-    // we do this in two round, where we first ignore CP_RETADDR, and then we
-    // only work on CP_RETADDR. So that we can make sure all blocks are
-    // identified before building ret bridgs.
-    __APPLY_CPS(~CP_RETADDR);
-    __APPLY_CPS(CP_RETADDR);
+        // get is_real
+        l = l->next;
+        bool is_real = !!(l->data);
 
-#undef __APPLY_CPS
-#undef __SHOW_CP
+        // adjust the bridge crashpoint
+        // XXX: it does not exactly follow the original execution, but it should
+        // get the same rewriting/pathcing as the original execution does.
+        if (type != CP_INTERNAL) {
+            addr_t adjusted_addr =
+                z_patcher_adjust_bridge_address(g->patcher, addr);
+            if (adjusted_addr != addr) {
+                EXITME(
+                    "the logged crashpoint does not generate the same patching "
+                    "as the original execution does");
+            }
+        }
+
+        // update the retaddr information in rewriter
+        if (type == CP_RETADDR && is_real) {
+            Buffer *addrs = z_rewriter_new_validate_retaddr(g->rewriter, addr);
+            // XXX: we directly free addrs as it is useless here
+            z_buffer_destroy(addrs);
+        }
+
+        // invoke z_diagnoser_new_crashpoint
+        z_info("logged %s crashpoint: %#lx", z_cptype_string(type), addr);
+        __diagnoser_handle_single_crashpoint(g, addr, type, is_real, false);
+
+        // go to next CrashPoint struct
+        l = l->next;
+    }
 
     z_rewriter_optimization_stats(g->rewriter);
     z_patcher_bridge_stats(g->patcher);

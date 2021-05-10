@@ -246,27 +246,24 @@ static inline void mode_view(int argc, const char **argv) {
     z_info("target binary: %s", target);
 
     Core *core = z_core_create(target);
-    GHashTable *cps = z_diagnoser_get_crashpoints(core->diagnoser);
+    GQueue *cps = z_diagnoser_get_crashpoints(core->diagnoser);
 
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, cps);
+    GList *l = cps->head;
 
-    z_sayf("%-18s%-18s\n", "Address", "CPType");
-    while (g_hash_table_iter_next(&iter, &key, &value)) {
-        addr_t addr = (addr_t)key;
-        addr_t type = (CPType)value & (~VCP_CALLEE);
-        if (!type) {
-            continue;
-        }
-        z_sayf("%-#18lx%s%s%s%s%s\n", addr,
-               (type & CP_INTERNAL) ? "INTERNAL" : "",
-               ((type & CP_INTERNAL) && (type & CP_EXTERNAL)) ? " & " : "",
-               (type & CP_EXTERNAL) ? "EXTERNAL" : "",
-               ((type & (CP_INTERNAL | CP_EXTERNAL)) && (type & CP_RETADDR))
-                   ? " & "
-                   : "",
-               (type & CP_RETADDR) ? "RETADDR" : "");
+    z_sayf("%-20s%-10s%-6s\n", "Address", "CPType", "Real?");
+    while (l != NULL) {
+        addr_t addr = (addr_t)l->data;
+
+        l = l->next;
+        CPType type = (CPType)l->data;
+
+        l = l->next;
+        bool is_real = !!(l->data);
+
+        z_sayf("%-#20lx%-10s%-6s\n", addr, z_cptype_string(type),
+               (is_real ? "True" : "False"));
+
+        l = l->next;
     }
 
     z_core_destroy(core);

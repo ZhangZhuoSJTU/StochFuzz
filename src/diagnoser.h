@@ -16,35 +16,29 @@
  *      CP_INTERNAL:    need to disassemble address
  *      CP_EXTERNAL:    need to disassembly address and build jump bridge
  *      CP_RETADDR:     need to build jump bridge
- *
- *      VCP_CALLEE:     virtual crashpoint (returnable callee)
  */
-// XXX: CP_RETADDR and VCP_CALLEE are only used when pdisasm is not fully
-// supported. Note that in this situation, even we misidentify a CP_RETADDR, it
-// would not impact the rewriting procedure (i.e., any wrong bridge will got
-// fixed later / not uncertain_patches in Patcher).
+// XXX: CP_RETADDR are only used when pdisasm is not fully supported. Note that
+// in this situation, even we misidentify a CP_RETADDR, it would not impact the
+// rewriting procedure (i.e., any wrong bridge will got fixed later / not
+// uncertain_patches in Patcher).
 typedef enum cp_type_t {
-    /*
-     * Real crashpoint
-     */
     CP_NONE = 0UL,
-    CP_INTERNAL = (1UL << 0),  // internal indirect call/jump
-    CP_EXTERNAL = (1UL << 1),  // external callback from library
-    CP_RETADDR = (1UL << 2),   // return address when calling library
-
-    /*
-     * followings are virtual crashpoints, which means it is not a real
-     * crashpoint, but meanful information related with crashpoint
-     */
-    VCP_CALLEE = (1UL << 3),  // callees that is known to be going to return
+    CP_INTERNAL,  // internal indirect call/jump
+    CP_EXTERNAL,  // external callback from library
+    CP_RETADDR,   // return address when calling library
 } CPType;
 
+#define z_cptype_string(t)              \
+    ((type == CP_INTERNAL) ? "INTERNAL" \
+                           : ((type == CP_EXTERNAL) ? "EXTERNAL" : "RETADDR"))
+
 /*
- * CrashPoint Log
+ * Logged CrashPoint
  */
 typedef struct crash_point_t {
     addr_t addr;
     CPType type;
+    bool is_real;
 } CrashPoint;
 
 /*
@@ -84,11 +78,13 @@ STRUCT(Diagnoser, {
     int64_t dd_s_cur;
     int64_t dd_e_cur;
 
-    GHashTable *crashpoints;
+    // XXX: for effeciency, a CrashPoint struct is broken into three elements in
+    // the queue.
+    GQueue *crashpoints;
     const char *cp_filename;
 });
 
-DECLARE_GETTER(Diagnoser, diagnoser, GHashTable *, crashpoints);
+DECLARE_GETTER(Diagnoser, diagnoser, GQueue *, crashpoints);
 
 /*
  * Create diagnoser
@@ -102,12 +98,12 @@ Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
 Z_API void z_diagnoser_destroy(Diagnoser *g);
 
 /*
- * Read crashpoint information from logfile
+ * Read recorded crashpoints from log file
  */
 Z_API void z_diagnoser_read_crashpoint_log(Diagnoser *g);
 
 /*
- * Log down crashpoints' informationnn
+ * Log down recorded crashpoints
  */
 Z_API void z_diagnoser_write_crashpoint_log(Diagnoser *g);
 
