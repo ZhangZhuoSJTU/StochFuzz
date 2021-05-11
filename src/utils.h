@@ -364,6 +364,8 @@ typedef struct system_config_t {
     int32_t log_level;
 
     uint64_t timeout;
+
+    uint32_t check_execs;
 } SysConfig;
 
 extern SysConfig sys_config;

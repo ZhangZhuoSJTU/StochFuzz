@@ -64,12 +64,14 @@ static void usage(const char *argv0, int ret_status) {
         "Other stuff:\n\n"
 
         "  -h            - print this help\n"
-        "  -t msec       - timeout for each attached fuzzing run "
-        "(default timeout: %u ms)\n"
-        "  -l level      - log level, including TRACE, DEBUG, INFO, WARN, "
-        "ERROR, and FATAL (default level: INFO)\n\n",
+        "  -x execs      - set the number of executions after which the "
+        "checking run will be triggered (default: %u)\n"
+        "  -t msec       - set timeout for each attached fuzzing run "
+        "(default: %lu ms)\n"
+        "  -l level      - set log level, including TRACE, DEBUG, INFO, WARN, "
+        "ERROR, and FATAL (default: INFO)\n\n",
 
-        argv0, SYS_TIMEOUT);
+        argv0, SYS_CHECK_EXECS, SYS_TIMEOUT);
 
     exit(ret_status);
 }
@@ -80,9 +82,11 @@ static int parse_args(int argc, const char **argv) {
 
     bool timeout_given = false;
     bool log_level_given = false;
+    bool check_execs_given = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfnht:l:")) > 0) {
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfnht:l:x:")) >
+           0) {
         switch (opt) {
 #define __MODE_CASE(c, m)                                   \
     case c:                                                 \
@@ -144,6 +148,21 @@ static int parse_args(int argc, const char **argv) {
                 timeout_given = true;
                 if (z_sscanf(optarg, "%lu", &sys_config.timeout) < 1) {
                     EXITME("bad syntax used for -t");
+                }
+                break;
+
+            case 'x':
+                if (check_execs_given) {
+                    EXITME("multiple -x options not supported");
+                }
+                check_execs_given = true;
+                if (z_sscanf(optarg, "%u", &sys_config.check_execs) < 1) {
+                    EXITME("bad syntax used for -x");
+                }
+                if (sys_config.check_execs < 500) {
+                    z_warn(
+                        "frequent checking runs will significatly impact the "
+                        "fuzzing efficiency");
                 }
                 break;
 

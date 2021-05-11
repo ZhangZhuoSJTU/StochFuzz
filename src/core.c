@@ -84,9 +84,14 @@ Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
 Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid);
 
 /*
- * Setup Shared memory of CRS
+ * Setup shared memory of CRS
  */
 Z_PRIVATE void __core_setup_shm(Core *core);
+
+/*
+ * Setup shared memory of AFL
+ */
+Z_PRIVATE void __core_setup_afl_shm(Core *core);
 
 /*
  * Clean up
@@ -163,6 +168,19 @@ Z_PRIVATE void __core_setup_shm(Core *core) {
     if (core->shm_addr == INVALID_ADDR) {
         EXITME("failed: shmat()");
     }
+}
+
+Z_PRIVATE void __core_setup_afl_shm(Core *core) {
+    if (core->afl_shm_id == INVALID_SHM_ID) {
+        EXITME("invalid afl_shm_id");
+    }
+
+    core->afl_trace_bits = shmat(core->afl_shm_id, NULL, 0);
+    if (core->afl_trace_bits == (void *)-1) {
+        EXITME("failed: shmat() for AFL");
+    }
+
+    z_info("setup the shared memory of AFL at %p", core->afl_trace_bits);
 }
 
 Z_PRIVATE void __core_clean_environment(Core *core) {
@@ -322,6 +340,9 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
     core->shm_id = INVALID_SHM_ID;
     core->shm_addr = INVALID_ADDR;
 
+    core->afl_shm_id = INVALID_SHM_ID;
+    core->afl_trace_bits = NULL;
+
     core->sock_fd = INVALID_FD;
 
     __core = core;
@@ -407,8 +428,13 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     //  step (1.1). wait connection
     int comm_fd = accept(core->sock_fd, NULL, NULL);
     z_info("daemon gets connection for comm");
-    //  step (1.2). send out shm_id and wait for response (handshake)
+    //  step (1.2). handshake:
+    //      * send out shm_id
+    //      * recv afl_attached
+    //      * recv afl_shm_id
+    //      * send sys_config.check_execs (useless when AFL is not attached)
     int afl_attached = 0;
+    uint32_t check_execs = sys_config.check_execs;
     {
         assert(sizeof(core->shm_id) == 4);
         if (write(comm_fd, &core->shm_id, sizeof(core->shm_id)) !=
@@ -416,13 +442,29 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
             EXITME("fail to send shm_id");
         }
         if (read(comm_fd, &afl_attached, 4) != 4) {
-            EXITME("fail to recv respone");
+            EXITME("fail to recv afl_attached");
+        }
+        if (read(comm_fd, &core->afl_shm_id, sizeof(core->afl_shm_id)) !=
+            sizeof(core->afl_shm_id)) {
+            EXITME("fail to recv alf_shm_id");
+        }
+        if (write(comm_fd, &check_execs, 4) != 4) {
+            EXITME("fail to send check_execs");
+        }
+
+        // simple validation
+        if (afl_attached && core->afl_shm_id == INVALID_SHM_ID) {
+            EXITME("AFL is attached but the daemon does not get AFL_SHM_ID");
+        }
+        if (!afl_attached && core->afl_shm_id != INVALID_SHM_ID) {
+            EXITME("AFL is notattached but the daemon gets AFL_SHM_ID");
         }
     }
 
-    // step (2). output basic information
+    // step (2). output basic information and setup AFL shared memory
     if (afl_attached) {
         z_info("AFL detected: %d", afl_attached);
+        __core_setup_afl_shm(core);
     } else {
         z_info("no AFL attached: %d", afl_attached);
     }

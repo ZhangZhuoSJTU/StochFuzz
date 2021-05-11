@@ -114,8 +114,6 @@ extern const char setpgid_err_str[];
 extern const char magic_string[];
 extern const char afl_shm_env[];
 
-#define NO_SHM_ID -233
-
 asm(".globl _entry\n"
     ".type _entry,@function\n"
     "_entry:\n"
@@ -173,7 +171,7 @@ asm(".globl _entry\n"
     // crs_shmat_err_str
     ASM_STRING(crs_shmat_err_str, "fork server: shmat error (CRS)")
     // hello_err_str
-    ASM_STRING(hello_err_str, "fork server: hello error")
+    ASM_STRING(hello_err_str, "fork server: handshake error")
     // write_err_str
     ASM_STRING(write_err_str, "fork server: write error")
     // read_err_str
@@ -257,7 +255,7 @@ static inline int fork_server_get_shm_id(char **envp) {
     }
 
     utils_puts(getenv_err_str, true);
-    return NO_SHM_ID;
+    return INVALID_SHM_ID;
 }
 
 /*
@@ -304,7 +302,7 @@ NO_INLINE void fork_server_start(char **envp) {
     int comm_fd = fork_server_connect_pipe();
     if (comm_fd < 0) {
         // make sure AFL is not attached
-        if (fork_server_get_shm_id(envp) != NO_SHM_ID) {
+        if (fork_server_get_shm_id(envp) != INVALID_SHM_ID) {
             utils_error(env_setting_err_str, true);
         }
         utils_puts(no_daemon_str, true);
@@ -326,17 +324,18 @@ NO_INLINE void fork_server_start(char **envp) {
      * step (2). check whether AFL is attached
      */
     int afl_shm_id = fork_server_get_shm_id(envp);
-    bool afl_attached = (afl_shm_id != NO_SHM_ID);
+    bool afl_attached = (afl_shm_id != INVALID_SHM_ID);
     if (afl_attached) {
         utils_puts(afl_attached_str, true);
     }
 
     /*
-     * step (3). read crs_shm_id from daemon and respond afl_attached (comm
-     * shakehand)
+     * step (3). read crs_shm_id/check_execs from daemon and respond
+     * afl_attached/afl_shm_id (comm shakehand)
      */
     // XXX: CRS may be uncessary once we use shared memory for .text section
-    int crs_shm_id = 0;
+    int crs_shm_id = INVALID_SHM_ID;
+    uint32_t check_execs = (uint32_t)-1;
     {
         if (sys_read(CRS_COMM_FD, (char *)&crs_shm_id, 4) != 4) {
             utils_error(hello_err_str, true);
@@ -344,6 +343,15 @@ NO_INLINE void fork_server_start(char **envp) {
 
         int __tmp_data = afl_attached;
         if (sys_write(CRS_COMM_FD, (char *)&__tmp_data, 4) != 4) {
+            utils_error(hello_err_str, true);
+        }
+
+        __tmp_data = afl_shm_id;
+        if (sys_write(CRS_COMM_FD, (char *)&__tmp_data, 4) != 4) {
+            utils_error(hello_err_str, true);
+        }
+
+        if (sys_read(CRS_COMM_FD, (char *)&check_execs, 4) != 4) {
             utils_error(hello_err_str, true);
         }
     }

@@ -210,4 +210,5 @@ SysConfig sys_config = {
     .force_linear = false,
     .log_level = LOG_INFO,
     .timeout = SYS_TIMEOUT,
+    .check_execs = SYS_CHECK_EXECS,
 };
