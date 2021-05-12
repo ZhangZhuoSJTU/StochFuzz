@@ -27,4 +27,6 @@
 
 #define AFL_BB_ID(x) (((x) ^ ((x) >> AFL_MAP_SIZE_POW2)) & AFL_MAP_SIZE_MASK)
 
+#define AFL_HASH_CONST 0xa5b35705
+
 #endif

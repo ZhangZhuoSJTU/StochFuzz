@@ -35,7 +35,6 @@ STRUCT(Core, {
     addr_t shm_addr;
 
     // shared memory of AFL
-    int afl_shm_id;
     uint8_t *afl_trace_bits;
 
     // unix domain information

@@ -5,7 +5,7 @@
  * Perform delta debugging to locate rewriting errors
  */
 Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
-                                            addr_t addr);
+                                            addr_t addr, uint32_t cov);
 
 /*
  * Handler a single crashpoint (the real function while handles patching).
@@ -196,7 +196,7 @@ Z_PRIVATE void __diagnoser_handle_single_crashpoint(Diagnoser *g, addr_t addr,
  * randomly polluted, the program is going to crash very soon.
  */
 Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
-                                            addr_t addr) {
+                                            addr_t addr, uint32_t cov) {
 #define __UPDATE_STAGE_AND_RETURN(stage, ret) \
     do {                                      \
         g->dd_stage = (stage);                \
@@ -205,36 +205,47 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
 
     if (!z_disassembler_fully_support_prob_disasm(g->disassembler)) {
         assert(g->dd_stage == DD_NONE);
+        assert(IS_ABNORMAL_STATUS(status));
+        // XXX: this cannot be caused by checking runs
         __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
     }
 
     if (IS_SUSPECT_STATUS(status)) {
-        z_info("suspect status (%d) at %#lx", status, addr);
+        z_info("suspect status (%d) at %#lx [cov: %#x]", status, addr, cov);
     } else {
         // XXX: it is very improtant to change addr to CRS_INVALID_IP, because
         // for non-suspect status, addr is meaningless. In some cases, addr may
         // vary (e.g., a segment fault caused by invalid stack addresses). See
         // Undecided Changes in the documents for more information.
         addr = CRS_INVALID_IP;
-        z_info("non-suspect status (%d)", status);
+        z_info("non-suspect status (%d) [cov: %#x]", status, cov);
     }
 
     if (g->dd_stage == DD_NONE) {
-        z_info(
-            "check whether the crash is caused by rewriting errors by "
-            "disabling all uncertain patches");
+        // step (0). distinguish real crashes and checking runs
+        if (IS_ABNORMAL_STATUS(status)) {
+            g->dd_crs_status = CRS_STATUS_CRASH;
+            g->dd_banner =
+                COLOR(RED, "a latent bug at %#lx with status %d [cov: %#x]");
+        } else {
+            g->dd_crs_status = CRS_STATUS_NORMAL;
+            g->dd_banner = COLOR(
+                GREEN,
+                "a passed checking run at %#lx with status %d [cov: %#x]");
+        }
 
         // step (1). check whether there is any uncertain patches
         size_t n = z_patcher_uncertain_patches_n(g->patcher);
         if (!n) {
             // we do not need to wrap up the self correction procedure of
             // patcher here, because it has not been started.
-            __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
+            __UPDATE_STAGE_AND_RETURN(DD_NONE, g->dd_crs_status);
         }
 
-        // step (2). set dd_status and dd_addr
+        // step (2). set dd_status, dd_addr, and dd_cov
         g->dd_status = status;
         g->dd_addr = addr;
+        g->dd_cov = cov;
 
         // step (3). enable delta debugging for patcher
         g->dd_high = n;
@@ -250,11 +261,10 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
     if (g->dd_stage == DD_STAGE0) {
         // step (1). check whether the unintentional crash can be reproduced, if
         // so, we can determine it is caused by a latent bug.
-        if (status == g->dd_status && addr == g->dd_addr) {
-            z_info(COLOR(RED, "a latent bug at %#lx with status %d"), addr,
-                   status);
+        if (status == g->dd_status && addr == g->dd_addr && cov == g->dd_cov) {
+            z_info(g->dd_banner, addr, status, cov);
             z_patcher_self_correction_end(g->patcher);
-            __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
+            __UPDATE_STAGE_AND_RETURN(DD_NONE, g->dd_crs_status);
         }
 
         // step (2). it is caused by a rewriting error, let's setup the error
@@ -274,7 +284,7 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
 
     if (g->dd_stage == DD_STAGE1) {
         // step (1). update dd_low and dd_high
-        if (status == g->dd_status && addr == g->dd_addr) {
+        if (status == g->dd_status && addr == g->dd_addr && cov == g->dd_cov) {
             z_info(
                 "error diagnosis stage 1: test uncertain patches within [0, "
                 "%ld), reproduced: " COLOR(GREEN, "true"),
@@ -333,7 +343,7 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
     }
 
     if (g->dd_stage == DD_STAGE2) {
-        if (status == g->dd_status && addr == g->dd_addr) {
+        if (status == g->dd_status && addr == g->dd_addr && cov == g->dd_cov) {
             z_info(
                 "error diagnosis stage 2: dup-binary-search works for [%ld, "
                 "%ld)",
@@ -360,13 +370,16 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
             z_patcher_flip_uncertain_patches(g->patcher, true,
                                              (g->dd_e_cur - 1) - g->dd_s_cur);
             z_patcher_self_correction_end(g->patcher);
+            // TODO: for checking runs, in this case, we can actually return a
+            // CRS_STATUS_DEBUG to force the fork server to re-run the checking
+            // run.
             __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_NOTHING);
         }
     }
 
     if (g->dd_stage == DD_STAGE3) {
         // step (1). update dd_low and dd_high
-        if (status == g->dd_status && addr == g->dd_addr) {
+        if (status == g->dd_status && addr == g->dd_addr && cov == g->dd_cov) {
             z_info(
                 "error diagnosis stage 3: test uncertain patches within [%ld, "
                 "%ld), reproduced: " COLOR(GREEN, "true"),
@@ -400,7 +413,7 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
     }
 
     EXITME("unreachable code");
-    return CRS_STATUS_CRASH;  // used to emit warnings
+    return g->dd_crs_status;  // used to emit warnings
 
 #undef __UPDATE_STAGE_AND_RETURN
 }
@@ -533,21 +546,27 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g) {
 }
 
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
-                                           addr_t addr) {
+                                           addr_t addr, uint32_t cov,
+                                           bool check_run_enabled) {
     // step (0). check whether diagnoser is under delta debugging mode
     if (g->dd_stage != DD_NONE) {
         // the diagnoser is under delta debugging mode
-        return __diagnoser_delta_debug(g, status, addr);
+        return __diagnoser_delta_debug(g, status, addr, cov);
     }
 
     // step (1). check whether the status is suspect
     if (!IS_ABNORMAL_STATUS(status)) {
-        return CRS_STATUS_NORMAL;
+        if (check_run_enabled) {
+            // this will only happen when checking runs are enabled
+            return __diagnoser_delta_debug(g, status, addr, cov);
+        } else {
+            return CRS_STATUS_NORMAL;
+        }
     }
     if (!IS_SUSPECT_STATUS(status)) {
         // it is an unintentional crash
         assert(g->dd_stage == DD_NONE);
-        return __diagnoser_delta_debug(g, status, addr);
+        return __diagnoser_delta_debug(g, status, addr, cov);
     }
     if (addr == CRS_INVALID_IP) {
         EXITME("the client exits as SUSPECT but no suspected address is sent");
@@ -564,9 +583,10 @@ Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
     // step (3). check whether real_addr is INVALID_ADDR
     if (real_addr == INVALID_ADDR) {
         // it is an unintentional crash
-        z_info(COLOR(RED, "real crash with suspect status! (%#lx)"), addr);
+        z_info(COLOR(RED, "a potential crash with suspect status! (%#lx)"),
+               addr);
         assert(g->dd_stage == DD_NONE);
-        return __diagnoser_delta_debug(g, status, addr);
+        return __diagnoser_delta_debug(g, status, addr, cov);
     }
 
     // step (4). get CPType

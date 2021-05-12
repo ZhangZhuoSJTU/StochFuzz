@@ -26,7 +26,7 @@
  * Default system settings
  */
 #define SYS_TIMEOUT 2000UL
-#define SYS_CHECK_EXECS 20000
+#define SYS_CHECK_EXECS 200000
 
 /*
  * Magic string to indicate the file is patched

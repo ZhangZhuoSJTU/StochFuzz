@@ -33,6 +33,10 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
 + [ ] Add a new flag/option to enable early instrumentation for fork server (i.e., before the entrypoint of binary).
 + [ ] Enable periodic checking (for coverage feedback) to determine those false postives which do not lead to crashes.
++ [ ] Instead of patching a fixed invalid instruction (0x2f), randomly choose an invalid instruction to patch. More details can be found [here](http://ref.x86asm.net/coder64.html).
++ [ ] Automatically scale the number of executions triggering checking runs (based on the result of previous checking run).
++ [ ] Add a new license.
++ [ ] Set the default log level as WARN (note that we need to update `make test` and `make benchmark`).
 
 ## Known Issues
 

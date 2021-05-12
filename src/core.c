@@ -74,6 +74,44 @@ static void __core_environment_setup(void) {
 }
 
 /*
+ * Functions and Macros copied and pasted from AFL source code
+ */
+#define __AFL_ROL64(_x, _r) \
+    ((((uint64_t)(_x)) << (_r)) | (((uint64_t)(_x)) >> (64 - (_r))))
+
+Z_PRIVATE uint32_t __afl_hash32(const void *key, uint32_t len, uint32_t seed) {
+    const uint64_t *data = (uint64_t *)key;
+    uint64_t h1 = seed ^ len;
+
+    len >>= 3;
+
+    while (len--) {
+        uint64_t k1 = *data++;
+
+        k1 *= 0x87c37b91114253d5ULL;
+        k1 = __AFL_ROL64(k1, 31);
+        k1 *= 0x4cf5ad432745937fULL;
+
+        h1 ^= k1;
+        h1 = __AFL_ROL64(h1, 27);
+        h1 = h1 * 5 + 0x52dce729;
+    }
+
+    h1 ^= h1 >> 33;
+    h1 *= 0xff51afd7ed558ccdULL;
+    h1 ^= h1 >> 33;
+    h1 *= 0xc4ceb9fe1a85ec53ULL;
+    h1 ^= h1 >> 33;
+
+    return h1;
+}
+
+/*
+ * Get the hash value of current afl bitmap
+ */
+Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core);
+
+/*
  * Set clock for client timeout
  */
 Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
@@ -91,7 +129,7 @@ Z_PRIVATE void __core_setup_shm(Core *core);
 /*
  * Setup shared memory of AFL
  */
-Z_PRIVATE void __core_setup_afl_shm(Core *core);
+Z_PRIVATE void __core_setup_afl_shm(Core *core, int afl_shm_id);
 
 /*
  * Clean up
@@ -102,6 +140,15 @@ Z_PRIVATE void __core_clean_environment(Core *core);
  * Setup a unix domain socker for core
  */
 Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
+
+Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core) {
+    if (!core->afl_trace_bits) {
+        // checking runs are not enabled
+        return 0;
+    } else {
+        return __afl_hash32(core->afl_trace_bits, AFL_MAP_SIZE, AFL_HASH_CONST);
+    }
+}
 
 Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid) {
     core->client_pid = client_pid;
@@ -170,12 +217,20 @@ Z_PRIVATE void __core_setup_shm(Core *core) {
     }
 }
 
-Z_PRIVATE void __core_setup_afl_shm(Core *core) {
-    if (core->afl_shm_id == INVALID_SHM_ID) {
+Z_PRIVATE void __core_setup_afl_shm(Core *core, int afl_shm_id) {
+    // initial checking
+    if (sys_config.check_execs == 0) {
+        EXITME("checking runs are disabled");
+    }
+    if (!z_disassembler_fully_support_prob_disasm(core->disassembler)) {
+        EXITME(
+            "checking runs are disabled when pdisasm is not fully supported");
+    }
+    if (afl_shm_id == INVALID_SHM_ID) {
         EXITME("invalid afl_shm_id");
     }
 
-    core->afl_trace_bits = shmat(core->afl_shm_id, NULL, 0);
+    core->afl_trace_bits = shmat(afl_shm_id, NULL, 0);
     if (core->afl_trace_bits == (void *)-1) {
         EXITME("failed: shmat() for AFL");
     }
@@ -284,8 +339,9 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             read(signal_fd, (char *)(&crash_rip), 8);
             close(st_pipe[0]);
 
-            CRSStatus crs_status =
-                z_diagnoser_new_crashpoint(core->diagnoser, status, crash_rip);
+            uint32_t cov = __core_get_bitmap_hash(core);
+            CRSStatus crs_status = z_diagnoser_new_crashpoint(
+                core->diagnoser, status, crash_rip, cov, false);
 
             if (crs_status == CRS_STATUS_CRASH ||
                 crs_status == CRS_STATUS_NORMAL) {
@@ -340,7 +396,6 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
     core->shm_id = INVALID_SHM_ID;
     core->shm_addr = INVALID_ADDR;
 
-    core->afl_shm_id = INVALID_SHM_ID;
     core->afl_trace_bits = NULL;
 
     core->sock_fd = INVALID_FD;
@@ -434,7 +489,12 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     //      * recv afl_shm_id
     //      * send sys_config.check_execs (useless when AFL is not attached)
     int afl_attached = 0;
-    uint32_t check_execs = sys_config.check_execs;
+    int afl_shm_id = INVALID_SHM_ID;
+    // checking runs are enabled only if
+    //      * AFL is attached
+    //      * Prob Disassembly is fully supported
+    //      * sys_config.check_execs is not zero
+    bool check_run_enabled = false;
     {
         assert(sizeof(core->shm_id) == 4);
         if (write(comm_fd, &core->shm_id, sizeof(core->shm_id)) !=
@@ -444,8 +504,16 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         if (read(comm_fd, &afl_attached, 4) != 4) {
             EXITME("fail to recv afl_attached");
         }
-        if (read(comm_fd, &core->afl_shm_id, sizeof(core->afl_shm_id)) !=
-            sizeof(core->afl_shm_id)) {
+
+        // update checking run information based on whether AFL is attached
+        check_run_enabled =
+            !!(afl_attached &&
+               z_disassembler_fully_support_prob_disasm(core->disassembler) &&
+               sys_config.check_execs > 0);
+        uint32_t check_execs = (check_run_enabled ? sys_config.check_execs : 0);
+
+        if (read(comm_fd, &afl_shm_id, sizeof(afl_shm_id)) !=
+            sizeof(afl_shm_id)) {
             EXITME("fail to recv alf_shm_id");
         }
         if (write(comm_fd, &check_execs, 4) != 4) {
@@ -453,18 +521,27 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         }
 
         // simple validation
-        if (afl_attached && core->afl_shm_id == INVALID_SHM_ID) {
+        if (afl_attached && afl_shm_id == INVALID_SHM_ID) {
             EXITME("AFL is attached but the daemon does not get AFL_SHM_ID");
         }
-        if (!afl_attached && core->afl_shm_id != INVALID_SHM_ID) {
+        if (!afl_attached && afl_shm_id != INVALID_SHM_ID) {
             EXITME("AFL is notattached but the daemon gets AFL_SHM_ID");
+        }
+        if (check_run_enabled && !afl_attached) {
+            EXITME("checking runs are only enabled when AFL is attched");
         }
     }
 
     // step (2). output basic information and setup AFL shared memory
     if (afl_attached) {
         z_info("AFL detected: %d", afl_attached);
-        __core_setup_afl_shm(core);
+        if (check_run_enabled) {
+            // XXX: we only setup the shared memory for AFL when checking runs
+            // are enabled
+            // XXX: in other words, core->afl_trace_bits indicates whether the
+            // checking runs are enabled or not
+            __core_setup_afl_shm(core, afl_shm_id);
+        }
     } else {
         z_info("no AFL attached: %d", afl_attached);
     }
@@ -499,17 +576,19 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         }
 
         /*
-         * step (3.2). get crash rip
+         * step (3.2). get crash rip and coverage
          */
         addr_t crash_rip = CRS_INFO_BASE(core->shm_addr, crash_ip);
         CRS_INFO_BASE(core->shm_addr, crash_ip) = CRS_INVALID_IP;
+
+        uint32_t cov = __core_get_bitmap_hash(core);
 
         /*
          * step (3.3). check returning status and get patch commands
          */
         // XXX: we use int to guarantee a 4-byte integer
-        int crs_status =
-            z_diagnoser_new_crashpoint(core->diagnoser, status, crash_rip);
+        int crs_status = z_diagnoser_new_crashpoint(
+            core->diagnoser, status, crash_rip, cov, check_run_enabled);
 
         if (crs_status == CRS_STATUS_CRASH) {
             if (write(comm_fd, &crs_status, 4) != 4) {
@@ -519,8 +598,15 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         }
 
         if (crs_status == CRS_STATUS_NORMAL) {
-            if (afl_attached) {
-                EXITME("CRS_STATUS_NORMAL is invalid when afl is attached");
+            if (check_run_enabled) {
+                // notify the fork server about the result of checking runs
+                if (write(comm_fd, &crs_status, 4) != 4) {
+                    EXITME("fail to notify real crash");
+                }
+            } else if (afl_attached) {
+                EXITME(
+                    "CRS_STATUS_NORMAL is invalid when afl is attached but "
+                    "checking runs are disabled");
             }
             goto NOT_PATCHED_CRASH;
         }

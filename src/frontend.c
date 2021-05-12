@@ -65,7 +65,9 @@ static void usage(const char *argv0, int ret_status) {
 
         "  -h            - print this help\n"
         "  -x execs      - set the number of executions after which the "
-        "checking run will be triggered (default: %u)\n"
+        "checking run will be triggered\n"
+        "                  set it as zero to disable checking runs "
+        "(default: %u)\n"
         "  -t msec       - set timeout for each attached fuzzing run "
         "(default: %lu ms)\n"
         "  -l level      - set log level, including TRACE, DEBUG, INFO, WARN, "

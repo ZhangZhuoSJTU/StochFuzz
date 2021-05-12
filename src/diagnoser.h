@@ -72,6 +72,10 @@ STRUCT(Diagnoser, {
     DDStage dd_stage;
     int dd_status;
     addr_t dd_addr;
+    uint32_t dd_cov;
+    // used for distinguishing crash and checking runs
+    CRSStatus dd_crs_status;
+    const char *dd_banner;
     // used for dup-binary-search (int64_t to avoid overflow)
     int64_t dd_low;
     int64_t dd_high;
@@ -117,6 +121,7 @@ Z_API void z_diagnoser_apply_logged_crashpoints(Diagnoser *g);
  * patch accordingly.
  */
 Z_API CRSStatus z_diagnoser_new_crashpoint(Diagnoser *g, int status,
-                                           addr_t addr);
+                                           addr_t addr, uint32_t cov,
+                                           bool check_run_enabled);
 
 #endif

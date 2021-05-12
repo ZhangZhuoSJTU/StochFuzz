@@ -335,7 +335,7 @@ NO_INLINE void fork_server_start(char **envp) {
      */
     // XXX: CRS may be uncessary once we use shared memory for .text section
     int crs_shm_id = INVALID_SHM_ID;
-    uint32_t check_execs = (uint32_t)-1;
+    uint32_t check_execs = 0;
     {
         if (sys_read(CRS_COMM_FD, (char *)&crs_shm_id, 4) != 4) {
             utils_error(hello_err_str, true);
@@ -395,6 +395,7 @@ NO_INLINE void fork_server_start(char **envp) {
      * step (7). main while-loop
      */
     CRSLoopType crs_loop = CRS_LOOP_NONE;
+    uint32_t cur_execs = 0;
     while (true) {
         // step (7.1). [if: AFL_ATTACHED && !CRS_LOOP]
         //      wait AFL's signal
@@ -532,6 +533,7 @@ NO_INLINE void fork_server_start(char **envp) {
         // subject bug.
         // XXX: a new situation is that the program is under delta debugging.
         if (IS_ABNORMAL_STATUS(client_status) || crs_loop == CRS_LOOP_DEBUG) {
+        TALK_TO_DAEMON:;
             // step (7.7.1). notify the daemon and wait response
             //      + sending out the status
             //      + receiving the status of crash site (CRS)
@@ -541,8 +543,10 @@ NO_INLINE void fork_server_start(char **envp) {
                 sys_read(CRS_COMM_FD, (char *)&crs_status, 4);
             }
 
-            // step (7.7.2). if the crash is not caused by a patch
-            if (crs_status != CRS_STATUS_CRASH) {
+            // step (7.7.2). if there is a crash and it is not caused by a
+            // latent bug
+            if (crs_status != CRS_STATUS_CRASH &&
+                crs_status != CRS_STATUS_NORMAL) {
                 // check remmap
                 if (crs_status == CRS_STATUS_REMMAP) {
                     // munmap current shadow file
@@ -611,6 +615,12 @@ NO_INLINE void fork_server_start(char **envp) {
             // any suspect status, here we choose SIGSEGV
             if (IS_SUSPECT_STATUS(client_status)) {
                 client_status = 139;
+            }
+        } else if (check_execs) {
+            // handle checking runs when current execution is normal
+            if (cur_execs++ == check_execs) {
+                cur_execs = 0;
+                goto TALK_TO_DAEMON;
             }
         }
 
