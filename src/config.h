@@ -159,6 +159,8 @@ extern uint64_t z_lookup_table_get_cell_num();
 // more information
 #define IS_SUSPECT_STATUS(s) (WIFSIGNALED(s) && (WTERMSIG(s) == SIGUSR1))
 #define IS_ABNORMAL_STATUS(s) (!WIFEXITED(s) && WIFSIGNALED(s))
+// XXX: AFL uses SIGKILL to terminate a timeouted process (same as us)
+#define IS_TIMEOUT_STATUS(s) (WIFSIGNALED(s) && (WTERMSIG(s) == SIGKILL))
 
 /*
  * Define struct with type info

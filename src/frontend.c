@@ -64,14 +64,21 @@ static void usage(const char *argv0, int ret_status) {
         "Other stuff:\n\n"
 
         "  -h            - print this help\n"
-        "  -x execs      - set the number of executions after which the "
-        "checking run will be triggered\n"
+        "  -x execs      - set the number of executions after which a checking "
+        "run will be triggered\n"
         "                  set it as zero to disable checking runs "
         "(default: %u)\n"
-        "  -t msec       - set timeout for each attached fuzzing run "
+        "  -t msec       - set the timeout for each daemon-triggering "
+        "execution\n"
+        "                  set it as zero to ignore the timeout "
         "(default: %lu ms)\n"
-        "  -l level      - set log level, including TRACE, DEBUG, INFO, WARN, "
-        "ERROR, and FATAL (default: INFO)\n\n",
+#ifdef DEBUG
+        "  -l level      - set the log level, including TRACE, DEBUG, INFO, "
+        "WARN, ERROR, and FATAL (default: INFO)\n\n",
+#else
+        "  -l level      - set the log level, including INFO, WARN, ERROR, and "
+        "FATAL (default: INFO)\n\n",
+#endif
 
         argv0, SYS_CHECK_EXECS, SYS_TIMEOUT);
 

@@ -571,6 +571,25 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
             z_info("get status code: %#x (exit: %d)", status,
                    WEXITSTATUS(status));
         } else {
+            // I have been confused by the status handling for a long time at
+            // the early time, so I comment it down here for convenience.
+            //
+            // XXX: theoretically, this branch happens only when
+            // WTERMSIG(status) == 0x7f, which covers WIFSTOPPED(status) see:
+            //
+            //  * WTERMSIG(status)    = ((status) & 0x7f)
+            //  * WIFEXITED(status)   = (WTERMSIG(status) == 0)
+            //  * WIFSIGNALED(status) =
+            //              (((signed char) (((status) & 0x7f) + 1) >> 1) > 0)
+            //  * WIFSTOPPED(status)  = (((status) & 0xff) == 0x7f)
+            //
+            // It is very interesting to see how glibc construct such status:
+            //
+            //  For WTERMSIG(status) and WIFEXITED(status):
+            //      * __W_EXITCODE(ret, sig) = ((ret) << 8 | (sig))
+            //  For WIFSTOPPED(status):
+            //      * __W_STOPCODE(sig) = ((sig) << 8 | 0x7f)
+            //
             z_info("get status code: %#x (stopped? signal: %d)", status,
                    WSTOPSIG(status));
         }

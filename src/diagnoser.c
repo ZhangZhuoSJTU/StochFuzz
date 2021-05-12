@@ -210,13 +210,18 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
         __UPDATE_STAGE_AND_RETURN(DD_NONE, CRS_STATUS_CRASH);
     }
 
+    // XXX: it is very improtant to change addr to CRS_INVALID_IP, because for
+    // non-suspect status, addr is meaningless. Additionally, when it is caused
+    // by timeout, cov may vary. See Undecided Changes in the documents for more
+    // information.
     if (IS_SUSPECT_STATUS(status)) {
         z_info("suspect status (%d) at %#lx [cov: %#x]", status, addr, cov);
+    } else if (IS_TIMEOUT_STATUS(status)) {
+        // XXX: for timeouted process, both addr and cov are useless
+        addr = CRS_INVALID_IP;
+        cov = 0;
+        z_info("timeout status (%d)", status);
     } else {
-        // XXX: it is very improtant to change addr to CRS_INVALID_IP, because
-        // for non-suspect status, addr is meaningless. In some cases, addr may
-        // vary (e.g., a segment fault caused by invalid stack addresses). See
-        // Undecided Changes in the documents for more information.
         addr = CRS_INVALID_IP;
         z_info("non-suspect status (%d) [cov: %#x]", status, cov);
     }
