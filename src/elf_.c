@@ -719,6 +719,10 @@ Z_PRIVATE void __elf_parse_phdr(ELF *e) {
 
     Elf64_Phdr *phdr_note = z_elf_get_phdr_note(e);
     if (phdr_note == NULL) {
+        // TODO: currently we use a very naive but effective method to inject a
+        // new segment, by modifying the PT_NOTE. However, it does not always
+        // work. A better but more complex solution is to move the segment table
+        // to a new place which makes it easior to add segments.
         EXITME("failed to parse ELF file [missing PT_NOTE segment]");
     }
 
