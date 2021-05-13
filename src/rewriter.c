@@ -5,41 +5,14 @@
 #include "inst_analyzer.h"
 #include "utils.h"
 
+#include "x64_utils.c"
+
 #include <capstone/capstone.h>
 
 #ifdef DEBUG
 FILE *__debug_file = NULL;
 #define __debug_printf(...) fprintf(__debug_file, __VA_ARGS__)
 #endif
-
-/*
- * Get a suitable length NOP
- */
-Z_PRIVATE unsigned char *__rewriter_gen_nop(size_t n) {
-    switch (n) {
-        case 1:
-            return (unsigned char *)"\x90";
-        case 2:
-            return (unsigned char *)"\x66\x90";
-        case 3:
-            return (unsigned char *)"\x0F\x1F\x00";
-        case 4:
-            return (unsigned char *)"\x0F\x1F\x40\x00";
-        case 5:
-            return (unsigned char *)"\x0F\x1F\x44\x00\x00";
-        case 6:
-            return (unsigned char *)"\x66\x0F\x1F\x44\x00\x00";
-        case 7:
-            return (unsigned char *)"\x0F\x1F\x80\x00\x00\x00\x00";
-        case 8:
-            return (unsigned char *)"\x0F\x1F\x84\x00\x00\x00\x00\x00";
-        case 9:
-            return (unsigned char *)"\x66\x0F\x1F\x84\x00\x00\x00\x00\x00";
-        default:
-            EXITME("invalid nop size: %d", n);
-    }
-    return NULL;
-}
 
 #define ASMLINE_FMT_SIZE 0x100
 
@@ -181,7 +154,7 @@ Z_RESERVED Z_PRIVATE bool __rewriter_patch_utp(Rewriter *r, addr_t ori_addr) {
     // if (new_inst_addr != ori_addr) {
     //     size_t padding_size = new_inst_addr - ori_addr;
     //     z_elf_write(e, ori_addr, padding_size,
-    //                 __rewriter_gen_nop(padding_size));
+    //                 z_x64_gen_nop(padding_size));
     // }
 
     // [8] update count
@@ -353,7 +326,7 @@ Z_PRIVATE void __rewriter_fillin_shadow_hole(Rewriter *r, GHashTable *holes) {
         assert(ks_size <= hole_size);
         if (ks_size < hole_size) {
             z_elf_write(e, shadow_inst_addr + ks_size, hole_size - ks_size,
-                        __rewriter_gen_nop(hole_size - ks_size));
+                        z_x64_gen_nop(hole_size - ks_size));
         }
     }
 
@@ -494,8 +467,8 @@ TRANSLATE_RIP_INS:
             // for short instruction,
             // easy to padding nop
             size_t padding_size = shadow_pc - cs_inst->size - shadow_addr;
-            z_binary_insert_shadow_code(
-                r->binary, __rewriter_gen_nop(padding_size), padding_size);
+            z_binary_insert_shadow_code(r->binary, z_x64_gen_nop(padding_size),
+                                        padding_size);
             break;
         }
 
@@ -688,8 +661,7 @@ Z_PRIVATE void __rewriter_generate_shadow_block(
             }
 
             // step [3.1.2]. insert invalid instruction
-            uint8_t invalid_opcode_buf[1] = {0x2f};
-            z_binary_insert_shadow_code(r->binary, invalid_opcode_buf, 1);
+            z_binary_insert_shadow_code(r->binary, z_x64_gen_invalid(1), 1);
             return;
         }
 

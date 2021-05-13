@@ -30,7 +30,7 @@ typedef enum patchpoint_type {
 //                       them are patched based on the calculated probability.
 //
 //  *   certain_patches: all the patches which are *certainly* sure. The only
-//                       patched value of this type is 0x2f (invalid). This kind
+//                       patched value of this type is invalid inst. This kind
 //                       of patches excludes the ones serve for bridge
 //                       overlapping detection. It also exlucdes those code
 //                       which was patched and has been revoked for delayed

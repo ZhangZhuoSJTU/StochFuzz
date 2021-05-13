@@ -201,7 +201,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
             if (inst->size > ks_size) {
                 size_t padding_size = inst->size - ks_size;
                 z_binary_insert_shadow_code(
-                    r->binary, __rewriter_gen_nop(padding_size), padding_size);
+                    r->binary, z_x64_gen_nop(padding_size), padding_size);
             }
 
             // step [3]. rewriting

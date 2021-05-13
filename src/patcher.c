@@ -4,6 +4,8 @@
 #include "iterator.h"
 #include "utils.h"
 
+#include "x64_utils.c"
+
 #include <math.h>
 
 #define PATCH_THRESHOLD 0.99999
@@ -11,12 +13,9 @@
 #define PATCH_RET_DEPTH 20
 #define BRIDGE_PRE_DEPTH 5
 
-static const char __invalid_inst_buf[16] = {0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f,
-                                            0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f,
-                                            0x2f, 0x2f, 0x2f, 0x2f};
-
 typedef struct bridge_point_t {
     addr_t bridge_addr;
+    addr_t jmp_addr;
     addr_t source_addr;
     addr_t max_addr;  // used for revoke bridge patching
 } BridgePoint;
@@ -83,7 +82,7 @@ Z_PRIVATE int32_t __patcher_compare_address(addr_t a, addr_t b, void *_data) {
 Z_PRIVATE void __patcher_flip_uncertain_patch(Patcher *p, addr_t addr,
                                               bool is_enable) {
     if (is_enable) {
-        __patcher_patch(p, addr, 1, __invalid_inst_buf);
+        __patcher_patch(p, addr, 1, z_x64_gen_invalid(1));
     } else {
         size_t off = addr - p->text_addr;
         if (off >= p->text_size) {
@@ -106,7 +105,7 @@ Z_PRIVATE bool __patcher_patch_uncertain_address(Patcher *p, addr_t addr) {
     }
 
     // step (3). patch underlying binary
-    __patcher_patch(p, addr, 1, __invalid_inst_buf);
+    __patcher_patch(p, addr, 1, z_x64_gen_invalid(1));
 
     // step (4). update uncertain_patches
     g_sequence_insert_sorted(p->uncertain_patches, GSIZE_TO_POINTER(addr),
@@ -128,7 +127,7 @@ Z_PRIVATE bool __patcher_patch_certain_address(Patcher *p, addr_t addr,
     z_addr_dict_set(p->certain_addresses, addr, inst_size);
 
     // step (2). patch underlying binary
-    __patcher_patch(p, addr, 1, __invalid_inst_buf);
+    __patcher_patch(p, addr, 1, z_x64_gen_invalid(1));
 
     // step (3). update certain_patches and uncertain_patches
     z_addr_dict_set(p->certain_patches, addr, true);
@@ -688,7 +687,7 @@ Z_API void z_patcher_initially_patch(Patcher *p) {
     // do prob-disassemble first
     z_disassembler_prob_disasm(p->disassembler);
 
-    // fill all patch candidates as HLT (0xf4) or ILLEGAL INSTRUCTION (0x2f)
+    // fill all patch candidates as HLT (0xf4) or ILLEGAL INSTRUCTION
     if (!p->pdisasm_enable) {
         __patcher_patch_all_S(p);
     } else {
@@ -898,13 +897,17 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                     }
                 }
 
-                // TODO: handle control flow transfer instruction (e.g., set
-                // unsafe_patch once any control flow transfer instruction is
-                // involved)
-
                 // invalid instruction (nice!)
                 if (cs_count == 0) {
                     continue;
+                }
+
+                // TODO: handle control flow transfer instruction (e.g., set
+                // unsafe_patch once any control flow transfer instruction is
+                // involved)
+                if (z_capstone_is_ret(cs_inst) || z_capstone_is_cjmp(cs_inst) ||
+                    z_capstone_is_jmp(cs_inst) || z_capstone_is_call(cs_inst)) {
+                    goto FAIL;
                 }
 
                 // check whether the successor is still in the bridge
@@ -929,6 +932,7 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
                     continue;
                 }
 
+            FAIL:
                 z_info(
                     "find an unsafe bridge patching, try to resolve it... "
                     "(failed address %#lx, based on bridge address %#lx)",
@@ -1004,7 +1008,7 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
         // XXX: all 5 bytes, which are patched as bridge (jmp), was origianlly
         // certain patches. So we can safely reset them as certain patches.
         z_rptr_inc(p->text_ptr, uint8_t, ori_addr - p->text_addr);
-        z_rptr_memcpy(p->text_ptr, __invalid_inst_buf, 5);
+        z_rptr_memcpy(p->text_ptr, z_x64_gen_invalid(5), 5);
         z_rptr_reset(p->text_ptr);
 
         for (size_t i = 0; i < 5; i++) {
@@ -1158,7 +1162,7 @@ Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
         size_t tail_size = bridge_addr + 5 - source_addr;
 
         z_rptr_inc(p->text_ptr, uint8_t, source_addr - p->text_addr);
-        z_rptr_memcpy(p->text_ptr, __invalid_inst_buf, tail_size);
+        z_rptr_memcpy(p->text_ptr, z_x64_gen_invalid(tail_size), tail_size);
         z_rptr_reset(p->text_ptr);
     }
 

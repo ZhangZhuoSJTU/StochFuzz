@@ -65,26 +65,26 @@ Z_PRIVATE void __rewriter_cjmp_handler_for_rcx(Rewriter *r, GHashTable *holes,
             EXITME("invalid opcode " CS_SHOW_INST(inst));
     }
 
-#define __GENERATE_SHADOW_JMP(tar_addr)                                       \
-    do {                                                                      \
-        addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);        \
-        addr_t shadow_tar_addr = (addr_t)g_hash_table_lookup(                 \
-            r->rewritten_bbs, GSIZE_TO_POINTER(tar_addr));                    \
-        if (shadow_tar_addr) {                                                \
-            KS_ASM(shadow_addr, "jmp %#lx", shadow_tar_addr);                 \
-            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);       \
-            if (ks_size < 5) {                                                \
-                z_binary_insert_shadow_code(                                  \
-                    r->binary, __rewriter_gen_nop(5 - ks_size), 5 - ks_size); \
-            }                                                                 \
-        } else {                                                              \
-            uint64_t hole_buf = X86_INS_JMP;                                  \
-            shadow_addr = z_binary_insert_shadow_code(                        \
-                r->binary, (uint8_t *)(&hole_buf),                            \
-                __rewriter_get_hole_len(hole_buf));                           \
-            g_hash_table_insert(holes, GSIZE_TO_POINTER(shadow_addr),         \
-                                GSIZE_TO_POINTER(tar_addr));                  \
-        }                                                                     \
+#define __GENERATE_SHADOW_JMP(tar_addr)                                  \
+    do {                                                                 \
+        addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);   \
+        addr_t shadow_tar_addr = (addr_t)g_hash_table_lookup(            \
+            r->rewritten_bbs, GSIZE_TO_POINTER(tar_addr));               \
+        if (shadow_tar_addr) {                                           \
+            KS_ASM(shadow_addr, "jmp %#lx", shadow_tar_addr);            \
+            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);  \
+            if (ks_size < 5) {                                           \
+                z_binary_insert_shadow_code(                             \
+                    r->binary, z_x64_gen_nop(5 - ks_size), 5 - ks_size); \
+            }                                                            \
+        } else {                                                         \
+            uint64_t hole_buf = X86_INS_JMP;                             \
+            shadow_addr = z_binary_insert_shadow_code(                   \
+                r->binary, (uint8_t *)(&hole_buf),                       \
+                __rewriter_get_hole_len(hole_buf));                      \
+            g_hash_table_insert(holes, GSIZE_TO_POINTER(shadow_addr),    \
+                                GSIZE_TO_POINTER(tar_addr));             \
+        }                                                                \
     } while (0)
 
     __GENERATE_SHADOW_JMP(false_branch_addr);
