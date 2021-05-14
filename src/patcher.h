@@ -7,6 +7,7 @@
 #include "config.h"
 #include "crs_config.h"
 #include "disassembler.h"
+#include "elf_.h"
 
 #include <gmodule.h>
 
@@ -62,7 +63,10 @@ STRUCT(Patcher, {
 
     bool pdisasm_enable;
 
-    // .text info
+    // ELF
+    ELF *elf;
+
+    // .text info (for efficient patching)
     addr_t text_addr;
     size_t text_size;
     Rptr *text_ptr;        // pointer to the shared .text section
@@ -159,4 +163,16 @@ Z_API void z_patcher_self_correction_end(Patcher *p);
 Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_s_iter,
                                             int64_t off);
 
+/*
+ * Basic patching function: patch at the given address and return the original
+ * value if obuf is not NULL.
+ *
+ * Note that this function is unsafe because it allows users to do their own
+ * patches *without* changing the metadata (e.g., bridges) of the patcher.
+ *
+ * Only use it when you are sure your patches are safe. Any crash triggered by
+ * patches from this function cannot be diagnosed and repaired.
+ */
+Z_API void z_patcher_unsafe_patch(Patcher *p, addr_t addr, size_t size,
+                                  const uint8_t *buf, uint8_t *obuf);
 #endif

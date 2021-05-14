@@ -267,6 +267,12 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
     z_binary_save(core->binary, patched_filename);
     z_info("start dry run: %s", patched_filename);
 
+    // get .text information
+    ELF *e = z_binary_get_elf(core->binary);
+    Elf64_Shdr *text = z_elf_get_shdr_text(e);
+    addr_t text_addr = text->sh_addr;
+    size_t text_size = text->sh_size;
+
     // prepare a shaow argv_ with argv[0] replaced by patched_filename
     const char **argv_ = z_alloc(argc + 1, sizeof(const char *));
     assert(!argv[argc]);  // the last pointer should be NULL
@@ -352,9 +358,17 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
 
             // TODO: try to fix this somehow (no idea how currently)
             if (crs_status == CRS_STATUS_DEBUG) {
-                EXITME(
-                    "self correction procedure under dry run mode is "
-                    "problematic due to ASLR");
+                // XXX: note that alought it is high likely that the self
+                // correction procedure works fine when the crash_rip is on
+                // .text sectoin, it is still possible that ASLR can cause some
+                // problems.
+                // TODO: handle the *extremely* corner case.
+                if (crash_rip < text_addr ||
+                    crash_rip >= text_addr + text_size) {
+                    EXITME(
+                        "self correction procedure under dry run mode is "
+                        "problematic due to ASLR");
+                }
             }
         }
     }

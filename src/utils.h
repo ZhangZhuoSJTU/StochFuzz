@@ -118,6 +118,9 @@ Z_API char *z_strchr(const char *s, int c);
 #define z_snprintf(...) snprintf(__VA_ARGS__)
 #define z_sscanf(...) sscanf(__VA_ARGS__)
 
+#define z_likely(x) __builtin_expect(!!(x), 1)
+#define z_unlikely(x) __builtin_expect(!!(x), 0)
+
 /*
  * Keystone
  */

@@ -4,7 +4,7 @@
 // XXX: this file is always included into .c file to benifit compiler
 // optimization
 
-Z_PRIVATE const unsigned char *z_x64_gen_nop(size_t n) {
+Z_PRIVATE const uint8_t *z_x64_gen_nop(size_t n) {
     static const char *nop_bufs[15] = {
         "\x90",
         "\x66\x90",
@@ -27,18 +27,18 @@ Z_PRIVATE const unsigned char *z_x64_gen_nop(size_t n) {
         EXITME("invalid size for a nop instruction: %d", n);
         return NULL;
     } else {
-        return (const unsigned char *)nop_bufs[n - 1];
+        return (const uint8_t *)nop_bufs[n - 1];
     }
 }
 
-Z_PRIVATE const unsigned char *z_x64_gen_invalid(size_t n) {
+Z_PRIVATE const uint8_t *z_x64_gen_invalid(size_t n) {
     if (n > 15) {
         EXITME("invalid size for an invalid instruction: %d", n);
         return NULL;
     } else {
         const char *buf =
             "\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F\x2F";
-        return (const unsigned char *)buf;
+        return (const uint8_t *)buf;
     }
 }
 

@@ -40,12 +40,6 @@ Z_PRIVATE void __patcher_flip_uncertain_patch(Patcher *p, addr_t addr,
                                               bool is_enable);
 
 /*
- * Real patching function
- */
-Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
-                               const void *buf);
-
-/*
  * Find new certain addresses via BFS
  */
 Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr);
@@ -82,13 +76,13 @@ Z_PRIVATE int32_t __patcher_compare_address(addr_t a, addr_t b, void *_data) {
 Z_PRIVATE void __patcher_flip_uncertain_patch(Patcher *p, addr_t addr,
                                               bool is_enable) {
     if (is_enable) {
-        __patcher_patch(p, addr, 1, z_x64_gen_invalid(1));
+        z_patcher_unsafe_patch(p, addr, 1, z_x64_gen_invalid(1), NULL);
     } else {
         size_t off = addr - p->text_addr;
         if (off >= p->text_size) {
             EXITME("invalid address: %#lx", addr);
         }
-        __patcher_patch(p, addr, 1, p->text_backup + off);
+        z_patcher_unsafe_patch(p, addr, 1, p->text_backup + off, NULL);
     }
 }
 
@@ -105,7 +99,7 @@ Z_PRIVATE bool __patcher_patch_uncertain_address(Patcher *p, addr_t addr) {
     }
 
     // step (3). patch underlying binary
-    __patcher_patch(p, addr, 1, z_x64_gen_invalid(1));
+    z_patcher_unsafe_patch(p, addr, 1, z_x64_gen_invalid(1), NULL);
 
     // step (4). update uncertain_patches
     g_sequence_insert_sorted(p->uncertain_patches, GSIZE_TO_POINTER(addr),
@@ -127,7 +121,7 @@ Z_PRIVATE bool __patcher_patch_certain_address(Patcher *p, addr_t addr,
     z_addr_dict_set(p->certain_addresses, addr, inst_size);
 
     // step (2). patch underlying binary
-    __patcher_patch(p, addr, 1, z_x64_gen_invalid(1));
+    z_patcher_unsafe_patch(p, addr, 1, z_x64_gen_invalid(1), NULL);
 
     // step (3). update certain_patches and uncertain_patches
     z_addr_dict_set(p->certain_patches, addr, true);
@@ -229,16 +223,6 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
 
     // step (2). free queue
     g_queue_free(queue);
-}
-
-Z_PRIVATE void __patcher_patch(Patcher *p, addr_t addr, size_t size,
-                               const void *buf) {
-    assert(addr >= p->text_addr);
-
-    // if addr < p->text_addr, the following inc must be out-of-bounded.
-    z_rptr_inc(p->text_ptr, uint8_t, addr - p->text_addr);
-    z_rptr_memcpy(p->text_ptr, buf, size);
-    z_rptr_reset(p->text_ptr);
 }
 
 #ifdef CONSERVATIVE_PATCH
@@ -624,11 +608,11 @@ Z_API Patcher *z_patcher_create(Disassembler *d) {
 
     p->pdisasm_enable = z_disassembler_fully_support_prob_disasm(d);
 
-    ELF *e = z_binary_get_elf(p->binary);
-    Elf64_Shdr *text = z_elf_get_shdr_text(e);
+    p->elf = z_binary_get_elf(p->binary);
+    Elf64_Shdr *text = z_elf_get_shdr_text(p->elf);
     p->text_addr = text->sh_addr;
     p->text_size = text->sh_size;
-    p->text_ptr = z_elf_vaddr2ptr(e, p->text_addr);
+    p->text_ptr = z_elf_vaddr2ptr(p->elf, p->text_addr);
     p->text_backup = NULL;
 
     z_addr_dict_init(p->certain_addresses, p->text_addr, p->text_size);
@@ -861,8 +845,8 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
             if (!bridge_patched) {
                 EXITME("the bridge much be applied in this case");
             }
-            __patcher_patch(p, ori_addr, jmp_addr - ori_addr,
-                            z_x64_gen_nop(jmp_addr - ori_addr));
+            z_patcher_unsafe_patch(p, ori_addr, jmp_addr - ori_addr,
+                                   z_x64_gen_nop(jmp_addr - ori_addr), NULL);
         }
 
         // step (4). pre-patch bridge and additionally check whether current
@@ -900,7 +884,7 @@ Z_API void z_patcher_build_bridge(Patcher *p, addr_t ori_addr,
         {
             bridge_patched = true;
             KS_ASM_JMP(jmp_addr, shadow_addr);
-            __patcher_patch(p, jmp_addr, ks_size, ks_encode);
+            z_patcher_unsafe_patch(p, jmp_addr, ks_size, ks_encode, NULL);
             assert(ks_size == 5);
 
             // revoke patchpoints of PP_CERTAIN
@@ -1106,7 +1090,7 @@ TRY_TO_PATCH_DONE:
         // and nop, werer origianlly certain patches. So we can safely reset
         // them as certain patches.
         size_t n = jmp_addr + 5 - ori_addr;
-        __patcher_patch(p, ori_addr, n, z_x64_gen_invalid(n));
+        z_patcher_unsafe_patch(p, ori_addr, n, z_x64_gen_invalid(n), NULL);
 
         for (size_t i = 0; i < n; i++) {
             z_addr_dict_set(p->certain_patches, ori_addr + i, true);
@@ -1264,8 +1248,8 @@ Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
     // necessary
     if (source_addr < jump_addr + 5) {
         size_t tail_size = jump_addr + 5 - source_addr;
-        __patcher_patch(p, source_addr, tail_size,
-                        z_x64_gen_invalid(tail_size));
+        z_patcher_unsafe_patch(p, source_addr, tail_size,
+                               z_x64_gen_invalid(tail_size), NULL);
     }
 
     // step (2). revoke the head part of bridge (before source_addr)
@@ -1276,8 +1260,9 @@ Z_API addr_t z_patcher_adjust_bridge_address(Patcher *p, addr_t addr) {
         // XXX: these addresses are also the special cases for delayed bridges.
         // Again, them do not belong to certain_patches and bridges, but belong
         // to certain_addresses.
-        __patcher_patch(p, bridge_addr, head_size,
-                        p->text_backup + (bridge_addr - p->text_addr));
+        z_patcher_unsafe_patch(p, bridge_addr, head_size,
+                               p->text_backup + (bridge_addr - p->text_addr),
+                               NULL);
     }
 
     // step (3). remove all associated bridge information and reset some as
@@ -1429,5 +1414,24 @@ Z_API void z_patcher_flip_uncertain_patches(Patcher *p, bool is_s_iter,
         EXITME("invalid s_iter and e_iter: %#lx - %#lx",
                (addr_t)g_sequence_get(p->s_iter),
                (addr_t)g_sequence_get(p->e_iter));
+    }
+}
+
+// XXX: real patch function
+Z_API void z_patcher_unsafe_patch(Patcher *p, addr_t addr, size_t size,
+                                  const uint8_t *buf, uint8_t *obuf) {
+    if (z_likely(addr >= p->text_addr && addr < p->text_addr + p->text_size)) {
+        // XXX: hot branch
+        z_rptr_inc(p->text_ptr, uint8_t, addr - p->text_addr);
+        if (obuf) {
+            z_rptr_memcpy(obuf, p->text_ptr, size);
+        }
+        z_rptr_memcpy(p->text_ptr, buf, size);
+        z_rptr_reset(p->text_ptr);
+    } else {
+        if (obuf) {
+            z_elf_read(p->elf, addr, size, obuf);
+        }
+        z_elf_write(p->elf, addr, size, buf);
     }
 }
