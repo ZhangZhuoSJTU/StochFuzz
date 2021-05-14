@@ -48,6 +48,7 @@ There are some known issues which we are trying to resolve.
 + Test failed on Github Actions Ubuntu 20.04 (the root cause is unknown currently).
 + The auto-scaled timeout of AFL may cause incorrect error diagnosis (the dd\_status may change), so it is recommended to specify a timeout (>= 1000ms or >= AFL\_HANG\_TMOUT if set) to AFL by -t option.
 + Self correction procedure may encounter problems under dry run mode (-R) due to ASLR.
++ The glibc code contains some overlapping instructions (e.g., the instructions with the LOCK prefix), which may cause trouble for the patcher and pdisasm.
 
 ## Undecided Changes
 

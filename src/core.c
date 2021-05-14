@@ -461,9 +461,24 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
 
     // first dry run w/o any parameter to find some crashpoint during init
     // XXX: dry run must be performed before setting up shm
-    const char *argv[2] = {NULL, NULL};
-    argv[0] = filename;
-    z_core_perform_dry_run(core, 1, argv);
+    {
+        // before dry run, we first patch the main function as directly
+        // returning. As such, we can try our best to avoid the error diagnosis
+        // during dry run
+        addr_t shadow_main_addr = z_binary_get_shadow_main(core->binary);
+        uint8_t ret_byte = 0xc3;
+        uint8_t ori_byte = 0;
+        z_patcher_unsafe_patch(core->patcher, shadow_main_addr, 1, &ret_byte,
+                               &ori_byte);
+
+        const char *argv[2] = {NULL, NULL};
+        argv[0] = filename;
+        z_core_perform_dry_run(core, 1, argv);
+
+        // repair the main
+        z_patcher_unsafe_patch(core->patcher, shadow_main_addr, 1, &ori_byte,
+                               NULL);
+    }
 
     // create phantom file, instead of removing the original file
     const char *phantom_filename = z_strcat(filename, PHANTOM_FILE_SUFFIX);

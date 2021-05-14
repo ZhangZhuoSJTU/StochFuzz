@@ -44,6 +44,7 @@ STRUCT(Binary, {
 DECLARE_GETTER(Binary, binary, ELF *, elf);
 DECLARE_GETTER(Binary, binary, const char *, original_filename);
 DECLARE_GETTER(Binary, binary, addr_t, trampolines_addr);
+DECLARE_GETTER(Binary, binary, addr_t, shadow_main);
 DECLARE_GETTER(Binary, binary, addr_t, shadow_code_addr);
 DECLARE_SETTER(Binary, binary, addr_t, shadow_main);
 DECLARE_SETTER(Binary, binary, addr_t, shadow_start);

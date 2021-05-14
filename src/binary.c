@@ -48,8 +48,9 @@ Z_PRIVATE void __binary_setup_tp_zone(Binary *b);
  * Setter and Getter
  */
 DEFINE_GETTER(Binary, binary, ELF *, elf);
-DEFINE_GETTER(Binary, binary, addr_t, trampolines_addr);
 DEFINE_GETTER(Binary, binary, const char *, original_filename);
+DEFINE_GETTER(Binary, binary, addr_t, trampolines_addr);
+DEFINE_GETTER(Binary, binary, addr_t, shadow_main);
 OVERLOAD_GETTER(Binary, binary, addr_t, shadow_code_addr) {
     return binary->trampolines_addr;
 }

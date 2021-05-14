@@ -697,7 +697,9 @@ Z_API PPType z_patcher_check_patchpoint(Patcher *p, addr_t addr) {
     }
 
     // step (1). check certain patches
-    if (z_addr_dict_exist(p->certain_patches, addr)) {
+    // TODO: the overlapping *LOCK* instruction may cause problems
+    if (z_addr_dict_exist(p->certain_patches, addr) &&
+        z_addr_dict_get(p->certain_addresses, addr)) {
         return PP_CERTAIN;
     }
 
