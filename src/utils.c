@@ -206,6 +206,7 @@ SysConfig sys_config = {
     .count_conflict = false,
     .disable_opt = false,
     .safe_ret = false,
+    .instrument_early = false,
     .force_pdisasm = false,
     .force_linear = false,
     .log_level = LOG_INFO,

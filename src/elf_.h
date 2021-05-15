@@ -218,6 +218,11 @@ Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf);
 Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf);
 
 /*
+ * Check whether the ELF is statically-linked
+ */
+Z_API bool z_elf_is_statically_linked(ELF *e);
+
+/*
  * Check PLT information
  */
 Z_API bool z_elf_check_plt(ELF *e, addr_t addr);

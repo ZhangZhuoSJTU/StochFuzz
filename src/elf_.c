@@ -206,17 +206,59 @@ DEFINE_GETTER(ELF, elf, addr_t, lookup_table_addr);
 DEFINE_GETTER(ELF, elf, addr_t, shared_text_addr);
 DEFINE_GETTER(ELF, elf, bool, is_pie);
 DEFINE_GETTER(ELF, elf, addr_t, ori_entry);
-DEFINE_GETTER(ELF, elf, addr_t, main);
-DEFINE_GETTER(ELF, elf, addr_t, init);
-DEFINE_GETTER(ELF, elf, addr_t, fini);
-DEFINE_GETTER(ELF, elf, addr_t, load_main);
-DEFINE_GETTER(ELF, elf, addr_t, load_init);
-DEFINE_GETTER(ELF, elf, addr_t, load_fini);
 DEFINE_GETTER(ELF, elf, const char *, lookup_tabname);
 DEFINE_GETTER(ELF, elf, const char *, trampolines_name);
 DEFINE_GETTER(ELF, elf, const char *, shared_text_name);
 DEFINE_GETTER(ELF, elf, const char *, pipe_filename);
 DEFINE_GETTER(ELF, elf, size_t, plt_n);
+
+OVERLOAD_GETTER(ELF, elf, addr_t, main) {
+    if (sys_config.instrument_early) {
+        EXITME("the main function has not been automatically detected");
+    }
+
+    return elf->main;
+}
+
+OVERLOAD_GETTER(ELF, elf, addr_t, init) {
+    if (sys_config.instrument_early) {
+        EXITME("the main function has not been automatically detected");
+    }
+
+    return elf->init;
+}
+
+OVERLOAD_GETTER(ELF, elf, addr_t, fini) {
+    if (sys_config.instrument_early) {
+        EXITME("the main function has not been automatically detected");
+    }
+
+    return elf->fini;
+}
+
+OVERLOAD_GETTER(ELF, elf, addr_t, load_main) {
+    if (sys_config.instrument_early) {
+        EXITME("the main function has not been automatically detected");
+    }
+
+    return elf->load_main;
+}
+
+OVERLOAD_GETTER(ELF, elf, addr_t, load_init) {
+    if (sys_config.instrument_early) {
+        EXITME("the main function has not been automatically detected");
+    }
+
+    return elf->load_init;
+}
+
+OVERLOAD_GETTER(ELF, elf, addr_t, load_fini) {
+    if (sys_config.instrument_early) {
+        EXITME("the main function has not been automatically detected");
+    }
+
+    return elf->load_fini;
+}
 
 Z_PRIVATE size_t __elf_stream_vaddr2off(ELF *e, addr_t addr) {
     // Get corresponding segment
@@ -646,11 +688,15 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e) {
         }
     }
 
-    assert(z_elf_get_shdr_text(e) != NULL);
-    assert(z_elf_get_shdr_init(e) != NULL);
-    assert(z_elf_get_shdr_fini(e) != NULL);
+    if (!z_elf_get_shdr_text(e)) {
+        // TODO: .text is not always necessary.
+        EXITME("cannot find .text section");
+    }
+    z_info("find .text section @ %#lx", z_elf_get_shdr_text(e)->sh_addr);
 
     // in some cases, init_/fini_array does not exist
+    // assert(z_elf_get_shdr_init(e) != NULL);
+    // assert(z_elf_get_shdr_fini(e) != NULL);
     // assert(z_elf_get_shdr_init_array(e) != NULL);
     // assert(z_elf_get_shdr_fini_array(e) != NULL);
 
@@ -658,9 +704,12 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e) {
     // assert(z_elf_get_shdr_plt(e) != NULL);
     // assert(z_elf_get_shdr_plt_got(e) != NULL);
 
-    z_info("find .text section @ %#lx", z_elf_get_shdr_text(e)->sh_addr);
-    z_info("find .init section @ %#lx", z_elf_get_shdr_init(e)->sh_addr);
-    z_info("find .fini section @ %#lx", z_elf_get_shdr_fini(e)->sh_addr);
+    if (z_elf_get_shdr_init(e)) {
+        z_info("find .init section @ %#lx", z_elf_get_shdr_init(e)->sh_addr);
+    }
+    if (z_elf_get_shdr_fini(e)) {
+        z_info("find .fini section @ %#lx", z_elf_get_shdr_fini(e)->sh_addr);
+    }
 
     if (z_elf_get_shdr_init_array(e)) {
         z_info("find .init_array section @ %#lx",
@@ -1011,6 +1060,13 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
 Z_PRIVATE void __elf_parse_other_info(ELF *e) {
     assert(e != NULL);
 
+    if (sys_config.instrument_early) {
+        z_info(
+            "we skip the detection of main function because we are going to "
+            "instrument the fork server before the entrypoint");
+        return;
+    }
+
     // Try to identify the address of main function.
 
     // XXX: like AFL, we try to instrument the binary before main(). But we may
@@ -1018,7 +1074,6 @@ Z_PRIVATE void __elf_parse_other_info(ELF *e) {
     //  * https://github.com/google/AFL/tree/master/llvm_mode
     //  * https://github.com/talos-vulndev/afl-dyninst
 
-    // TODO: in the future, if failed, let the user configure the main address.
     Rptr *cur_ptr = z_elf_vaddr2ptr(e, e->ori_entry);
     addr_t cur_addr = e->ori_entry;
 
@@ -1031,7 +1086,9 @@ Z_PRIVATE void __elf_parse_other_info(ELF *e) {
 
         // If searching all instructions in _start
         if ((cs_count == 0) || (cs_inst[0].id == X86_INS_CALL)) {
-            EXITME("no main function found, please manually configure it");
+            EXITME(
+                "no main function found, please use -e option to install the "
+                "fork server at entrypoint");
         }
         z_trace("finding main: %#lx:\t%s %s", cs_inst[0].address,
                 cs_inst[0].mnemonic, cs_inst[0].op_str);
@@ -1388,4 +1445,8 @@ Z_API bool z_elf_check_state(ELF *e, ELFState state) {
     }
 
     return (e->state & state);
+}
+
+Z_API bool z_elf_is_statically_linked(ELF *e) {
+    return !z_elf_get_phdr_dynamic(e);
 }

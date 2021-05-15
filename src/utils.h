@@ -361,6 +361,7 @@ typedef struct system_config_t {
     bool count_conflict;
     bool disable_opt;
     bool safe_ret;
+    bool instrument_early;
     bool force_pdisasm;
     bool force_linear;  // secret option
 

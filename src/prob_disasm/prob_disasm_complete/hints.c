@@ -126,11 +126,26 @@ Z_PRIVATE void __prob_disassembler_collect_cf_hints(ProbDisassembler *pd) {
     addr_t text_addr = pd->text_addr;
     size_t text_size = pd->text_size;
 
-    addr_t init_addr = z_elf_get_shdr_init(e)->sh_addr;
-    size_t init_size = z_elf_get_shdr_init(e)->sh_size;
+    addr_t init_addr, fini_addr;
+    size_t init_size, fini_size;
 
-    addr_t fini_addr = z_elf_get_shdr_fini(e)->sh_addr;
-    size_t fini_size = z_elf_get_shdr_fini(e)->sh_size;
+    if (z_elf_get_shdr_init(e)) {
+        init_addr = z_elf_get_shdr_init(e)->sh_addr;
+        init_size = z_elf_get_shdr_init(e)->sh_size;
+    } else {
+        // if we do not detect .init, we set it as .text
+        init_addr = text_addr;
+        init_size = text_size;
+    }
+
+    if (z_elf_get_shdr_fini(e)) {
+        fini_addr = z_elf_get_shdr_fini(e)->sh_addr;
+        fini_size = z_elf_get_shdr_fini(e)->sh_size;
+    } else {
+        // if we do not detect .fini, we set it as .text
+        fini_addr = text_addr;
+        fini_size = text_size;
+    }
 
     size_t plt_n = z_elf_get_plt_n(e);
 

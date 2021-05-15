@@ -37,6 +37,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Automatically scale the number of executions triggering checking runs (based on the result of previous checking run).
 + [ ] Add a new license.
 + [ ] Set the default log level as WARN (note that we need to update `make test` and `make benchmark`).
++ [ ] Do not use a global sys\_config, but put the options into each object.
 
 ## Known Issues
 
@@ -65,3 +66,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.5.0: support automatically fixing overlapped bridges (i.e., patched *jmp* instructions in the original code space).
 + v0.6.0: support self correction procedure.
 + v0.7.0: support online probability calculation and dynamic hint logging.
++ v0.8.0: support advanced bridge patching (which can avoid inner jump) and -e option (which can install the fork server at the entrypoint).

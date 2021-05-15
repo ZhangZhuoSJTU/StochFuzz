@@ -138,6 +138,23 @@ asm(".globl _entry\n"
     "\tpushq %rbp;\n"
 
     // (3) get envp into %rdi
+    "\tlea __etext(%rip), %rdi;\n"
+    "\taddq $4, %rdi;\n"
+    "\tshrq $3, %rdi;\n"
+    "\tincq %rdi;\n"
+    "\tshlq $3, %rdi;\n"      // cur_addr in __binary_setup_fork_server step (3)
+                              // binary.c
+    "\tmovq (%rdi), %rsi;\n"  // sys_config.instrument_early
+    "\ttest %rsi, %rsi;\n"
+    "\tje _envp_done;\n"
+    "\taddq $96, %rbp;\n"
+    "\tmovq (%rbp), %rdx;\n"  // argc
+    "\taddq $2, %rdx;\n"
+    "\tshlq $3, %rdx;\n"
+    "\taddq %rbp, %rdx;\n"  // envp
+
+    ".globl _envp_done\n"
+    "_envp_done:\n"
     "\tmovq %rdx, %rdi;\n"
 
     // (4) call fork_server_start()

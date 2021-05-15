@@ -1,11 +1,10 @@
-name: benchmark
+name: force_linear
 
 on:
   push:
-    branches:
-      - "!*"
-    tags:
-      - "v*"
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
   schedule:
     - cron: 0 14 * * 1
   workflow_dispatch:
@@ -41,8 +40,33 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           ./build.sh
-
-  normal:
+  
+  debug:
+    runs-on: ubuntu-18.04
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            capstone/
+            keystone/
+            glib/
+          key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
+      - name: make format
+        run: make format
+        working-directory: ./src
+      - name: make debug
+        run: |
+          clang --version
+          make clean
+          make debug
+        working-directory: ./src
+      - name: make test
+        run: timeout --signal=KILL 15m make test TEST_OPTIONS='-e'
+        working-directory: ./src
+  
+  release:
     runs-on: ubuntu-18.04
     needs: [build]
     steps:
@@ -63,31 +87,6 @@ jobs:
           make clean
           make release
         working-directory: ./src
-      - name: make benchmark
-        run: make benchmark
-        working-directory: ./src
-
-  early_instrumentation:
-    runs-on: ubuntu-18.04
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            capstone/
-            keystone/
-            glib/
-          key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
-      - name: make format
-        run: make format
-        working-directory: ./src
-      - name: make release
-        run: |
-          clang --version
-          make clean
-          make release
-        working-directory: ./src
-      - name: make benchmark
-        run: make benchmark TEST_OPTIONS="-e"
+      - name: make test
+        run: timeout --signal=KILL 15m make test TEST_OPTIONS='-e'
         working-directory: ./src

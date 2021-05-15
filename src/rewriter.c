@@ -21,6 +21,21 @@ static char asmline_fmt[ASMLINE_FMT_SIZE];
 // TODO: add BeforeBB/AfterBB/BeforeInst/AfterInst handler
 
 /*
+ * Rewrite entrypoint
+ */
+Z_PRIVATE void z_rewriter_rewrite_entrypoint(Rewriter *r);
+
+/*
+ * Rewrite main
+ */
+Z_PRIVATE void z_rewriter_rewrite_main(Rewriter *r);
+
+/*
+ * Rewrite functions beyond main (_start, .init, .fini, ...)
+ */
+Z_PRIVATE void z_rewriter_rewrite_beyond_main(Rewriter *r);
+
+/*
  * Function Pointer: compare two address
  */
 Z_PRIVATE int __rewriter_compare_address(addr_t x, addr_t y, void *_z);
@@ -117,6 +132,113 @@ OVERLOAD_SETTER(Rewriter, rewriter, addr_t, returned_callees) {
     g_hash_table_insert(rewriter->returned_callees,
                         GSIZE_TO_POINTER(returned_callees),
                         GSIZE_TO_POINTER(true));
+}
+
+Z_PRIVATE void z_rewriter_rewrite_beyond_main(Rewriter *r) {
+    if (r->__main_rewritten) {
+        EXITME(
+            "z_rewriter_rewrite_beyond_main should execute before "
+            "z_rewriter_rewrite_main");
+    }
+
+    ELF *e = z_binary_get_elf(r->binary);
+
+// init and fini
+#define __REWRITE_FCN_FROM_REG(type, reg)                                     \
+    do {                                                                      \
+        addr_t type##_addr = z_elf_get_##type(e);                             \
+        z_rewriter_rewrite(r, type##_addr);                                   \
+        addr_t shadow_##type##_addr =                                         \
+            z_rewriter_get_shadow_addr(r, type##_addr);                       \
+        if (shadow_##type##_addr == INVALID_ADDR) {                           \
+            break;                                                            \
+        }                                                                     \
+                                                                              \
+        addr_t load_##type = z_elf_get_load_##type(e);                        \
+        assert(z_rewriter_get_shadow_addr(r, load_##type) == INVALID_ADDR);   \
+        assert(z_disassembler_get_recursive_disasm(r->disassembler,           \
+                                                   load_##type) == NULL);     \
+        assert(z_disassembler_get_linear_disasm(r->disassembler,              \
+                                                load_##type) == NULL);        \
+        if (z_elf_get_is_pie(e)) {                                            \
+            KS_ASM(load_##type, "lea " #reg ", [rip %+ld];",                  \
+                   shadow_##type##_addr - load_##type - 7);                   \
+        } else {                                                              \
+            KS_ASM(load_##type, "mov " #reg ", %#lx;", shadow_##type##_addr); \
+        }                                                                     \
+        assert(ks_size == 7);                                                 \
+        z_elf_write(e, load_##type, ks_size, ks_encode);                      \
+        z_disassembler_update_superset_disasm(r->disassembler, load_##type);  \
+    } while (0)
+
+    __REWRITE_FCN_FROM_REG(init, rcx);
+    __REWRITE_FCN_FROM_REG(fini, r8);
+#undef __REWRITE_FCN_FROM_REG
+
+// .init.array and .fini array
+#define __REWRITE_FCN_FROM_ARRAY(type)                               \
+    do {                                                             \
+        Rptr *array = NULL;                                          \
+        size_t array_size = 0;                                       \
+        addr_t array_addr = INVALID_ADDR;                            \
+                                                                     \
+        Elf64_Shdr *type##_array = z_elf_get_shdr_##type##_array(e); \
+        if (!type##_array) {                                         \
+            break;                                                   \
+        }                                                            \
+        array_size = type##_array->sh_size;                          \
+        array_addr = type##_array->sh_addr;                          \
+        array = z_elf_vaddr2ptr(e, array_addr);                      \
+        for (int i = 0; i < array_size / sizeof(addr_t); i++) {      \
+            addr_t fcn = *z_rptr_get_ptr(array, addr_t);             \
+            z_info("." #type ".array[%d]: %#lx", i, fcn);            \
+            z_rewriter_rewrite(r, fcn);                              \
+            addr_t shadow_fcn = z_rewriter_get_shadow_addr(r, fcn);  \
+            *z_rptr_get_ptr(array, addr_t) = shadow_fcn;             \
+            z_rptr_inc(array, addr_t, 1);                            \
+        }                                                            \
+        z_rptr_destroy(array);                                       \
+    } while (0)
+
+    __REWRITE_FCN_FROM_ARRAY(init);
+    __REWRITE_FCN_FROM_ARRAY(fini);
+#undef __REWRITE_FCN_FROM_ARRAY
+
+    // start
+    z_rewriter_rewrite_entrypoint(r);
+}
+
+Z_PRIVATE void z_rewriter_rewrite_entrypoint(Rewriter *r) {
+    ELF *e = z_binary_get_elf(r->binary);
+    addr_t start_addr = z_elf_get_ori_entry(e);
+
+    // rewrite entrypoint
+    z_rewriter_rewrite(r, start_addr);
+
+    // update shadow start
+    addr_t shadow_start_addr = z_rewriter_get_shadow_addr(r, start_addr);
+    assert(shadow_start_addr != INVALID_ADDR);
+    z_binary_set_shadow_start(r->binary, shadow_start_addr);
+}
+
+Z_PRIVATE void z_rewriter_rewrite_main(Rewriter *r) {
+    if (r->__main_rewritten) {
+        EXITME("z_rewriter_rewrite_main already executed");
+    }
+
+    ELF *e = z_binary_get_elf(r->binary);
+    addr_t main_addr = z_elf_get_main(e);
+
+    // rewrite main
+    z_rewriter_rewrite(r, main_addr);
+
+    // update shadow main
+    addr_t shadow_main_addr = z_rewriter_get_shadow_addr(r, main_addr);
+    assert(shadow_main_addr != INVALID_ADDR);
+    z_binary_set_shadow_main(r->binary, shadow_main_addr);
+
+    // update __main_rewritten
+    r->__main_rewritten = true;
 }
 
 Z_RESERVED Z_PRIVATE bool __rewriter_patch_utp(Rewriter *r, addr_t ori_addr) {
@@ -837,105 +959,6 @@ Z_API Rewriter *z_rewriter_create(Disassembler *d) {
     return r;
 }
 
-Z_API void z_rewriter_rewrite_beyond_main(Rewriter *r) {
-    if (r->__main_rewritten) {
-        EXITME(
-            "z_rewriter_rewrite_beyond_main should execute before "
-            "z_rewriter_rewrite_main");
-    }
-
-    ELF *e = z_binary_get_elf(r->binary);
-
-// init and fini
-#define __REWRITE_FCN_FROM_REG(type, reg)                                     \
-    do {                                                                      \
-        addr_t type##_addr = z_elf_get_##type(e);                             \
-        z_rewriter_rewrite(r, type##_addr);                                   \
-        addr_t shadow_##type##_addr =                                         \
-            z_rewriter_get_shadow_addr(r, type##_addr);                       \
-        if (shadow_##type##_addr == INVALID_ADDR) {                           \
-            break;                                                            \
-        }                                                                     \
-                                                                              \
-        addr_t load_##type = z_elf_get_load_##type(e);                        \
-        assert(z_rewriter_get_shadow_addr(r, load_##type) == INVALID_ADDR);   \
-        assert(z_disassembler_get_recursive_disasm(r->disassembler,           \
-                                                   load_##type) == NULL);     \
-        assert(z_disassembler_get_linear_disasm(r->disassembler,              \
-                                                load_##type) == NULL);        \
-        if (z_elf_get_is_pie(e)) {                                            \
-            KS_ASM(load_##type, "lea " #reg ", [rip %+ld];",                  \
-                   shadow_##type##_addr - load_##type - 7);                   \
-        } else {                                                              \
-            KS_ASM(load_##type, "mov " #reg ", %#lx;", shadow_##type##_addr); \
-        }                                                                     \
-        assert(ks_size == 7);                                                 \
-        z_elf_write(e, load_##type, ks_size, ks_encode);                      \
-        z_disassembler_update_superset_disasm(r->disassembler, load_##type);  \
-    } while (0)
-
-    __REWRITE_FCN_FROM_REG(init, rcx);
-    __REWRITE_FCN_FROM_REG(fini, r8);
-#undef __REWRITE_FCN_FROM_REG
-
-// .init.array and .fini array
-#define __REWRITE_FCN_FROM_ARRAY(type)                               \
-    do {                                                             \
-        Rptr *array = NULL;                                          \
-        size_t array_size = 0;                                       \
-        addr_t array_addr = INVALID_ADDR;                            \
-                                                                     \
-        Elf64_Shdr *type##_array = z_elf_get_shdr_##type##_array(e); \
-        if (!type##_array) {                                         \
-            break;                                                   \
-        }                                                            \
-        array_size = type##_array->sh_size;                          \
-        array_addr = type##_array->sh_addr;                          \
-        array = z_elf_vaddr2ptr(e, array_addr);                      \
-        for (int i = 0; i < array_size / sizeof(addr_t); i++) {      \
-            addr_t fcn = *z_rptr_get_ptr(array, addr_t);             \
-            z_info("." #type ".array[%d]: %#lx", i, fcn);            \
-            z_rewriter_rewrite(r, fcn);                              \
-            addr_t shadow_fcn = z_rewriter_get_shadow_addr(r, fcn);  \
-            *z_rptr_get_ptr(array, addr_t) = shadow_fcn;             \
-            z_rptr_inc(array, addr_t, 1);                            \
-        }                                                            \
-        z_rptr_destroy(array);                                       \
-    } while (0)
-
-    __REWRITE_FCN_FROM_ARRAY(init);
-    __REWRITE_FCN_FROM_ARRAY(fini);
-#undef __REWRITE_FCN_FROM_ARRAY
-
-    // start
-    addr_t start_addr = z_elf_get_ori_entry(e);
-    z_rewriter_rewrite(r, start_addr);
-    // update shadow start
-    addr_t shadow_start_addr = z_rewriter_get_shadow_addr(r, start_addr);
-    assert(shadow_start_addr != INVALID_ADDR);
-    z_binary_set_shadow_start(r->binary, shadow_start_addr);
-}
-
-Z_API void z_rewriter_rewrite_main(Rewriter *r) {
-    if (r->__main_rewritten) {
-        EXITME("z_rewriter_rewrite_main already executed");
-    }
-
-    ELF *e = z_binary_get_elf(r->binary);
-    addr_t main_addr = z_elf_get_main(e);
-
-    // rewrite main
-    z_rewriter_rewrite(r, main_addr);
-
-    // update shadow main
-    addr_t shadow_main_addr = z_rewriter_get_shadow_addr(r, main_addr);
-    assert(shadow_main_addr != INVALID_ADDR);
-    z_binary_set_shadow_main(r->binary, shadow_main_addr);
-
-    // update __main_rewritten
-    r->__main_rewritten = true;
-}
-
 // XXX: note that its underlying disassembly (linear) is not completed.
 // XXX: useless and hence unused!
 Z_RESERVED Z_API void z_rewriter_heuristics_rewrite(Rewriter *r) {
@@ -1013,6 +1036,9 @@ Z_API void z_rewriter_rewrite(Rewriter *r, addr_t new_addr) {
     z_trace("rewrite new target: %#lx", new_addr);
 
     // step [1]. request disassembler to recursive disassemble code
+    // XXX: it is important that we have to rewrite those new basic blocks each
+    // time we call z_disassembler_recursive_disasm. Or in other words,
+    // z_disassembler_recursive_disasm can only be called in z_rewriter_rewrite.
     GQueue *new_bbs =
         z_disassembler_recursive_disasm(r->disassembler, new_addr);
     z_trace("find %d new basic blocks", g_queue_get_length(new_bbs));
@@ -1097,4 +1123,13 @@ Z_API Buffer *z_rewriter_new_validate_retaddr(Rewriter *r, addr_t retaddr) {
     g_hash_table_steal(r->callee2retaddrs, GSIZE_TO_POINTER(callee));
 
     return buf;
+}
+
+Z_API void z_rewriter_initially_rewrite(Rewriter *r) {
+    if (sys_config.instrument_early) {
+        z_rewriter_rewrite_entrypoint(r);
+    } else {
+        z_rewriter_rewrite_beyond_main(r);
+        z_rewriter_rewrite_main(r);
+    }
 }

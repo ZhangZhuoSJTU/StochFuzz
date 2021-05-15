@@ -112,6 +112,10 @@ Z_API Buffer *z_disassembler_get_occluded_addrs(Disassembler *d, addr_t addr);
 /*
  * Recursive disassemble from given address
  */
+// XXX: note that currently z_disassembler_recursive_disasm can only be called
+// by z_rewriter_rewrite.
+// TODO: it is a fault of our system design. We need to fix such strong
+// coupling.
 Z_API GQueue *z_disassembler_recursive_disasm(Disassembler *d, addr_t addr);
 
 /*

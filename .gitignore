@@ -98,3 +98,5 @@ test/*
 !test/timeout.c
 !test/unintentional_crash
 !test/unintentional_crash.c
+!test/no_main
+!test/no_main.c

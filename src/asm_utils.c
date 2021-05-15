@@ -19,6 +19,9 @@
     } while (0)
 #endif
 
+#define utils_likely(x) __builtin_expect(!!(x), 1)
+#define utils_unlikely(x) __builtin_expect(!!(x), 0)
+
 Z_UTILS void __utils_puts(const char *s, bool newline) {
     const char *buf = s;
     const char *cur = s;

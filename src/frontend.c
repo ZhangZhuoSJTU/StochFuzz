@@ -44,8 +44,8 @@ static void usage(const char *argv0, int ret_status) {
 
         "  -S            - start a background daemon and wait for a fuzzer to "
         "attach (defualt mode)\n"
-        "  -R            - dry run target_binary with given arguments and "
-        "incrementally rewrites it following the executed path\n"
+        "  -R            - dry run target_binary with given arguments without "
+        "an attached fuzzer\n"
         "  -P            - patch target_binary without incremental rewriting\n"
         "  -D            - probabilistic disassembly without rewriting\n"
         "  -V            - show currently observed breakpoints\n\n"
@@ -56,6 +56,8 @@ static void usage(const char *argv0, int ret_status) {
         "  -c            - count the number of basic blocks with conflicting "
         "hash values\n"
         "  -d            - disable instrumentation optimization\n"
+        "  -e            - install the fork server at the entrypoint instead "
+        "of the main function\n"
         "  -r            - assume the return addresses are only used by RET "
         "instructions\n"
         "  -f            - forcedly assume there is data interleaving with "
@@ -94,7 +96,7 @@ static int parse_args(int argc, const char **argv) {
     bool check_execs_given = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcdrfnht:l:x:")) >
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcedrfnht:l:x:")) >
            0) {
         switch (opt) {
 #define __MODE_CASE(c, m)                                   \
@@ -119,6 +121,7 @@ static int parse_args(int argc, const char **argv) {
             __SETTING_CASE('c', count_conflict);
             __SETTING_CASE('d', disable_opt);
             __SETTING_CASE('r', safe_ret);
+            __SETTING_CASE('e', instrument_early);
             __SETTING_CASE('f', force_pdisasm);
             // This is a secret undocumented option! It is mainly used for
             // Github Actions which has memory limitation. Forcely using linear
@@ -202,6 +205,12 @@ static int parse_args(int argc, const char **argv) {
 
     if (sys_config.force_pdisasm && sys_config.force_linear) {
         EXITME("-f and -n cannot be set together");
+    }
+
+    if (sys_config.instrument_early) {
+        z_warn(
+            "-e option is experimental, it may cause invalid crashes on a "
+            "different system other than Ubuntu 18.04");
     }
 
     return optind;

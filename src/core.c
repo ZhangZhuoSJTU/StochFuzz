@@ -422,8 +422,7 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
 Z_PUBLIC void z_core_activate(Core *core) {
     z_patcher_initially_patch(core->patcher);
 
-    z_rewriter_rewrite_beyond_main(core->rewriter);
-    z_rewriter_rewrite_main(core->rewriter);
+    z_rewriter_initially_rewrite(core->rewriter);
 
     // XXX: it seems not a good idea to do pre-disassembly (linear-disassembly)
     // due to the heavy overhead of forking a process
@@ -461,7 +460,8 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
 
     // first dry run w/o any parameter to find some crashpoint during init
     // XXX: dry run must be performed before setting up shm
-    {
+    // XXX: when -e option is given, we do not need to perform such dry runs
+    if (!sys_config.instrument_early) {
         // before dry run, we first patch the main function as directly
         // returning. As such, we can try our best to avoid the error diagnosis
         // during dry run

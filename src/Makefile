@@ -135,12 +135,16 @@ test:
 	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- timeout mdzz)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- timeout)
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
-	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash mdzz)
+	$(call test_whatever, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash mdzz)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- unintentional_crash)
 endif
+ifeq ($(findstring -e,$(TEST_OPTIONS)), -e)
+	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- no_main mdzz)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- no_main)
+endif
 ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
-ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
+ifneq ($(findstring -f,$(TEST_OPTIONS)), -f)
 	$(call test_whatever, ../$(TOOLNAME) -R -t 5000 $(TEST_OPTIONS) -- z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
 endif
 endif
@@ -155,8 +159,11 @@ endif
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' unintentional_crash mdzz)
 endif
-ifeq ($(findstring -n,$(TEST_OPTIONS)), -n)
+ifneq ($(findstring -f,$(TEST_OPTIONS)), -f)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
+endif
+ifeq ($(findstring -e,$(TEST_OPTIONS)), -e)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' no_main mdzz)
 endif
 	$(call test_fail, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' timeout mdzz)
 	$(call test_succ, cat timeout.daemon.log)

@@ -103,14 +103,9 @@ Z_API void z_rewriter_rewrite(Rewriter *r, addr_t new_addr);
 Z_API addr_t z_rewriter_get_shadow_addr(Rewriter *r, addr_t addr);
 
 /*
- * Rewrite main
+ * Initial rewriting for those addresses known to be code
  */
-Z_API void z_rewriter_rewrite_main(Rewriter *r);
-
-/*
- * Rewrite functions beyond main (_start, .init, .fini, ...)
- */
-Z_API void z_rewriter_rewrite_beyond_main(Rewriter *r);
+Z_API void z_rewriter_initially_rewrite(Rewriter *r);
 
 /*
  * Heuristics rewriting after rewriting main
