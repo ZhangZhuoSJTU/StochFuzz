@@ -1,3 +1,5 @@
+// TODO: it would be more convencing to dynamically update hints
+
 /*
  * Register info
  */

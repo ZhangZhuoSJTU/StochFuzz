@@ -101,10 +101,10 @@ static int parse_args(int argc, const char **argv) {
         switch (opt) {
 #define __MODE_CASE(c, m)                                   \
     case c:                                                 \
-        if (sys_config.mode != SYSMODE_NONE) {              \
+        if (sys_optargs.mode != SYSMODE_NONE) {             \
             EXITME("multiple mode settings not supported"); \
         }                                                   \
-        sys_config.mode = SYSMODE_##m;                      \
+        sys_optargs.mode = SYSMODE_##m;                     \
         break;
             __MODE_CASE('S', DAEMON);
             __MODE_CASE('R', RUN);
@@ -113,9 +113,9 @@ static int parse_args(int argc, const char **argv) {
             __MODE_CASE('V', VIEW);
 #undef __MODE_CASE
 
-#define __SETTING_CASE(c, m) \
-    case c:                  \
-        sys_config.m = true; \
+#define __SETTING_CASE(c, m)  \
+    case c:                   \
+        sys_optargs.m = true; \
         break;
             __SETTING_CASE('g', trace_pc);
             __SETTING_CASE('c', count_conflict);
@@ -130,12 +130,12 @@ static int parse_args(int argc, const char **argv) {
             __SETTING_CASE('n', force_linear);
 #undef __SETTING_CASE
 
-#define __LOG_LEVEL_STRCASECMP(l, s)        \
-    do {                                    \
-        if (!strcasecmp(#l, s)) {           \
-            sys_config.log_level = LOG_##l; \
-            goto DONE;                      \
-        }                                   \
+#define __LOG_LEVEL_STRCASECMP(l, s)         \
+    do {                                     \
+        if (!strcasecmp(#l, s)) {            \
+            sys_optargs.log_level = LOG_##l; \
+            goto DONE;                       \
+        }                                    \
     } while (0)
             case 'l':
                 if (log_level_given) {
@@ -158,7 +158,7 @@ static int parse_args(int argc, const char **argv) {
                     EXITME("multiple -t options not supported");
                 }
                 timeout_given = true;
-                if (z_sscanf(optarg, "%lu", &sys_config.timeout) < 1) {
+                if (z_sscanf(optarg, "%lu", &sys_optargs.timeout) < 1) {
                     EXITME("bad syntax used for -t");
                 }
                 break;
@@ -168,10 +168,10 @@ static int parse_args(int argc, const char **argv) {
                     EXITME("multiple -x options not supported");
                 }
                 check_execs_given = true;
-                if (z_sscanf(optarg, "%u", &sys_config.check_execs) < 1) {
+                if (z_sscanf(optarg, "%u", &sys_optargs.check_execs) < 1) {
                     EXITME("bad syntax used for -x");
                 }
-                if (sys_config.check_execs < 500) {
+                if (sys_optargs.check_execs < 500) {
                     z_warn(
                         "frequent checking runs will significatly impact the "
                         "fuzzing efficiency");
@@ -193,21 +193,21 @@ static int parse_args(int argc, const char **argv) {
         usage(argv[0], 1);
     }
 
-    if (sys_config.mode == SYSMODE_NONE) {
-        sys_config.mode = SYSMODE_DAEMON;
+    if (sys_optargs.mode == SYSMODE_NONE) {
+        sys_optargs.mode = SYSMODE_DAEMON;
     }
 
-    if (sys_config.mode == SYSMODE_DISASM) {
+    if (sys_optargs.mode == SYSMODE_DISASM) {
         // Under disasm mode, we forcely use probabilistic disassembly
-        sys_config.force_pdisasm = true;
-        sys_config.force_linear = false;
+        sys_optargs.force_pdisasm = true;
+        sys_optargs.force_linear = false;
     }
 
-    if (sys_config.force_pdisasm && sys_config.force_linear) {
+    if (sys_optargs.force_pdisasm && sys_optargs.force_linear) {
         EXITME("-f and -n cannot be set together");
     }
 
-    if (sys_config.instrument_early) {
+    if (sys_optargs.instrument_early) {
         z_warn(
             "-e option is experimental, it may cause invalid crashes on a "
             "different system other than Ubuntu 18.04");
@@ -224,10 +224,10 @@ int main(int argc, const char **argv) {
     argc -= next_idx;
     argv += next_idx;
 
-    z_log_set_level(sys_config.log_level);
+    z_log_set_level(sys_optargs.log_level);
     Z_INIT;
 
-    switch (sys_config.mode) {
+    switch (sys_optargs.mode) {
         case SYSMODE_DAEMON:
             mode_start(argc, argv);
             break;
@@ -261,7 +261,7 @@ static inline void mode_patch(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
-    Core *core = z_core_create(target);
+    Core *core = z_core_create(target, &sys_optargs);
     z_core_activate(core);
     z_core_destroy(core);
 }
@@ -270,7 +270,7 @@ static inline void mode_disasm(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
-    Core *core = z_core_create(target);
+    Core *core = z_core_create(target, &sys_optargs);
 
     z_diagnoser_apply_logged_crashpoints(core->diagnoser);
     z_patcher_describe(core->patcher);
@@ -282,7 +282,7 @@ static inline void mode_view(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
-    Core *core = z_core_create(target);
+    Core *core = z_core_create(target, &sys_optargs);
     GQueue *cps = z_diagnoser_get_crashpoints(core->diagnoser);
 
     GList *l = cps->head;
@@ -310,7 +310,7 @@ static inline void mode_run(int argc, const char **argv) {
     const char *target = argv[0];
     z_info("target binary: %s", target);
 
-    Core *core = z_core_create(target);
+    Core *core = z_core_create(target, &sys_optargs);
     z_core_activate(core);
     int status = z_core_perform_dry_run(core, argc, argv);
     z_core_destroy(core);
@@ -337,7 +337,7 @@ static inline void mode_start(int argc, const char **argv) {
 #else
     const char *target = argv[0];
     z_info("target binary: %s", target);
-    Core *core = z_core_create(target);
+    Core *core = z_core_create(target, &sys_optargs);
     z_core_activate(core);
     z_core_start_daemon(core, INVALID_FD);
     z_core_destroy(core);

@@ -26,6 +26,7 @@ typedef enum elf_state_t {
 STRUCT(ELF, {
     char tmpnam[TMPNAME_LEN];
     _MEM_FILE *stream;
+    bool detect_main;
 
     /*
      *         new                     original
@@ -187,7 +188,7 @@ DECLARE_GETTER(ELF, elf, size_t, plt_n);
 /*
  * Open an ELF file.
  */
-Z_API ELF *z_elf_open(const char *ori_filename);
+Z_API ELF *z_elf_open(const char *ori_filename, bool detect_main);
 
 /*
  * Destructor of ELF

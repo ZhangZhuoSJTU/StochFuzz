@@ -61,7 +61,7 @@ OVERLOAD_SETTER(Binary, binary, addr_t, shadow_start) {
     z_info("shadow _start address: %#lx", shadow_start);
     binary->shadow_start = shadow_start;
 
-    if (sys_config.instrument_early) {
+    if (binary->prior_fork_server) {
         // when -e option is given, we need to change the fork server to _start
         addr_t gadget_addr = binary->fork_server_addr + fork_server_bin_len;
         KS_ASM_JMP(gadget_addr, shadow_start);
@@ -74,7 +74,7 @@ OVERLOAD_SETTER(Binary, binary, addr_t, shadow_start) {
 }
 
 OVERLOAD_SETTER(Binary, binary, addr_t, shadow_main) {
-    if (sys_config.instrument_early) {
+    if (binary->prior_fork_server) {
         EXITME("main function has not been detected");
     }
 
@@ -165,7 +165,7 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
     // step (13). prepare the address of fork server
     b->fork_server_addr = cur_addr;
     z_info("fork server address: %#lx", b->fork_server_addr);
-    if (sys_config.instrument_early) {
+    if (b->prior_fork_server) {
         // over-write the loader_transfer_jmp_addr to the fork server
         KS_ASM_JMP(loader_transfer_jmp_addr, b->fork_server_addr);
         assert(ks_size == 5);
@@ -193,7 +193,7 @@ Z_PRIVATE void __binary_setup_fork_server(Binary *b) {
     uint8_t *fork_server_code = z_alloc(fork_server_bin_len, sizeof(uint8_t));
     memcpy(fork_server_code, fork_server_bin, fork_server_bin_len);
 
-    if (z_elf_is_statically_linked(b->elf) && sys_config.instrument_early) {
+    if (z_elf_is_statically_linked(b->elf) && b->prior_fork_server) {
         // XXX: it is import to skip the TLS initialization for
         // statically-linked binaries when instrument_early option is on. Note
         // that if instrument_early is not on, we do not need to wipe off such
@@ -228,7 +228,7 @@ Z_PRIVATE void __binary_setup_fork_server(Binary *b) {
     cur_addr += fork_server_bin_len;
 
     // step (2). set jump gadget (default to original main/entrypoint)
-    if (sys_config.instrument_early) {
+    if (b->prior_fork_server) {
         addr_t entrypoint_addr = z_elf_get_ori_entry(b->elf);
         KS_ASM_JMP(cur_addr, entrypoint_addr);
         z_elf_write(b->elf, cur_addr, ks_size, ks_encode);
@@ -244,7 +244,7 @@ Z_PRIVATE void __binary_setup_fork_server(Binary *b) {
     cur_addr = BITS_ALIGN_CELL(cur_addr, 3);
 
     // step (4). write down whether -e option is enabled
-    uint64_t ei_enabled = (uint64_t)sys_config.instrument_early;
+    uint64_t ei_enabled = (uint64_t)b->prior_fork_server;
     z_elf_write(b->elf, cur_addr, sizeof(ei_enabled), &ei_enabled);
     cur_addr += sizeof(ei_enabled);
 
@@ -270,15 +270,17 @@ Z_PRIVATE void __binary_setup_tp_zone(Binary *b) {
     b->trampolines_addr += sizeof(Trampoline);
 }
 
-Z_API Binary *z_binary_open(const char *pathname) {
+Z_API Binary *z_binary_open(const char *pathname, bool prior_fork_server) {
     // step (0). create a binary struct.
     Binary *b = STRUCT_ALLOC(Binary);
     b->original_filename = z_strdup(pathname);
     b->shadow_main = INVALID_ADDR;
     b->shadow_start = INVALID_ADDR;
 
+    b->prior_fork_server = prior_fork_server;
+
     // step (1). setup elf
-    b->elf = z_elf_open(b->original_filename);
+    b->elf = z_elf_open(b->original_filename, !prior_fork_server);
 
     // step (2). setup loader
     __binary_setup_loader(b);

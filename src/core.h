@@ -11,6 +11,7 @@
 #include "disassembler.h"
 #include "patcher.h"
 #include "rewriter.h"
+#include "sys_optarg.h"
 
 #include <gmodule.h>
 
@@ -39,6 +40,9 @@ STRUCT(Core, {
 
     // unix domain information
     int sock_fd;
+
+    // system otpargs
+    SysOptArgs *opts;
 });
 
 /*
@@ -55,7 +59,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd);
 /*
  * Create OURTOOL Core
  */
-Z_PUBLIC Core *z_core_create(const char *pathname);
+Z_PUBLIC Core *z_core_create(const char *pathname, SysOptArgs *opts);
 
 /*
  * Destroy OURTOOL Core

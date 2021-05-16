@@ -100,9 +100,9 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e);
 Z_PRIVATE void __elf_parse_plt(ELF *e);
 
 /*
- * Parse other information of ELF (entrypoint, etc.)
+ * Detect and parse main function
  */
-Z_PRIVATE void __elf_parse_other_info(ELF *e);
+Z_PRIVATE void __elf_parse_main(ELF *e);
 
 /*
  * Set relocation-preset for given ELF
@@ -213,7 +213,7 @@ DEFINE_GETTER(ELF, elf, const char *, pipe_filename);
 DEFINE_GETTER(ELF, elf, size_t, plt_n);
 
 OVERLOAD_GETTER(ELF, elf, addr_t, main) {
-    if (sys_config.instrument_early) {
+    if (!elf->detect_main) {
         EXITME("the main function has not been automatically detected");
     }
 
@@ -221,7 +221,7 @@ OVERLOAD_GETTER(ELF, elf, addr_t, main) {
 }
 
 OVERLOAD_GETTER(ELF, elf, addr_t, init) {
-    if (sys_config.instrument_early) {
+    if (!elf->detect_main) {
         EXITME("the main function has not been automatically detected");
     }
 
@@ -229,7 +229,7 @@ OVERLOAD_GETTER(ELF, elf, addr_t, init) {
 }
 
 OVERLOAD_GETTER(ELF, elf, addr_t, fini) {
-    if (sys_config.instrument_early) {
+    if (!elf->detect_main) {
         EXITME("the main function has not been automatically detected");
     }
 
@@ -237,7 +237,7 @@ OVERLOAD_GETTER(ELF, elf, addr_t, fini) {
 }
 
 OVERLOAD_GETTER(ELF, elf, addr_t, load_main) {
-    if (sys_config.instrument_early) {
+    if (!elf->detect_main) {
         EXITME("the main function has not been automatically detected");
     }
 
@@ -245,7 +245,7 @@ OVERLOAD_GETTER(ELF, elf, addr_t, load_main) {
 }
 
 OVERLOAD_GETTER(ELF, elf, addr_t, load_init) {
-    if (sys_config.instrument_early) {
+    if (!elf->detect_main) {
         EXITME("the main function has not been automatically detected");
     }
 
@@ -253,7 +253,7 @@ OVERLOAD_GETTER(ELF, elf, addr_t, load_init) {
 }
 
 OVERLOAD_GETTER(ELF, elf, addr_t, load_fini) {
-    if (sys_config.instrument_early) {
+    if (!elf->detect_main) {
         EXITME("the main function has not been automatically detected");
     }
 
@@ -1057,10 +1057,10 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
     }
 }
 
-Z_PRIVATE void __elf_parse_other_info(ELF *e) {
+Z_PRIVATE void __elf_parse_main(ELF *e) {
     assert(e != NULL);
 
-    if (sys_config.instrument_early) {
+    if (!e->detect_main) {
         z_info(
             "we skip the detection of main function because we are going to "
             "instrument the fork server before the entrypoint");
@@ -1160,8 +1160,10 @@ LOOP_DONE:
     z_info("find fini function: %#lx", e->fini);
 }
 
-Z_API ELF *z_elf_open(const char *ori_filename) {
+Z_API ELF *z_elf_open(const char *ori_filename, bool detect_main) {
     ELF *e = STRUCT_ALLOC(ELF);
+
+    e->detect_main = detect_main;
 
     memset(e->tmpnam, 0, TMPNAME_LEN);
     z_snprintf(e->tmpnam, TMPNAME_LEN, TMPNAME_FMT, z_rand());
@@ -1196,8 +1198,8 @@ Z_API ELF *z_elf_open(const char *ori_filename) {
     // Step (8). Setup pipe file
     __elf_setup_pipe(e, ori_filename);
 
-    // Step (9). Get other information
-    __elf_parse_other_info(e);
+    // Step (9). Detect and parse main function
+    __elf_parse_main(e);
 
     // Step (10). Rewrite PT_NOTE meta info
     __elf_rewrite_pt_note(e);

@@ -70,7 +70,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
          * step [1]. first check callee_addr is inside .text
          */
         if (!z_disassembler_get_superset_disasm(r->disassembler, callee_addr)) {
-            if (sys_config.safe_ret) {
+            if (r->opts->safe_ret) {
                 // directly write
                 KS_ASM_CALL(shadow_addr, callee_addr);
                 z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
@@ -121,7 +121,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
 #ifndef NSINGLE_SUCC_OPT
         uint64_t hole_buf = 0;
         addr_t shadow_callee_addr;
-        if (sys_config.disable_opt) {
+        if (r->opts->disable_opt) {
             shadow_callee_addr = (addr_t)g_hash_table_lookup(
                 r->rewritten_bbs, GSIZE_TO_POINTER(callee_addr));
             hole_buf = (uint64_t)X86_INS_JMP;
@@ -143,7 +143,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
          * step [3]. rewrite and insrumentation
          */
         if (shadow_callee_addr) {
-            if (sys_config.safe_ret) {
+            if (r->opts->safe_ret) {
                 // TODO: check whether we can simply change it as a call inst
                 KS_ASM(shadow_addr,
                        "push END;\n"
@@ -159,7 +159,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
             z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
         } else {
             // rewrite return address
-            if (sys_config.safe_ret) {
+            if (r->opts->safe_ret) {
                 KS_ASM(shadow_addr,
                        "push END + %lu;\n"
                        "END:\n",
@@ -273,7 +273,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
 
         // XXX: the below assembly is following the previous one
         shadow_addr += ks_size;
-        if (sys_config.safe_ret) {
+        if (r->opts->safe_ret) {
             KS_ASM(shadow_addr, "call qword ptr [rsp - 144]");
         } else {
             KS_ASM(shadow_addr,

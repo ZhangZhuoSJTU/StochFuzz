@@ -34,7 +34,7 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
 #ifndef NSINGLE_SUCC_OPT
         uint64_t hole_buf = 0;
         addr_t shadow_jmp_addr;
-        if (sys_config.disable_opt) {
+        if (r->opts->disable_opt) {
             shadow_jmp_addr = (addr_t)g_hash_table_lookup(
                 r->rewritten_bbs, GSIZE_TO_POINTER(jmp_addr));
             hole_buf = (uint64_t)X86_INS_JMP;

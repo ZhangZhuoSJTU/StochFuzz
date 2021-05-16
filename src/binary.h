@@ -31,7 +31,8 @@ STRUCT(Binary, {
     // Fork server and random patcher
     addr_t fork_server_addr;   // Address of fork server
     addr_t random_patch_addr;  // Address of random patch table
-    addr_t random_patch_num;   // number of random patch table
+    addr_t random_patch_num;   // Number of random patch table
+    bool prior_fork_server;    // Whether we need to defer the fork server
 
     // Lookup table
     addr_t lookup_table_addr;  // Address of lookup table
@@ -53,7 +54,7 @@ DECLARE_SETTER(Binary, binary, ELFState, elf_state);
 /*
  * Construct a binary for given file.
  */
-Z_API Binary *z_binary_open(const char *in_filename);
+Z_API Binary *z_binary_open(const char *in_filename, bool prior_fork_server);
 
 /*
  * Destructor of Binary

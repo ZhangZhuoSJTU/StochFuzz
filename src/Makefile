@@ -56,6 +56,7 @@ OBJS=\
 	mem_file.o \
 	restricted_ptr.o \
 	tp_dispatcher.o \
+	sys_optarg.o \
 	disassembler.o \
 	rewriter.o \
 	patcher.o \
@@ -199,11 +200,11 @@ prepare_google_fts:
 	rm -rf test; cp -r ../benchmark test; cp ../test/test_daemon_ignore_asan_sof.sh test
 
 $(GOOGLE_FTS): prepare_google_fts
-	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '' $@.normal $@.seed)
-	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '' $@.inline $@.seed)
+	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' $@.normal $@.seed)
+	$(call test_succ, ./test_daemon_ignore_asan_sof.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' $@.inline $@.seed)
 	$(call test_succ, rm -f .pdisasm.$@.normal .pdisasm.$@.inline)
-	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.normal.daemon.log || ../$(TOOLNAME) -R -- $@.normal $@.seed || grep -F "we encounter a rewriting error" $@.normal.daemon.log)
-	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.inline.daemon.log || ../$(TOOLNAME) -R -- $@.inline $@.seed || grep -F "we encounter a rewriting error" $@.inline.daemon.log)
+	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.normal.daemon.log || ../$(TOOLNAME) -R $(TEST_OPTIONS) -- $@.normal $@.seed || grep -F "we encounter a rewriting error" $@.normal.daemon.log)
+	$(call test_succ, grep -F "SUMMARY: AddressSanitizer: stack-overflow" $@.inline.daemon.log || ../$(TOOLNAME) -R $(TEST_OPTIONS) -- $@.inline $@.seed || grep -F "we encounter a rewriting error" $@.inline.daemon.log)
 
 benchmark: prepare_google_fts $(GOOGLE_FTS)
 

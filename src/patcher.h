@@ -8,6 +8,7 @@
 #include "crs_config.h"
 #include "disassembler.h"
 #include "elf_.h"
+#include "sys_optarg.h"
 
 #include <gmodule.h>
 
@@ -95,12 +96,15 @@ STRUCT(Patcher, {
     size_t delayed_bridges;
     size_t resolved_bridges;
     size_t adjusted_bridges;
+
+    // system optargs
+    SysOptArgs *opts;
 });
 
 /*
  * Create a patcher
  */
-Z_API Patcher *z_patcher_create(Disassembler *d);
+Z_API Patcher *z_patcher_create(Disassembler *d, SysOptArgs *opts);
 
 /*
  * Destroy a patcher

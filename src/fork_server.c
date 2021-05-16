@@ -144,7 +144,8 @@ asm(".globl _entry\n"
     "\tincq %rdi;\n"
     "\tshlq $3, %rdi;\n"      // cur_addr in __binary_setup_fork_server step (3)
                               // binary.c
-    "\tmovq (%rdi), %rsi;\n"  // sys_config.instrument_early
+    "\tmovq (%rdi), %rsi;\n"  // whether the fork server is at the entrypoint or
+                              // not
     "\ttest %rsi, %rsi;\n"
     "\tje _envp_done;\n"
     "\taddq $96, %rbp;\n"

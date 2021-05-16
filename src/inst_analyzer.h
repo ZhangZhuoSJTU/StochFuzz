@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "capstone_.h"
 #include "config.h"
+#include "sys_optarg.h"
 
 #include <capstone/capstone.h>
 #include <gmodule.h>
@@ -31,12 +32,15 @@ STRUCT(InstAnalyzer, {
     // general register analysis
     GHashTable *gpr_analyzed_succs;
     GHashTable *gpr_can_write;
+
+    // system optargs
+    SysOptArgs *opts;
 });
 
 /*
  * Create an inst_analyzer
  */
-Z_API InstAnalyzer *z_inst_analyzer_create();
+Z_API InstAnalyzer *z_inst_analyzer_create(SysOptArgs *opts);
 
 /*
  * Destroy an inst_analzyer

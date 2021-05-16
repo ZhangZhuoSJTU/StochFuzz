@@ -37,7 +37,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Automatically scale the number of executions triggering checking runs (based on the result of previous checking run).
 + [ ] Add a new license.
 + [ ] Set the default log level as WARN (note that we need to update `make test` and `make benchmark`).
-+ [ ] Do not use a global sys\_config, but put the options into each object.
++ [x] Do not use a global sys\_config, but put the options into each object.
 
 ## Known Issues
 

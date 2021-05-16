@@ -425,7 +425,7 @@ Z_PRIVATE void __rewriter_fillin_shadow_hole(Rewriter *r, GHashTable *holes) {
 
 #ifndef NSINGLE_SUCC_OPT
         // check whether we need to do optimization
-        if (!sys_config.disable_opt) {
+        if (!r->opts->disable_opt) {
             if ((int32_t)inst_id < 0) {
                 // it is a trampoline-free transfer
                 inst_id = (~inst_id) + 1;
@@ -661,7 +661,7 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
         z_binary_update_lookup_table(r->binary, ori_addr, shadow_addr);
     }
 
-    if (sys_config.trace_pc) {
+    if (r->opts->trace_pc) {
         // trace previous pc
         KS_ASM_CONST_MOV(RW_PAGE_INFO_ADDR(prev_pc), ori_addr);
         z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
@@ -915,8 +915,10 @@ Z_RESERVED Z_PRIVATE void __rewriter_build_bridges(Rewriter *r,
     }
 }
 
-Z_API Rewriter *z_rewriter_create(Disassembler *d) {
+Z_API Rewriter *z_rewriter_create(Disassembler *d, SysOptArgs *opts) {
     Rewriter *r = STRUCT_ALLOC(Rewriter);
+
+    r->opts = opts;
 
     r->disassembler = d;
     r->binary = z_disassembler_get_binary(d);
@@ -997,7 +999,7 @@ Z_RESERVED Z_API void z_rewriter_heuristics_rewrite(Rewriter *r) {
     g_hash_table_destroy(cf_related_holes);
     g_queue_free(new_bbs);
 
-    if (sys_config.count_conflict) {
+    if (r->opts->count_conflict) {
         __rewriter_count_conflicted_ids(r);
     }
 }
@@ -1065,7 +1067,7 @@ Z_API void z_rewriter_rewrite(Rewriter *r, addr_t new_addr) {
     g_hash_table_destroy(cf_related_holes);
     g_queue_free(new_bbs);
 
-    if (sys_config.count_conflict) {
+    if (r->opts->count_conflict) {
         __rewriter_count_conflicted_ids(r);
     }
 }
@@ -1126,7 +1128,7 @@ Z_API Buffer *z_rewriter_new_validate_retaddr(Rewriter *r, addr_t retaddr) {
 }
 
 Z_API void z_rewriter_initially_rewrite(Rewriter *r) {
-    if (sys_config.instrument_early) {
+    if (r->opts->instrument_early) {
         z_rewriter_rewrite_entrypoint(r);
     } else {
         z_rewriter_rewrite_beyond_main(r);

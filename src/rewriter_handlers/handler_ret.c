@@ -11,7 +11,7 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
 Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                                       cs_insn *inst, addr_t ori_addr,
                                       addr_t ori_next_addr) {
-    if (sys_config.safe_ret) {
+    if (r->opts->safe_ret) {
         z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
         return;
     }

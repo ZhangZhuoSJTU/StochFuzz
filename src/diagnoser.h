@@ -7,6 +7,7 @@
 #include "disassembler.h"
 #include "patcher.h"
 #include "rewriter.h"
+#include "sys_optarg.h"
 
 #include <gmodule.h>
 
@@ -86,6 +87,9 @@ STRUCT(Diagnoser, {
     // the queue.
     GQueue *crashpoints;
     const char *cp_filename;
+
+    // system optargs
+    SysOptArgs *opts;
 });
 
 DECLARE_GETTER(Diagnoser, diagnoser, GQueue *, crashpoints);
@@ -94,7 +98,8 @@ DECLARE_GETTER(Diagnoser, diagnoser, GQueue *, crashpoints);
  * Create diagnoser
  */
 Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
-                                    Disassembler *disassembler);
+                                    Disassembler *disassembler,
+                                    SysOptArgs *opts);
 
 /*
  * Destroy diagnoser

@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "config.h"
 #include "disassembler.h"
+#include "sys_optarg.h"
 
 #include <gmodule.h>
 
@@ -45,6 +46,9 @@ STRUCT(Rewriter, {
 
     // Internal data
     bool __main_rewritten;
+
+    // system optargs
+    SysOptArgs *opts;
 });
 
 DECLARE_GETTER(Rewriter, rewriter, GHashTable *, unlogged_retaddr_crashpoints);
@@ -79,7 +83,7 @@ Z_API void z_rhandler_destroy(RHandler *handler);
 /*
  * Create a rewriter
  */
-Z_API Rewriter *z_rewriter_create(Disassembler *d);
+Z_API Rewriter *z_rewriter_create(Disassembler *d, SysOptArgs *opts);
 
 /*
  * Destroy a rewrite

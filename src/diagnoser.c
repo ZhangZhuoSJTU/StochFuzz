@@ -424,8 +424,11 @@ Z_PRIVATE CRSStatus __diagnoser_delta_debug(Diagnoser *g, int status,
 }
 
 Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
-                                    Disassembler *disassembler) {
+                                    Disassembler *disassembler,
+                                    SysOptArgs *opts) {
     Diagnoser *g = STRUCT_ALLOC(Diagnoser);
+
+    g->opts = opts;
 
     g->binary = z_disassembler_get_binary(disassembler);
 

@@ -42,7 +42,7 @@ Z_PRIVATE bool __inst_analyzer_check_consistent(const cs_insn *inst_alice,
 
 Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
                                            const cs_insn *inst) {
-    if (sys_config.disable_opt) {
+    if (a->opts->disable_opt) {
         return;
     }
 
@@ -167,7 +167,7 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
 
 Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
                                            const cs_insn *inst) {
-    if (sys_config.disable_opt) {
+    if (a->opts->disable_opt) {
         return;
     }
 
@@ -467,8 +467,10 @@ Z_PRIVATE void __inst_analyzer_init_analyze(InstAnalyzer *a, addr_t addr,
     }
 }
 
-Z_API InstAnalyzer *z_inst_analyzer_create() {
+Z_API InstAnalyzer *z_inst_analyzer_create(SysOptArgs *opts) {
     InstAnalyzer *a = STRUCT_ALLOC(InstAnalyzer);
+
+    a->opts = opts;
 
     a->insts = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 

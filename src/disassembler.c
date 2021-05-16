@@ -263,8 +263,10 @@ Z_PRIVATE void __disassembler_superset_disasm(Disassembler *d) {
     }
 }
 
-Z_API Disassembler *z_disassembler_create(Binary *b) {
+Z_API Disassembler *z_disassembler_create(Binary *b, SysOptArgs *opts) {
     Disassembler *d = STRUCT_ALLOC(Disassembler);
+
+    d->opts = opts;
 
     d->binary = b;
 
@@ -284,7 +286,7 @@ Z_API Disassembler *z_disassembler_create(Binary *b) {
     d->potential_blocks =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
-    d->inst_analyzer = z_inst_analyzer_create();
+    d->inst_analyzer = z_inst_analyzer_create(d->opts);
 
     // we choose to superset disassemble relative-small binary
     ELF *e = z_binary_get_elf(d->binary);
@@ -314,8 +316,8 @@ Z_API Disassembler *z_disassembler_create(Binary *b) {
     }
 
     d->enable_pdisasm =
-        (!sys_config.force_linear) &&
-        (sys_config.force_pdisasm || __disassembler_has_inlined_data(d));
+        (!d->opts->force_linear) &&
+        (d->opts->force_pdisasm || __disassembler_has_inlined_data(d));
     z_info("enable probabilistic disassembly: %s",
            d->enable_pdisasm ? "true" : "false");
 

@@ -152,8 +152,8 @@ Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core) {
 
 Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid) {
     core->client_pid = client_pid;
-    core->it.it_value.tv_sec = (sys_config.timeout / 1000);
-    core->it.it_value.tv_usec = (sys_config.timeout % 1000) * 1000;
+    core->it.it_value.tv_sec = (core->opts->timeout / 1000);
+    core->it.it_value.tv_usec = (core->opts->timeout % 1000) * 1000;
     setitimer(ITIMER_REAL, &core->it, NULL);
 }
 
@@ -219,7 +219,7 @@ Z_PRIVATE void __core_setup_shm(Core *core) {
 
 Z_PRIVATE void __core_setup_afl_shm(Core *core, int afl_shm_id) {
     // initial checking
-    if (sys_config.check_execs == 0) {
+    if (core->opts->check_execs == 0) {
         EXITME("checking runs are disabled");
     }
     if (!z_disassembler_fully_support_prob_disasm(core->disassembler)) {
@@ -363,8 +363,9 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
                 // .text sectoin, it is still possible that ASLR can cause some
                 // problems.
                 // TODO: handle the *extremely* corner case.
-                if (crash_rip < text_addr ||
-                    crash_rip >= text_addr + text_size) {
+                if (IS_SUSPECT_STATUS(status) &&
+                    (crash_rip < text_addr ||
+                     crash_rip >= text_addr + text_size)) {
                     EXITME(
                         "self correction procedure under dry run mode is "
                         "problematic due to ASLR");
@@ -374,7 +375,7 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
     }
 }
 
-Z_PUBLIC Core *z_core_create(const char *pathname) {
+Z_PUBLIC Core *z_core_create(const char *pathname, SysOptArgs *opts) {
     __core_environment_setup();
 
     if (__core) {
@@ -392,12 +393,15 @@ Z_PUBLIC Core *z_core_create(const char *pathname) {
 
     Core *core = STRUCT_ALLOC(Core);
 
-    core->binary = z_binary_open(pathname);
-    core->disassembler = z_disassembler_create(core->binary);
-    core->rewriter = z_rewriter_create(core->disassembler);
-    core->patcher = z_patcher_create(core->disassembler);
-    core->diagnoser =
-        z_diagnoser_create(core->patcher, core->rewriter, core->disassembler);
+    core->opts = opts;
+
+    core->binary = z_binary_open(pathname, core->opts->instrument_early);
+
+    core->disassembler = z_disassembler_create(core->binary, core->opts);
+    core->rewriter = z_rewriter_create(core->disassembler, core->opts);
+    core->patcher = z_patcher_create(core->disassembler, core->opts);
+    core->diagnoser = z_diagnoser_create(core->patcher, core->rewriter,
+                                         core->disassembler, core->opts);
 
     z_diagnoser_read_crashpoint_log(core->diagnoser);
 
@@ -461,7 +465,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     // first dry run w/o any parameter to find some crashpoint during init
     // XXX: dry run must be performed before setting up shm
     // XXX: when -e option is given, we do not need to perform such dry runs
-    if (!sys_config.instrument_early) {
+    if (!core->opts->instrument_early) {
         // before dry run, we first patch the main function as directly
         // returning. As such, we can try our best to avoid the error diagnosis
         // during dry run
@@ -516,13 +520,13 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     //      * send out shm_id
     //      * recv afl_attached
     //      * recv afl_shm_id
-    //      * send sys_config.check_execs (useless when AFL is not attached)
+    //      * send core->opts->check_execs (useless when AFL is not attached)
     int afl_attached = 0;
     int afl_shm_id = INVALID_SHM_ID;
     // checking runs are enabled only if
     //      * AFL is attached
     //      * Prob Disassembly is fully supported
-    //      * sys_config.check_execs is not zero
+    //      * core->opts->check_execs is not zero
     bool check_run_enabled = false;
     {
         assert(sizeof(core->shm_id) == 4);
@@ -538,8 +542,9 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
         check_run_enabled =
             !!(afl_attached &&
                z_disassembler_fully_support_prob_disasm(core->disassembler) &&
-               sys_config.check_execs > 0);
-        uint32_t check_execs = (check_run_enabled ? sys_config.check_execs : 0);
+               core->opts->check_execs > 0);
+        uint32_t check_execs =
+            (check_run_enabled ? core->opts->check_execs : 0);
 
         if (read(comm_fd, &afl_shm_id, sizeof(afl_shm_id)) !=
             sizeof(afl_shm_id)) {

@@ -7,6 +7,7 @@
 #include "config.h"
 #include "inst_analyzer.h"
 #include "interval_splay.h"
+#include "sys_optarg.h"
 
 #include <capstone/capstone.h>
 #include <gmodule.h>
@@ -45,6 +46,9 @@ STRUCT(Disassembler, {
 
     // Light-weight instruction-level analyzer;
     InstAnalyzer *inst_analyzer;
+
+    // system optargs
+    SysOptArgs *opts;
 });
 
 /*
@@ -56,7 +60,7 @@ DECLARE_GETTER(Disassembler, disassembler, InstAnalyzer *, inst_analyzer);
 /*
  * Create a disassembler
  */
-Z_API Disassembler *z_disassembler_create(Binary *b);
+Z_API Disassembler *z_disassembler_create(Binary *b, SysOptArgs *opts);
 
 /*
  * Destroy a disassembler
