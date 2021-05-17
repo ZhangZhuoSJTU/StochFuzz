@@ -64,7 +64,7 @@ jobs:
           make release
         working-directory: ./src
       - name: make benchmark
-        run: make benchmark
+        run: timeout --signal=KILL 35m make benchmark
         working-directory: ./src
 
   early_instrumentation:
@@ -89,5 +89,5 @@ jobs:
           make release
         working-directory: ./src
       - name: make benchmark
-        run: make benchmark TEST_OPTIONS="-e"
+        run: timeout --signal=KILL 35m make benchmark TEST_OPTIONS="-e"
         working-directory: ./src
