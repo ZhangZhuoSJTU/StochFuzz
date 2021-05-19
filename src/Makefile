@@ -5,7 +5,7 @@ LDFLAGS =
 
 SHELLCODE_CFLAGS = -Wall -fno-stack-protector -fno-jump-tables -fpie -O3 -D_GNU_SOURCE
 
-LIBNAME = $(shell find . -regex './lib[^\.]*\.h' | tr -d '/' | cut -d '.' -f2)
+LIBNAME = $(shell find . -regex './lib[^\.\/]*\.h' | tr -d '/' | cut -d '.' -f2)
 TOOLNAME = $(shell grep '^\#define OURTOOL ' config.h | cut -d '"' -f2)
 VERSION = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
 
@@ -63,6 +63,7 @@ OBJS=\
 	inst_analyzer.o \
 	capstone_.o \
 	diagnoser.o \
+	library_functions/library_functions.o \
 	core.o
 
 .PHONY: clean format
@@ -79,7 +80,7 @@ release: CFLAGS += -O2 -DNDEBUG
 release: SHELLCODE_CFLAGS += -DNDEBUG
 release: executable
 
-executable: $(OBJS)
+executable: loader fork_server tps handlers library_functions_load $(OBJS)
 	ar rcs $(LIBNAME).a $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared $(OBJS) $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o $(LIBNAME).so
 	$(CC) $(CFLAGS) $(LDFLAGS) frontend.c $(LIBNAME).a $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o $(TOOLNAME)
@@ -102,7 +103,8 @@ tps:
 handlers:
 	python3 rewriter_handlers/generate.py rewriter_handlers
 
-binary.o: loader fork_server tps handlers
+library_functions_load:
+	python3 library_functions/generate.py lib.csv library_functions
 
 define test_succ
 	cd test && ( ${1} )
@@ -213,14 +215,14 @@ clean:
 	$(MAKE) -C trampolines clean
 
 SOURCES:=$(OBJS:.o=.c)
-HDEADERS:=$(OBJS:.o=.h)
+HEADERS:=$(OBJS:.o=.h)
 SOURCES += loader.c fork_server.c frontend.c asm_syscall.c asm_utils.c
 SOURCES += rewriter_handlers/*.c rewriter_handlers/*.in
 SOURCES += prob_disasm/*.c
 SOURCES += prob_disasm/prob_disasm_complete/*.c
-HDEADERS += address_dictionary.h loader.h fork_server.h config.h afl_config.h crs_config.h $(LIBNAME).h
+HEADERS += address_dictionary.h loader.h fork_server.h config.h afl_config.h crs_config.h $(LIBNAME).h
 
 format:
 	clang-format -sort-includes -style=file -i $(SOURCES)
-	clang-format -sort-includes -style=file -i $(HDEADERS)
+	clang-format -sort-includes -style=file -i $(HEADERS)
 	$(MAKE) -C trampolines format

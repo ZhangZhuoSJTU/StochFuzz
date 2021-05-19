@@ -124,10 +124,10 @@ STRUCT(ELF, {
     ELFState state;
 
     /*
-     * PLT information
+     * Relocation information
      */
+    GHashTable *got;  // GOT information
     GHashTable *plt;  // PLT information
-    size_t plt_n;     // number of PLT entries
 
     /*
      * Other basic information
@@ -208,15 +208,28 @@ Z_API Rptr *z_elf_vaddr2ptr(ELF *e, addr_t vaddr);
 
 /*
  * Read data from given virtual address.
+ * z_elf_read only reads data from a stream, which means if the requested bytes
+ * are cross-stream, z_elf_read only returns the first k bytes in the same
+ * stream.
  */
 Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf);
 
 /*
+ * Forcely read data from given virtual address.
+ * Different from z_elf_read, z_elf_read_all forcely read all requested bytes
+ * even if they are cross-stream.
+ */
+Z_API size_t z_elf_read_all(ELF *e, addr_t addr, size_t n, void *buf);
+
+/*
  * Write data to given virtual address.
+ * z_elf_write only writes data on a stream, like z_elf_read.
  */
 // XXX: note that the z_elf_write only supports writing on data stored in file
-// but not those dynamically alloced on link time.
+// but not those dynamically alloced segments.
 Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf);
+
+// TODO: add z_elf_write_all if necessart
 
 /*
  * Check whether the ELF is statically-linked

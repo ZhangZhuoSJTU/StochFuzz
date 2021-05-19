@@ -3,6 +3,7 @@
 
 #include "afl_config.h"
 #include "config.h"
+#include "library_functions/library_functions.h"
 #include "tp_dispatcher.h"
 
 #include <capstone/capstone.h>
@@ -295,6 +296,17 @@ extern const uint8_t *tp_code;
     } while (0)
 
 /*
+ * Library function information
+ */
+#define LB_INIT z_libfunc_init()
+
+#define LB_FINI z_libfunc_fini()
+
+#define LB_QUERY(name) z_libfunc_get_info(name)
+
+#define LB_DEFAULT() z_libfunc_default()
+
+/*
  * System
  */
 #define __PRE_CHECK                                                            \
@@ -333,6 +345,7 @@ extern const uint8_t *tp_code;
         KS_INIT;     \
         CS_INIT;     \
         TP_INIT;     \
+        LB_INIT;     \
     } while (0)
 
 #define Z_FINI   \
@@ -340,6 +353,7 @@ extern const uint8_t *tp_code;
         KS_FINI; \
         CS_FINI; \
         TP_FINI; \
+        LB_FINI; \
     } while (0)
 
 #endif

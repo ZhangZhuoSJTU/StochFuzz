@@ -1,5 +1,9 @@
+// XXX: note that we have multiple streams under an ELF file. Make sure you are
+// handling the correct stream(s)
+
 #include "elf_.h"
 #include "buffer.h"
+#include "capstone_.h"
 #include "crs_config.h"
 #include "interval_splay.h"
 #include "loader.h"
@@ -27,6 +31,7 @@
 /*
  * Define special getter and setter for ELF
  */
+// XXX: such elements all locate on the main stream
 #define ELF_DEFINE_SETTER(OTYPE, ONAME, FTYPE, FNAME)                        \
     Z_API void z_##ONAME##_##set_##FNAME(OTYPE *ONAME, FTYPE FNAME) {        \
         assert(ONAME != NULL);                                               \
@@ -75,6 +80,11 @@ Z_PRIVATE FChunk *z_fchunk_create(_MEM_FILE *stream, size_t offset,
 Z_PRIVATE void z_fchunk_destroy(FChunk *fc) { z_free(fc); }
 
 /*
+ * Find Elf64_Dyn by tag name
+ */
+Z_PRIVATE Elf64_Dyn *__elf_find_dyn_by_tag(ELF *e, Elf64_Xword tag);
+
+/*
  * Open a file (ori_filename) and load data into _MEM_FILE
  */
 Z_PRIVATE _MEM_FILE *__elf_open_file(ELF *e, const char *ori_filename);
@@ -95,9 +105,9 @@ Z_PRIVATE void __elf_parse_phdr(ELF *e);
 Z_PRIVATE void __elf_parse_shdr(ELF *e);
 
 /*
- * Get PLT information
+ * Get relocation information
  */
-Z_PRIVATE void __elf_parse_plt(ELF *e);
+Z_PRIVATE void __elf_parse_relocation(ELF *e);
 
 /*
  * Detect and parse main function
@@ -112,6 +122,8 @@ Z_PRIVATE void __elf_set_relro(ELF *e);
 /*
  * Set virtual mapping for given ELF
  */
+// Note that after this function, the main stream will be splitted into two
+// pieces
 Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename);
 
 /*
@@ -210,7 +222,8 @@ DEFINE_GETTER(ELF, elf, const char *, lookup_tabname);
 DEFINE_GETTER(ELF, elf, const char *, trampolines_name);
 DEFINE_GETTER(ELF, elf, const char *, shared_text_name);
 DEFINE_GETTER(ELF, elf, const char *, pipe_filename);
-DEFINE_GETTER(ELF, elf, size_t, plt_n);
+
+OVERLOAD_GETTER(ELF, elf, size_t, plt_n) { return g_hash_table_size(elf->plt); }
 
 OVERLOAD_GETTER(ELF, elf, addr_t, main) {
     if (!elf->detect_main) {
@@ -317,11 +330,13 @@ Z_PRIVATE void *__elf_stream_off2ptr(_MEM_FILE *stream, size_t off) {
 }
 
 Z_PRIVATE void __elf_rewrite_pt_note(ELF *e) {
+    // XXX: note that rewriter_pt_note should be applied on the main stream.
     assert(e != NULL);
 
     Elf64_Phdr *phdr = z_elf_get_phdr_note(e);
     phdr->p_type = PT_LOAD;
     phdr->p_flags = PF_X | PF_R;
+    // XXX: e->loader_addr cannot be on the shared .text stream
     phdr->p_offset = __elf_stream_vaddr2off(e, e->loader_addr);
     phdr->p_vaddr = (Elf64_Addr)e->loader_addr;
     phdr->p_paddr = (Elf64_Addr)NULL;
@@ -526,6 +541,27 @@ Z_PRIVATE void __elf_extend_zones(ELF *e) {
     z_mem_file_pwrite(e->stream, "", 1, offset - 1);
 }
 
+Z_PRIVATE Elf64_Dyn *__elf_find_dyn_by_tag(ELF *e, Elf64_Xword tag) {
+    Elf64_Phdr *dynamic_phdr = z_elf_get_phdr_dynamic(e);
+    if (z_unlikely(!dynamic_phdr)) {
+        EXITME("dynamic segment not found");
+    }
+
+    // get the first dyn
+    // XXX: note that it is safe to use __elf_stream_off2ptr
+    Elf64_Dyn *dyn =
+        (Elf64_Dyn *)__elf_stream_off2ptr(e->stream, dynamic_phdr->p_offset);
+
+    while (dyn->d_tag != DT_NULL) {
+        if (dyn->d_tag == tag) {
+            return dyn;
+        }
+        dyn++;
+    }
+
+    return NULL;
+}
+
 Z_RESERVED Z_PRIVATE void __elf_set_relro(ELF *e) {
     assert(e != NULL);
 
@@ -570,8 +606,7 @@ Z_RESERVED Z_PRIVATE void __elf_set_relro(ELF *e) {
             } else {
                 z_warn(
                     "binary is not RELRO and has no DT_DEBUG entry. Hence, "
-                    "we "
-                    "failed to patch it");
+                    "we failed to patch it");
             }
         }
     } else {
@@ -579,43 +614,262 @@ Z_RESERVED Z_PRIVATE void __elf_set_relro(ELF *e) {
     }
 }
 
-// XXX: currently we only locate the entrypoints of each PLT entry. However, it
-// will be very helpful if we can associate library function symbols with these
-// entries.
-Z_PRIVATE void __elf_parse_plt(ELF *e) {
-    e->plt = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-    e->plt_n = 0;
+// TODO: check whether PIE binaries would cause troubles
+// TODO: if any section is missed, directly return errors instead of EXITME
+Z_PRIVATE void __elf_parse_relocation(ELF *e) {
+    // XXX: we use z_elf_read_all to avoid inter-stream data
 
+    // step (0). init related field of ELF and return if statically-linked
+    e->got = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+    e->plt = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+
+    if (!z_elf_get_phdr_dynamic(e)) {
+        z_info("statically-linked binary does not have relocation information");
+        return;
+    }
+
+    /*
+     * step (1). collect necessary information
+     */
+    const Elf64_Dyn *dyn = NULL;
+    const Elf64_Sym *dynsym = NULL;
+    const char *dynstr = NULL;
+    size_t dynstr_size = 0;
+    const Elf64_Rela *rela_plt = NULL;
+    size_t rela_plt_cnt = 0;
+    const Elf64_Rela *rela_dyn = NULL;
+    size_t rela_dyn_cnt = 0;
+
+    // .dynstr size
+    dyn = __elf_find_dyn_by_tag(e, DT_STRSZ);
+    if (!dyn) {
+        EXITME("fail to find DT_STRSZ");
+    }
+    dynstr_size = dyn->d_un.d_val;
+
+    // .dynstr section
+    dyn = __elf_find_dyn_by_tag(e, DT_STRTAB);
+    if (!dyn) {
+        EXITME("fail to find DT_STRTAB");
+    }
+    dynstr = z_alloc(dynstr_size + 1, sizeof(char));
+    if (z_elf_read_all(e, dyn->d_un.d_ptr, dynstr_size, (void *)dynstr) !=
+        dynstr_size) {
+        EXITME("invalid synstr_size");
+    }
+
+    // .rela.plt section
+    dyn = __elf_find_dyn_by_tag(e, DT_JMPREL);
+    if (dyn) {
+        addr_t rela_plt_addr = dyn->d_un.d_ptr;
+
+        dyn = __elf_find_dyn_by_tag(e, DT_PLTRELSZ);
+        if (!dyn) {
+            EXITME("fail to find DT_PLTRELSZ when DT_JMPREL is found");
+        }
+        rela_plt_cnt = dyn->d_un.d_val / sizeof(Elf64_Rela);
+
+        rela_plt = z_alloc(rela_plt_cnt, sizeof(Elf64_Rela));
+        if (z_elf_read_all(e, rela_plt_addr, dyn->d_un.d_val,
+                           (void *)rela_plt) != dyn->d_un.d_val) {
+            EXITME("invalid size of .rela.plt");
+        }
+
+        if (!z_elf_get_shdr_plt(e)) {
+            EXITME("fail to find .plt section when DT_JMPREL is found");
+        }
+    }
+
+    // .rela.dyn section
+    dyn = __elf_find_dyn_by_tag(e, DT_RELA);
+    if (dyn) {
+        addr_t rela_dyn_addr = dyn->d_un.d_ptr;
+
+        size_t total_size = 0, elem_size = 0;
+
+        dyn = __elf_find_dyn_by_tag(e, DT_RELASZ);
+        if (!dyn) {
+            EXITME("fail to find DT_RELASZ when DT_RELA is found");
+        }
+        total_size = dyn->d_un.d_val;
+
+        dyn = __elf_find_dyn_by_tag(e, DT_RELAENT);
+        if (!dyn) {
+            EXITME("fail to find DT_RELAENT when DT_RELA is found");
+        }
+        elem_size = dyn->d_un.d_val;
+
+        rela_dyn_cnt = total_size / elem_size;
+
+        rela_dyn = z_alloc(rela_dyn_cnt, elem_size);
+        if (z_elf_read_all(e, rela_dyn_addr, total_size, (void *)rela_dyn) !=
+            total_size) {
+            EXITME("invalid size of .rela.dyn");
+        }
+    }
+
+    // check .rela.plt and .rela.dyn
+    if (!rela_plt && !rela_dyn) {
+        EXITME("fail to find neither DT_JMPREL nor DT_RELA");
+    }
+
+    const Elf64_Rela *gots[2] = {rela_plt, rela_dyn};
+    const size_t gots_cnt[2] = {rela_plt_cnt, rela_dyn_cnt};
+    const int gots_type[2] = {R_X86_64_JUMP_SLOT, R_X86_64_GLOB_DAT};
+    const char *gots_str[2] = {".rela.plt", ".rela.dyn"};
+
+    // let first quickly go though how many symbols we need
+    size_t max_idx = 0;
+    for (size_t k = 0; k < 2; k++) {
+        const Elf64_Rela *got = gots[k];
+        const size_t cnt = gots_cnt[k];
+        const int type = gots_type[k];
+
+        for (size_t i = 0; i < cnt; i++, got++) {
+            if (ELF64_R_TYPE(got->r_info) == type) {
+                size_t idx = ELF64_R_SYM(got->r_info);
+                if (idx > max_idx) {
+                    max_idx = idx;
+                }
+            }
+        }
+    }
+    z_info("require %d symbols", max_idx + 1);
+
+    // check sizeof(Elf64_Sym)
+    dyn = __elf_find_dyn_by_tag(e, DT_SYMENT);
+    if (!dyn) {
+        EXITME("fail to find DT_SYMTAB");
+    }
+    if (dyn->d_un.d_val != sizeof(Elf64_Sym)) {
+        EXITME("inconsistent size of Elf64_Sym: %#lx v/s %#lx", dyn->d_un.d_val,
+               sizeof(Elf64_Sym));
+    }
+
+    // .dynsym section
+    dyn = __elf_find_dyn_by_tag(e, DT_SYMTAB);
+    if (!dyn) {
+        EXITME("fail to find DT_SYMTAB");
+    }
+    dynsym = z_alloc(max_idx + 1, sizeof(Elf64_Sym));
+    if (z_elf_read_all(e, dyn->d_un.d_ptr, sizeof(Elf64_Sym) * (max_idx + 1),
+                       (void *)dynsym) != sizeof(Elf64_Sym) * (max_idx + 1)) {
+        EXITME("symtab does not hold enough symbols");
+    }
+
+    /*
+     * step (2). collect GOT information
+     */
+    // XXX: we do not handle .plt.sec here (as I does not know how)
+    for (size_t k = 0; k < 2; k++) {
+        const Elf64_Rela *got = gots[k];
+        const size_t cnt = gots_cnt[k];
+        const int type = gots_type[k];
+        const char *str = gots_str[k];
+
+        for (size_t i = 0; i < cnt; i++, got++) {
+            if (ELF64_R_TYPE(got->r_info) == type) {
+                // get function name
+                size_t idx = ELF64_R_SYM(got->r_info);
+                idx = dynsym[idx].st_name;
+                if (idx >= dynstr_size) {
+                    EXITME("too big section header string table index: %#lx",
+                           idx);
+                }
+                const char *func_name = dynstr + idx;
+
+                // get function address
+                const addr_t func_addr = (addr_t)(got->r_offset);
+
+                const LFuncInfo *func_info = LB_QUERY(func_name);
+                z_info("function GOT [%s]: %s @ %#lx | %s | %s ", str,
+                       func_name, func_addr,
+                       (func_info->cfg_info == LCFG_UNK
+                            ? COLOR(YELLOW, "unknown")
+                            : (func_info->cfg_info == LCFG_OBJ
+                                   ? "object"
+                                   : (func_info->cfg_info == LCFG_RET
+                                          ? COLOR(GREEN, "returnable")
+                                          : COLOR(RED, "terminated")))),
+                       (func_info->ra_info == LRA_UNK
+                            ? COLOR(YELLOW, "unknown")
+                            : (func_info->ra_info == LRA_OBJ
+                                   ? "object"
+                                   : (func_info->ra_info == LRA_USED
+                                          ? COLOR(RED, "used")
+                                          : COLOR(GREEN, "unused")))));
+
+                g_hash_table_insert(e->got, GSIZE_TO_POINTER(func_addr),
+                                    (gpointer)func_info);
+            }
+        }
+    }
+
+    /*
+     * step (3). collect PLT information
+     */
+    // we check .plt and .plt.got sections by check the instruction
     Elf64_Shdr *plts[2] = {z_elf_get_shdr_plt(e), z_elf_get_shdr_plt_got(e)};
-    for (size_t i = 0; i < 2; i++) {
-        Elf64_Shdr *plt = plts[i];
+
+    for (size_t k = 0; k < 2; k++) {
+        Elf64_Shdr *plt = plts[k];
         if (!plt) {
-            // no PLT information
             continue;
         }
 
         addr_t plt_addr = plt->sh_addr;
         size_t plt_size = plt->sh_size;
         size_t plt_entsize = plt->sh_entsize;
-        if (!plt_addr || !plt_size || !plt_entsize) {
-            // invalid information
-            continue;
+        if (!plt_addr || !plt_size) {
+            EXITME("invalid .plt section");
+        }
+        if (!plt_entsize) {
+            plt_entsize = plt_size;
         }
 
-        z_info(
-            "find PLT from %#lx, with %#lx bytes size and %#lx bytes entry "
-            "size",
-            plt_addr, plt_size, plt_entsize);
+        size_t off = 0;
+        uint8_t *ptr = z_alloc(plt_size, sizeof(uint8_t));
+        if (z_elf_read_all(e, plt_addr, plt_size, ptr) != plt_size) {
+            EXITME("fail to load data form PLT");
+        }
 
-        for (size_t off = 0; off < plt_size; off += plt_entsize) {
-            // XXX: note that the first entry of PLT is not a library call
-            // target, but here we regard it as normal library call for easy
-            // coding.
+        // TODO: the first element in .plt is reserved for resloving, remove it.
+        while (off < plt_size) {
+            const LFuncInfo *func_info = LB_DEFAULT();
+
+            CS_DISASM_RAW(ptr + off, plt_size - off, plt_addr + off, 1);
+
+            addr_t got_addr = INVALID_ADDR;
+            if (cs_count == 1 &&
+                z_capstone_is_pc_related_ujmp(cs_inst, &got_addr)) {
+                assert(got_addr != INVALID_ADDR);
+
+                const LFuncInfo *got_info =
+                    (const LFuncInfo *)g_hash_table_lookup(
+                        e->got, GSIZE_TO_POINTER(got_addr));
+
+                if (got_info) {
+                    func_info = got_info;
+                    z_info("function PLT: %s @ %#lx", func_info->name,
+                           plt_addr + off);
+                }
+            }
+
             g_hash_table_insert(e->plt, GSIZE_TO_POINTER(plt_addr + off),
-                                GSIZE_TO_POINTER(1));
-            e->plt_n += 1;
+                                (gpointer)func_info);
+            off += plt_entsize;
         }
+
+        z_free(ptr);
     }
+
+    /*
+     * step (4). free allocated memory
+     */
+    z_free((void *)dynstr);
+    z_free((void *)rela_plt);
+    z_free((void *)rela_dyn);
+    z_free((void *)dynsym);
 }
 
 Z_PRIVATE void __elf_parse_shdr(ELF *e) {
@@ -1205,10 +1459,12 @@ Z_API ELF *z_elf_open(const char *ori_filename, bool detect_main) {
     __elf_rewrite_pt_note(e);
 
     // Step (11). Set RELRO for elf (REMOVE to allow gdb load library symbols)
+    // XXX: AFL already set LD_BIND_NOW to stops the linker from doing extra
+    // work post-fork()
     // __elf_set_relro(e);
 
-    // step (12). Get PLT information
-    __elf_parse_plt(e);
+    // step (12). Get relocation information
+    __elf_parse_relocation(e);
 
     // step (13). link patched file
     char *patched_filename = z_strcat(ori_filename, PATCHED_FILE_SUFFIX);
@@ -1255,6 +1511,7 @@ Z_API void z_elf_destroy(ELF *e) {
     z_splay_destroy(e->vmapping);
     z_splay_destroy(e->mmapped_pages);
 
+    g_hash_table_destroy(e->got);
     g_hash_table_destroy(e->plt);
 
     z_free(e->lookup_tabname);
@@ -1308,6 +1565,26 @@ Z_API void z_elf_save(ELF *e, const char *pathname) {
 Z_API void z_elf_create_snapshot(ELF *e, const char *pathname) {
     z_elf_fsync(e);
     z_mem_file_save_as(e->stream, pathname);
+}
+
+Z_API size_t z_elf_read_all(ELF *e, addr_t addr, size_t n, void *buf) {
+    assert(e != NULL);
+
+    size_t cur_n = n;
+
+    while (cur_n > 0) {
+        size_t k = z_elf_read(e, addr, cur_n, buf);
+
+        if (!k) {
+            return n - cur_n;
+        }
+
+        cur_n -= k;
+        buf += k;
+        addr += k;
+    }
+
+    return n;
 }
 
 Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf) {
@@ -1450,5 +1727,8 @@ Z_API bool z_elf_check_state(ELF *e, ELFState state) {
 }
 
 Z_API bool z_elf_is_statically_linked(ELF *e) {
+    // XXX: linux kernel uses .INTERP segment to determine whether a dynmaic
+    // linker is required, but here we use .DYNAMIC segment which is good enough
+    // (like what readelf does)
     return !z_elf_get_phdr_dynamic(e);
 }

@@ -1,0 +1,687 @@
+,abort,TERM,USED
+,accept,RET,UNUSED
+,access,RET,UNUSED
+,acos,RET,UNUSED
+,__acosf_finite,,
+,alarm,RET,USED
+,archive_read_close,,
+,archive_read_data_block,,
+,archive_read_free,,
+,archive_read_new,,
+,archive_read_next_header,,
+,archive_read_open_memory,,
+,archive_read_support_format_tar,,
+,asin,RET,UNUSED
+,__asprintf_chk,,
+,__assert_fail,,
+,atan,RET,UNUSED
+,atan2,RET,UNUSED
+,backtrace,,
+,backtrace_symbols,,
+,backtrace_symbols_fd,,
+,bind,,
+,BIO_ctrl,,
+,BIO_free,,
+,BIO_new,,
+,BIO_new_mem_buf,,
+,BIO_s_mem,,
+,BN_bin2bn,,
+,BN_bn2bin,,
+,BN_bn2dec,,
+,BN_bn2hex,,
+,BN_clear_free,,
+,BN_cmp,,
+,BN_CTX_free,,
+,BN_CTX_new,,
+,BN_dec2bn,,
+,BN_dup,,
+,BN_free,,
+,BN_is_bit_set,,
+,BN_mod_exp,,
+,BN_new,,
+,BN_num_bits,,
+,BN_rand,,
+,BN_set_word,,
+,BZ2_bzDecompress,,
+,BZ2_bzDecompressEnd,,
+,BZ2_bzDecompressInit,,
+,BZ2_bzlibVersion,,
+,calloc,RET,UNUSED
+,ceil,RET,UNUSED
+,cfmakeraw,,
+,cfsetspeed,,
+,clock,RET,UNUSED
+,clock_gettime,RET,UNUSED
+,close,RET,UNUSED
+,closedir,RET,UNUSED
+,connect,,
+,cos,RET,UNUSED
+,cosh,RET,UNUSED
+,crc32,RET,UNUSED
+,CRYPTO_free,,
+,__ctype_b_loc,,
+,__ctype_get_mb_cur_max,,
+,__ctype_tolower_loc,,
+,__ctype_toupper_loc,,
+,__cxa_allocate_exception,,
+,__cxa_atexit,,
+,__cxa_bad_cast,,
+,__cxa_bad_typeid,,
+,__cxa_begin_catch,,
+,__cxa_end_catch,,
+,__cxa_free_exception,,
+,__cxa_get_exception_ptr,,
+,__cxa_guard_abort,,
+,__cxa_guard_acquire,,
+,__cxa_guard_release,,
+,__cxa_rethrow,,
+,__cxa_throw,,
+,__cxa_throw_bad_array_new_length,,
+,deflate,,
+,deflateEnd,,
+,deflateInit_,,
+,deflateInit2_,,
+,DES_ncbc_encrypt,,
+,DES_set_key_unchecked,,
+,DES_set_odd_parity,,
+,dladdr,,
+,dlclose,RET,UNUSED
+,dlerror,RET,UNUSED
+,dlopen,RET,UNUSED
+,dlsym,RET,UNUSED
+,DSA_do_sign,,
+,DSA_do_verify,,
+,DSA_free,,
+,DSA_generate_key,,
+,DSA_generate_parameters,,
+,DSA_get0_key,,
+,DSA_get0_pqg,,
+,DSA_new,,
+,DSA_set0_key,,
+,DSA_set0_pqg,,
+,DSA_SIG_free,,
+,DSA_SIG_get0,,
+,DSA_SIG_new,,
+,DSA_SIG_set0,,
+,DSA_size,,
+,dup,RET,UNUSED
+,dup2,RET,UNUSED
+,__dynamic_cast,,
+,ECDH_compute_key,,
+,ECDSA_do_sign,,
+,ECDSA_do_verify,,
+,ECDSA_SIG_free,,
+,ECDSA_SIG_get0,,
+,ECDSA_SIG_new,,
+,ECDSA_SIG_set0,,
+,EC_GROUP_cmp,,
+,EC_GROUP_get_curve_name,,
+,EC_GROUP_get_degree,,
+,EC_KEY_dup,,
+,EC_KEY_free,,
+,EC_KEY_generate_key,,
+,EC_KEY_get0_group,,
+,EC_KEY_get0_private_key,,
+,EC_KEY_get0_public_key,,
+,EC_KEY_new_by_curve_name,,
+,EC_KEY_set_asn1_flag,,
+,EC_KEY_set_public_key,,
+,EC_POINT_clear_free,,
+,EC_POINT_cmp,,
+,EC_POINT_free,,
+,EC_POINT_new,,
+,EC_POINT_oct2point,,
+,EC_POINT_point2oct,,
+,ERR_error_string,,
+,ERR_get_error,,
+,__errno_location,,
+,EVP_aes_128_cbc,,
+,EVP_aes_128_ctr,,
+,EVP_aes_128_ecb,,
+,EVP_aes_192_cbc,,
+,EVP_aes_192_ctr,,
+,EVP_aes_192_ecb,,
+,EVP_aes_256_cbc,,
+,EVP_aes_256_ctr,,
+,EVP_aes_256_ecb,,
+,EVP_bf_cbc,,
+,EVP_CIPHER_CTX_free,,
+,EVP_CIPHER_CTX_new,,
+,EVP_CIPHER_CTX_reset,,
+,EVP_CIPHER_CTX_set_padding,,
+,EVP_DecryptInit_ex,,
+,EVP_DecryptUpdate,,
+,EVP_des_ede3_cbc,,
+,EVP_DigestFinal,,
+,EVP_DigestInit,,
+,EVP_DigestInit_ex,,
+,EVP_DigestUpdate,,
+,EVP_EncryptInit_ex,,
+,EVP_EncryptUpdate,,
+,EVP_md5,,
+,EVP_MD_CTX_free,,
+,EVP_MD_CTX_new,,
+,EVP_MD_CTX_reset,,
+,EVP_ripemd160,,
+,EVP_sha1,,
+,EVP_sha256,,
+,EVP_sha384,,
+,EVP_sha512,,
+,execl,,
+,execv,,
+,exit,TERM,UNUSED
+,_exit,TERM,UNUSED
+,exp,RET,UNUSED
+,__exp_finite,,
+,fclose,RET,UNUSED
+,fcntl,RET,UNUSED
+,__fdelt_chk,,
+,fdopen,RET,UNUSED
+,feof,RET,UNUSED
+,ferror,RET,UNUSED
+,fesetround,RET,UNUSED
+,fflush,RET,UNUSED
+,fgetc,RET,UNUSED
+,fgets,RET,UNUSED
+,fileno,RET,UNUSED
+,flock,RET,UNUSED
+,floor,RET,UNUSED
+,fma,RET,UNUSED
+,fmin,RET,UNUSED
+,fmod,RET,UNUSED
+,fopen,RET,UNUSED
+,fopen64,RET,UNUSED
+,fork,,
+,forkpty,,
+,fprintf,RET,UNUSED
+,__fprintf_chk,,
+,fputc,RET,UNUSED
+,fputs,RET,UNUSED
+,fread,RET,UNUSED
+,free,RET,UNUSED
+,freeaddrinfo,RET,UNUSED
+,fseek,RET,UNUSED
+,fsync,,
+,ftell,RET,UNUSED
+,fwrite,RET,UNUSED
+,__fxstat,,
+,__fxstat64,,
+,gai_strerror,,
+,g_bytes_get_data,,
+,g_bytes_ref,,
+,g_bytes_unref,,
+,gcry_mpi_aprint,,
+,gcry_mpi_new,,
+,gcry_mpi_powm,,
+,gcry_mpi_release,,
+,gcry_mpi_scan,,
+,getaddrinfo,RET,UNUSED
+,getcontext,,
+,getcwd,RET,UNUSED
+,__getdelim,,
+,getdtablesize,,
+,getenv,RET,UNUSED
+,gethostbyname,,
+,gethostbyname2,,
+,gethostname,,
+,getline,RET,UNUSED
+,getloadavg,,
+,getnameinfo,,
+,getopt,RET,UNUSED
+,getopt_long,,
+,getpagesize,,
+,getpeername,,
+,getpid,,
+,getpwnam,,
+,getpwuid_r,,
+,getsockname,,
+,getsockopt,,
+,gettimeofday,,
+,getuid,,
+,__gmon_start__,,
+,gmtime,,
+,gmtime_r,,
+,GOMP_critical_name_end,,
+,GOMP_critical_name_start,,
+,GOMP_parallel,,
+,grantpt,,
+,g_unichar_combining_class,,
+,g_unichar_compose,,
+,g_unichar_decompose,,
+,g_unichar_fully_decompose,,
+,g_unichar_get_mirror_char,,
+,g_unichar_get_script,,
+,g_unichar_iswide,,
+,g_unichar_type,,
+,g_unicode_script_from_iso15924,,
+,g_unicode_script_to_iso15924,,
+,gzclose,,
+,gzdirect,,
+,gzdopen,,
+,gzopen64,,
+,gzread,,
+,gzwrite,,
+,__h_errno_location,,
+,HMAC_CTX_free,,
+,HMAC_CTX_new,,
+,HMAC_CTX_reset,,
+,HMAC_Final,,
+,HMAC_Init_ex,,
+,HMAC_Update,,
+,hypot,,
+,iconv,,
+,iconv_close,,
+,iconv_open,,
+,if_indextoname,,
+,inet_addr,,
+,inet_ntop,,
+,inet_pton,,
+,inflate,,
+,inflateEnd,,
+,inflateInit_,,
+,inflateInit2_,,
+,inflateReset,,
+,inflateSetDictionary,,
+,ioctl,,
+,_IO_putc,,
+,isalnum,,
+,isatty,,
+,isdigit,RET,UNUSED
+,__isoc99_sscanf,,
+,isspace,RET,UNUSED
+,isupper,RET,UNUSED
+,iswdigit,RET,UNUSED
+,iswspace,RET,UNUSED
+,isxdigit,RET,UNUSED
+,kill,,
+,ldexp,,
+,__libc_start_main,,
+,listen,,
+,localeconv,,
+,localtime,,
+,log,RET,UNUSED
+,log10,RET,UNUSED
+,log2,RET,UNUSED
+,__log_finite,,
+,_longjmp,,
+,__longjmp_chk,,
+,lseek,RET,UNUSED
+,lseek64,RET,UNUSED
+,__lxstat,,
+,__lxstat64,,
+,lzma_alone_decoder,,
+,lzma_code,,
+,lzma_crc32,,
+,lzma_end,,
+,lzma_properties_decode,,
+,lzma_raw_decoder,,
+,lzma_stream_decoder,,
+,madvise,,
+,makecontext,,
+,malloc,RET,UNUSED
+,mbrtowc,,
+,memchr,RET,UNUSED
+,memcmp,RET,UNUSED
+,memcpy,RET,UNUSED
+,__memcpy_chk,,
+,memmem,RET,UNUSED
+,memmove,RET,UNUSED
+,__memmove_chk,,
+,memrchr,RET,UNUSED
+,memset,RET,UNUSED
+,__memset_chk,,
+,mkdir,RET,UNUSED
+,mkstemp,,
+,mktime,,
+,mlock,,
+,mmap,RET,UNUSED
+,mprotect,,
+,munmap,RET,UNUSED
+,nanosleep,,
+,nearbyint,,
+,nl_langinfo,,
+,omp_destroy_nest_lock,,
+,omp_get_num_threads,,
+,omp_get_thread_num,,
+,omp_init_nest_lock,,
+,omp_in_parallel,,
+,omp_set_nested,,
+,omp_set_nest_lock,,
+,omp_unset_nest_lock,,
+,open,RET,UNUSED
+,open64,RET,UNUSED
+,opendir,RET,UNUSED
+,openlog,,
+,OPENSSL_init_crypto,,
+,optarg,,
+,opterr,,
+,optind,,
+,optopt,,
+,PEM_read_bio_DSAPrivateKey,,
+,PEM_read_bio_ECPrivateKey,,
+,PEM_read_bio_RSAPrivateKey,,
+,PEM_write_bio_DSAPrivateKey,,
+,PEM_write_bio_ECPrivateKey,,
+,PEM_write_bio_RSAPrivateKey,,
+,perror,RET,UNUSED
+,pipe,RET,UNUSED
+,PKCS5_PBKDF2_HMAC_SHA1,,
+,poll,,
+,__poll_chk,,
+,__popcountdi2,,
+,posix_openpt,,
+,posix_spawn_file_actions_addclose,,
+,posix_spawn_file_actions_adddup2,,
+,posix_spawn_file_actions_destroy,,
+,posix_spawn_file_actions_init,,
+,posix_spawnp,,
+,pow,RET,UNUSED
+,__pow_finite,,
+,prctl,,
+,__printf_chk,,
+,pthread_cond_destroy,,
+,pthread_cond_init,,
+,pthread_cond_signal,,
+,pthread_cond_timedwait,,
+,pthread_cond_wait,,
+,pthread_create,,
+,pthread_equal,,
+,pthread_getspecific,,
+,pthread_join,,
+,pthread_key_create,,
+,pthread_key_delete,,
+,pthread_mutexattr_destroy,,
+,pthread_mutexattr_init,,
+,pthread_mutexattr_settype,,
+,pthread_mutex_destroy,,
+,pthread_mutex_init,,
+,pthread_mutex_lock,,
+,pthread_mutex_trylock,,
+,pthread_mutex_unlock,,
+,pthread_once,,
+,pthread_rwlock_destroy,,
+,pthread_rwlock_init,,
+,pthread_rwlock_rdlock,,
+,pthread_rwlock_unlock,,
+,pthread_rwlock_wrlock,,
+,pthread_self,,
+,pthread_setspecific,,
+,ptsname,,
+,putchar,RET,UNUSED
+,putenv,,
+,puts,RET,UNUSED
+,qsort,RET,UNUSED
+,raise,,
+,rand,RET,UNUSED
+,RAND_add,,
+,RAND_bytes,,
+,RAND_pseudo_bytes,,
+,rand_r,,
+,read,RET,UNUSED
+,__read_chk,,
+,readdir,RET,UNUSED
+,realloc,RET,UNUSED
+,recv,,
+,remainder,,
+,remove,RET,UNUSED
+,rewind,RET,UNUSED
+,round,RET,UNUSED
+,RSA_free,,
+,RSA_generate_key_ex,,
+,RSA_get0_crt_params,,
+,RSA_get0_factors,,
+,RSA_get0_key,,
+,RSA_new,,
+,RSA_set0_crt_params,,
+,RSA_set0_factors,,
+,RSA_set0_key,,
+,RSA_sign,,
+,RSA_size,,
+,RSA_verify,,
+,sched_yield,,
+,select,,
+,send,,
+,setcontext,,
+,setenv,RET,UNUSED
+,_setjmp,,
+,setlocale,,
+,setlogmask,,
+,setrlimit,RET,UNUSED
+,setsid,RET,UNUSED
+,setsockopt,RET,UNUSED
+,shutdown,RET,UNUSED
+,sigaction,RET,UNUSED
+,signal,RET,UNUSED
+,sin,RET,UNUSED
+,sincos,RET,UNUSED
+,sincosf,RET,UNUSED
+,sinh,RET,UNUSED
+,sleep,RET,UNUSED
+,snprintf,RET,UNUSED
+,__snprintf_chk,,
+,socket,RET,UNUSED
+,socketpair,RET,UNUSED
+,__sprintf_chk,RET,UNUSED
+,sqrt,RET,UNUSED
+,sqrtf,RET,UNUSED
+,sscanf,RET,UNUSED
+,__stack_chk_fail,,
+,stderr,OBJ,OBJ
+,stdin,OBJ,OBJ
+,stdout,OBJ,OBJ
+,stpcpy,RET,UNUSED
+,__stpcpy_chk,,
+,strcasecmp,RET,UNUSED
+,strcasestr,RET,UNUSED
+,strcat,RET,UNUSED
+,__strcat_chk,,
+,strchr,RET,UNUSED
+,strcmp,RET,UNUSED
+,strcpy,RET,UNUSED
+,__strcpy_chk,,
+,strcspn,RET,UNUSED
+,strdup,RET,UNUSED
+,strerror,RET,UNUSED
+,strftime,RET,UNUSED
+,strlen,RET,UNUSED
+,strncasecmp,RET,UNUSED
+,__strncat_chk,,
+,strncmp,RET,UNUSED
+,strncpy,RET,UNUSED
+,__strncpy_chk,,
+,strnlen,RET,UNUSED
+,strrchr,RET,UNUSED
+,strsignal,RET,UNUSED
+,strspn,RET,UNUSED
+,strstr,RET,UNUSED
+,strtod,RET,UNUSED
+,strtof,RET,UNUSED
+,strtok,RET,UNUSED
+,strtol,RET,UNUSED
+,strtoll,RET,UNUSED
+,strtoul,RET,UNUSED
+,strtoull,RET,UNUSED
+,sysconf,RET,UNUSED
+,__syslog_chk,,
+,system,RET,UNUSED
+,tan,RET,UNUSED
+,tcflush,RET,UNUSED
+,tcgetattr,RET,UNUSED
+,tcsendbreak,RET,UNUSED
+,tcsetattr,RET,UNUSED
+,time,RET,UNUSED
+,timegm,RET,UNUSED
+,__tls_get_addr,,
+,tmpfile,RET,UNUSED
+,trunc,RET,UNUSED
+,__udivti3,,
+,__umodti3,,
+,unlink,RET,UNUSED
+,unlockpt,RET,UNUSED
+,_Unwind_Resume,,
+,usleep,RET,UNUSED
+,utimes,RET,UNUSED
+,__vfprintf_chk,,
+,vsnprintf,RET,UNUSED
+,__vsnprintf_chk,,
+,__vsprintf_chk,,
+,waitpid,RET,UNUSED
+,wcrtomb,RET,UNUSED
+,wcscpy,RET,UNUSED
+,wcslen,RET,UNUSED
+,wmemcmp,RET,UNUSED
+,wmemmove,RET,UNUSED
+,write,RET,UNUSED
+,xmlCleanupParser,,
+,xmlFreeTextReader,,
+,xmlReaderForIO,,
+,xmlTextReaderConstLocalName,,
+,xmlTextReaderConstValue,,
+,xmlTextReaderIsEmptyElement,,
+,xmlTextReaderMoveToFirstAttribute,,
+,xmlTextReaderMoveToNextAttribute,,
+,xmlTextReaderNodeType,,
+,xmlTextReaderRead,,
+,xmlTextReaderSetErrorHandler,,
+,__xpg_basename,,
+,__xpg_strerror_r,,
+,__xstat,,
+,__xstat64,,
+operator delete[](void*),_ZdaPv,,
+operator delete(void*),_ZdlPv,,
+"operator delete(void*, unsigned long)",_ZdlPvm,,
+"operator delete(void*, std::nothrow_t const&)",_ZdlPvRKSt9nothrow_t,,
+operator new[](unsigned long),_Znam,,
+std::__basic_file<char>::is_open() const,_ZNKSt12__basic_fileIcE7is_openEv,,
+std::runtime_error::what() const,_ZNKSt13runtime_error4whatEv,,
+std::ctype<char>::_M_widen_init() const,_ZNKSt5ctypeIcE13_M_widen_initEv,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_last_of(char const*, unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12find_last_ofEPKcmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_first_of(char const*, unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE13find_first_ofEPKcmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_last_not_of(char, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE16find_last_not_ofEcm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_last_not_of(char const*, unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE16find_last_not_ofEPKcmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_first_not_of(char const*, unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE17find_first_not_ofEPKcmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find(char, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEcm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find(char const*, unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::rfind(char, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEcm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::rfind(char const*, unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::substr(unsigned long, unsigned long) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6substrEmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::compare(unsigned long, unsigned long, char const*) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEmmPKc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::compare(char const*) const",_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc,,
+"std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::str() const",_ZNKSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE3strEv,,
+"std::__detail::_Prime_rehash_policy::_M_need_rehash(unsigned long, unsigned long, unsigned long) const",_ZNKSt8__detail20_Prime_rehash_policy14_M_need_rehashEmmm,,
+std::exception::what() const,_ZNKSt9exception4whatEv,,
+std::istream::get(),_ZNSi3getEv,,
+"std::istream::read(char*, long)",_ZNSi4readEPcl,,
+std::istream::unget(),_ZNSi5ungetEv,,
+std::ostream::put(char),_ZNSo3putEc,,
+std::ostream::flush(),_ZNSo5flushEv,,
+"std::ostream::write(char const*, long)",_ZNSo5writeEPKcl,,
+std::ostream& std::ostream::_M_insert<bool>(bool),_ZNSo9_M_insertIbEERSoT_,,
+std::ostream& std::ostream::_M_insert<double>(double),_ZNSo9_M_insertIdEERSoT_,,
+std::ostream& std::ostream::_M_insert<unsigned long>(unsigned long),_ZNSo9_M_insertImEERSoT_,,
+std::ostream& std::ostream::_M_insert<void const*>(void const*),_ZNSo9_M_insertIPKvEERSoT_,,
+std::ostream& std::ostream::_M_insert<long long>(long long),_ZNSo9_M_insertIxEERSoT_,,
+std::ostream& std::ostream::_M_insert<unsigned long long>(unsigned long long),_ZNSo9_M_insertIyEERSoT_,,
+std::ostream::operator<<(int),_ZNSolsEi,,
+std::ostream::operator<<(short),_ZNSolsEs,,
+std::logic_error::logic_error(std::logic_error const&),_ZNSt11logic_errorC2ERKS_,,
+std::__basic_file<char>::~__basic_file(),_ZNSt12__basic_fileIcED1Ev,,
+"std::domain_error::domain_error(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)",_ZNSt12domain_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE,,
+std::domain_error::~domain_error(),_ZNSt12domain_errorD1Ev,,
+std::out_of_range::out_of_range(char const*),_ZNSt12out_of_rangeC1EPKc,,
+std::out_of_range::~out_of_range(),_ZNSt12out_of_rangeD1Ev,,
+"std::basic_filebuf<char, std::char_traits<char> >::open(char const*, std::_Ios_Openmode)",_ZNSt13basic_filebufIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode,,
+"std::basic_filebuf<char, std::char_traits<char> >::close()",_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv,,
+"std::basic_filebuf<char, std::char_traits<char> >::basic_filebuf()",_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev,,
+"std::basic_filebuf<char, std::char_traits<char> >::~basic_filebuf()",_ZNSt13basic_filebufIcSt11char_traitsIcEED1Ev,,
+"std::basic_fstream<char, std::char_traits<char> >::basic_fstream(char const*, std::_Ios_Openmode)",_ZNSt13basic_fstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode,,
+std::runtime_error::runtime_error(std::runtime_error const&),_ZNSt13runtime_errorC1ERKS_,,
+std::runtime_error::runtime_error(char const*),_ZNSt13runtime_errorC2EPKc,,
+std::runtime_error::runtime_error(std::runtime_error const&),_ZNSt13runtime_errorC2ERKS_,,
+std::runtime_error::~runtime_error(),_ZNSt13runtime_errorD1Ev,,
+std::runtime_error::~runtime_error(),_ZNSt13runtime_errorD2Ev,,
+"std::basic_ifstream<char, std::char_traits<char> >::basic_ifstream(char const*, std::_Ios_Openmode)",_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode,,
+"std::basic_ifstream<char, std::char_traits<char> >::~basic_ifstream()",_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev,,
+"std::basic_ofstream<char, std::char_traits<char> >::basic_ofstream(char const*, std::_Ios_Openmode)",_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode,,
+"std::basic_ofstream<char, std::char_traits<char> >::~basic_ofstream()",_ZNSt14basic_ofstreamIcSt11char_traitsIcEED1Ev,,
+std::invalid_argument::invalid_argument(char const*),_ZNSt16invalid_argumentC1EPKc,,
+"std::invalid_argument::invalid_argument(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)",_ZNSt16invalid_argumentC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE,,
+std::invalid_argument::~invalid_argument(),_ZNSt16invalid_argumentD1Ev,,
+std::locale::locale(),_ZNSt6localeC1Ev,,
+std::locale::~locale(),_ZNSt6localeD1Ev,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace(unsigned long, unsigned long, char const*, unsigned long)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_construct(unsigned long, char)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructEmc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace_aux(unsigned long, unsigned long, unsigned long, char)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::swap(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4swapERS4_,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::append(char const*)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::assign(char const*)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::resize(unsigned long, char)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_erase(unsigned long, unsigned long)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_append(char const*, unsigned long)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_assign(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_create(unsigned long&, unsigned long)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_mutate(unsigned long, unsigned long, char const*, unsigned long)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::push_back(char)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9push_backEc,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::operator=(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&&)",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_,,
+"std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string()",_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED1Ev,,
+"std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::_M_sync(char*, unsigned long, unsigned long)",_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm,,
+"std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::basic_stringstream(std::_Ios_Openmode)",_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode,,
+"std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::~basic_stringstream()",_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEED1Ev,,
+"std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >::basic_istringstream(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::_Ios_Openmode)",_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode,,
+"std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >::~basic_istringstream()",_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEED1Ev,,
+"std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::basic_ostringstream(std::_Ios_Openmode)",_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode,,
+"std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::~basic_ostringstream()",_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEED1Ev,,
+std::bad_cast::~bad_cast(),_ZNSt8bad_castD2Ev,,
+"std::__detail::_List_node_base::swap(std::__detail::_List_node_base&, std::__detail::_List_node_base&)",_ZNSt8__detail15_List_node_base4swapERS0_S1_,,
+std::__detail::_List_node_base::_M_hook(std::__detail::_List_node_base*),_ZNSt8__detail15_List_node_base7_M_hookEPS0_,,
+std::__detail::_List_node_base::_M_unhook(),_ZNSt8__detail15_List_node_base9_M_unhookEv,,
+std::ios_base::Init::Init(),_ZNSt8ios_base4InitC1Ev,,
+std::ios_base::Init::~Init(),_ZNSt8ios_base4InitD1Ev,,
+std::ios_base::ios_base(),_ZNSt8ios_baseC2Ev,,
+std::ios_base::~ios_base(),_ZNSt8ios_baseD2Ev,,
+"std::basic_ios<char, std::char_traits<char> >::init(std::basic_streambuf<char, std::char_traits<char> >*)",_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E,,
+"std::basic_ios<char, std::char_traits<char> >::clear(std::_Ios_Iostate)",_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate,,
+std::exception::~exception(),_ZNSt9exceptionD1Ev,,
+operator new(unsigned long),_Znwm,,
+"operator new(unsigned long, std::nothrow_t const&)",_ZnwmRKSt9nothrow_t,,
+"std::_Hash_bytes(void const*, unsigned long, unsigned long)",_ZSt11_Hash_bytesPKvmm,,
+"std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)",_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l,,
+std::__throw_bad_cast(),_ZSt16__throw_bad_castv,,
+std::__throw_bad_alloc(),_ZSt17__throw_bad_allocv,,
+std::_Rb_tree_decrement(std::_Rb_tree_node_base const*),_ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base,,
+std::_Rb_tree_decrement(std::_Rb_tree_node_base*),_ZSt18_Rb_tree_decrementPSt18_Rb_tree_node_base,,
+std::_Rb_tree_increment(std::_Rb_tree_node_base const*),_ZSt18_Rb_tree_incrementPKSt18_Rb_tree_node_base,,
+std::_Rb_tree_increment(std::_Rb_tree_node_base*),_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base,,
+std::__throw_logic_error(char const*),_ZSt19__throw_logic_errorPKc,,
+std::__throw_length_error(char const*),_ZSt20__throw_length_errorPKc,,
+std::__throw_out_of_range(char const*),_ZSt20__throw_out_of_rangePKc,,
+"std::__throw_out_of_range_fmt(char const*, ...)",_ZSt24__throw_out_of_range_fmtPKcz,,
+std::__throw_bad_function_call(),_ZSt25__throw_bad_function_callv,,
+"std::_Rb_tree_rebalance_for_erase(std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)",_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_,,
+"std::_Rb_tree_insert_and_rebalance(bool, std::_Rb_tree_node_base*, std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)",_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_,,
+std::cin,_ZSt3cin,,
+std::cerr,_ZSt4cerr,,
+std::cout,_ZSt4cout,,
+"std::basic_ostream<char, std::char_traits<char> >& std::endl<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&)",_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_,,
+"std::basic_istream<char, std::char_traits<char> >& std::getline<char, std::char_traits<char>, std::allocator<char> >(std::basic_istream<char, std::char_traits<char> >&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&, char)",_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EES4_,,
+std::nothrow,_ZSt7nothrow,,
+std::terminate(),_ZSt9terminatev,,
+"std::basic_ostream<char, std::char_traits<char> >& std::operator<< <std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*)",_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc,,
+"std::basic_istream<char, std::char_traits<char> >& std::operator>><char, std::char_traits<char> >(std::basic_istream<char, std::char_traits<char> >&, char&)",_ZStrsIcSt11char_traitsIcEERSt13basic_istreamIT_T0_ES6_RS3_,,
+typeinfo for int,_ZTIi,OBJ,OBJ
+typeinfo for char const*,_ZTIPKc,OBJ,OBJ
+"VTT for std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >",_ZTTNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"VTT for std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >",_ZTTNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"VTT for std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >",_ZTTNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"VTT for std::basic_ifstream<char, std::char_traits<char> >",_ZTTSt14basic_ifstreamIcSt11char_traitsIcEE,OBJ,OBJ
+"VTT for std::basic_ofstream<char, std::char_traits<char> >",_ZTTSt14basic_ofstreamIcSt11char_traitsIcEE,OBJ,OBJ
+"vtable for std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >",_ZTVNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"vtable for std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >",_ZTVNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"vtable for std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >",_ZTVNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"vtable for std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >",_ZTVNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEE,OBJ,OBJ
+"vtable for std::basic_filebuf<char, std::char_traits<char> >",_ZTVSt13basic_filebufIcSt11char_traitsIcEE,OBJ,OBJ
+"vtable for std::basic_ifstream<char, std::char_traits<char> >",_ZTVSt14basic_ifstreamIcSt11char_traitsIcEE,OBJ,OBJ
+"vtable for std::basic_ofstream<char, std::char_traits<char> >",_ZTVSt14basic_ofstreamIcSt11char_traitsIcEE,OBJ,OBJ
+"vtable for std::basic_streambuf<char, std::char_traits<char> >",_ZTVSt15basic_streambufIcSt11char_traitsIcEE,OBJ,OBJ
+"vtable for std::basic_ios<char, std::char_traits<char> >",_ZTVSt9basic_iosIcSt11char_traitsIcEE,OBJ,OBJ

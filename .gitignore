@@ -70,6 +70,7 @@ peda*
 handler_main.c
 .stoch-fuzz.*
 local_crashes
+library_functions_load.c
 
 # whitelist test
 src/test/

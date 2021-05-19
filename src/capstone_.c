@@ -283,7 +283,7 @@ Z_API bool z_capstone_is_terminator(const cs_insn *inst) {
     return false;
 }
 
-Z_API bool z_capstone_is_rare(cs_insn *inst) {
+Z_API bool z_capstone_is_rare(const cs_insn *inst) {
     // we maintain a rare instruction list to benifit hint collection
     switch (inst->id) {
         case X86_INS_OUT:
@@ -397,6 +397,64 @@ Z_API RegState *z_capstone_get_register_state(const cs_insn *inst) {
 
 DONE:
     return rs;
+}
+
+// XXX: call qword byte [rip+xxx]
+Z_API bool z_capstone_is_pc_related_ucall(const cs_insn *inst,
+                                          addr_t *addr_ptr) {
+    // assign INVALID_ADDR to addr_ptr
+    *addr_ptr = INVALID_ADDR;
+
+    // first check that it is a jump instruction
+    if (inst->id != X86_INS_CALL) {
+        return false;
+    }
+
+    // then check that it only has one operand
+    cs_detail *detail = inst->detail;
+    if (detail->x86.op_count != 1) {
+        return false;
+    }
+
+    // then check the operand is a qword memory
+    cs_x86_op *op = &(detail->x86.operands[0]);
+    if (op->type != X86_OP_MEM || op->mem.base != X86_REG_RIP ||
+        op->mem.index != X86_REG_INVALID || op->size != 8) {
+        return false;
+    }
+
+    // update addr_ptr
+    *addr_ptr = inst->address + inst->size + op->mem.disp;
+    return true;
+}
+
+// XXX: jmp qword byte [rip+xxx]
+Z_API bool z_capstone_is_pc_related_ujmp(const cs_insn *inst,
+                                         addr_t *addr_ptr) {
+    // assign INVALID_ADDR to addr_ptr
+    *addr_ptr = INVALID_ADDR;
+
+    // first check that it is a jump instruction
+    if (inst->id != X86_INS_JMP) {
+        return false;
+    }
+
+    // then check that it only has one operand
+    cs_detail *detail = inst->detail;
+    if (detail->x86.op_count != 1) {
+        return false;
+    }
+
+    // then check the operand is a qword memory
+    cs_x86_op *op = &(detail->x86.operands[0]);
+    if (op->type != X86_OP_MEM || op->mem.base != X86_REG_RIP ||
+        op->mem.index != X86_REG_INVALID || op->size != 8) {
+        return false;
+    }
+
+    // update addr_ptr
+    *addr_ptr = inst->address + inst->size + op->mem.disp;
+    return true;
 }
 
 Z_API void z_capstone_show_gpr_state(GPRState gpr_state) {
