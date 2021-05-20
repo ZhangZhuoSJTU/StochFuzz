@@ -266,7 +266,7 @@ Z_PRIVATE void __prob_disassembler_refresh_playground(ProbDisassembler *pd);
 #ifdef DEBUG
 
 Z_RESERVED Z_PRIVATE bool __prob_disassembler_path_dfs(
-    ProbDisassembler *pd, Buffer *(*get_next)(InstAnalyzer *, addr_t),
+    ProbDisassembler *pd, Buffer *(*get_next)(UCFG_Analyzer *, addr_t),
     GQueue *stack, GHashTable *seen, addr_t cur_addr, addr_t target) {
     Disassembler *d = pd->base;
 
@@ -282,7 +282,7 @@ Z_RESERVED Z_PRIVATE bool __prob_disassembler_path_dfs(
     }
 
     Iter(addr_t, next_addrs);
-    z_iter_init_from_buf(next_addrs, (*get_next)(d->inst_analyzer, cur_addr));
+    z_iter_init_from_buf(next_addrs, (*get_next)(d->ucfg_analyzer, cur_addr));
 
     while (!z_iter_is_empty(next_addrs)) {
         addr_t next_addr = *(z_iter_next(next_addrs));
@@ -311,7 +311,7 @@ Z_RESERVED Z_PRIVATE void __prob_disassembler_search_path(ProbDisassembler *pd,
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
     GQueue *stack = g_queue_new();
 
-    if (!__prob_disassembler_path_dfs(pd, &z_inst_analyzer_get_successors,
+    if (!__prob_disassembler_path_dfs(pd, &z_ucfg_analyzer_get_successors,
                                       stack, seen, src, dst)) {
         EXITME("cannot reach %#lx from %#lx", dst, src);
     } else {
@@ -387,7 +387,7 @@ Z_PRIVATE bool __prob_disassembler_get_propogate_successors(
         return false;
     }
 
-    Buffer *succs_buf = z_inst_analyzer_get_successors(d->inst_analyzer, addr);
+    Buffer *succs_buf = z_ucfg_analyzer_get_successors(d->ucfg_analyzer, addr);
     assert(succs_buf);
 
     // XXX:  option one: propogate hints through fall-through edges for calls

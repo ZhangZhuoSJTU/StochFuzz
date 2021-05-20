@@ -5,9 +5,9 @@
 #include "binary.h"
 #include "buffer.h"
 #include "config.h"
-#include "inst_analyzer.h"
 #include "interval_splay.h"
 #include "sys_optarg.h"
+#include "ucfg_analyzer.h"
 
 #include <capstone/capstone.h>
 #include <gmodule.h>
@@ -45,7 +45,7 @@ STRUCT(Disassembler, {
     GHashTable *potential_blocks;
 
     // Light-weight instruction-level analyzer;
-    InstAnalyzer *inst_analyzer;
+    UCFG_Analyzer *ucfg_analyzer;
 
     // system optargs
     SysOptArgs *opts;
@@ -55,7 +55,7 @@ STRUCT(Disassembler, {
  * Getter and Setter
  */
 DECLARE_GETTER(Disassembler, disassembler, Binary *, binary);
-DECLARE_GETTER(Disassembler, disassembler, InstAnalyzer *, inst_analyzer);
+DECLARE_GETTER(Disassembler, disassembler, UCFG_Analyzer *, ucfg_analyzer);
 
 /*
  * Create a disassembler

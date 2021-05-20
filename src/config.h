@@ -20,7 +20,7 @@
  * Tool name and version
  */
 #define OURTOOL "stoch-fuzz"
-#define VERSION "0.7.0"
+#define VERSION "0.9.0"
 
 /*
  * Magic string to indicate the file is patched

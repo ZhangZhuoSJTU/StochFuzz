@@ -1,35 +1,35 @@
-#include "inst_analyzer.h"
+#include "ucfg_analyzer.h"
 #include "utils.h"
 
 /*
  * Initial analysis for each instruction (calculate direct successors and
  * predecessors)
  */
-Z_PRIVATE void __inst_analyzer_init_analyze(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_init_analyze(UCFG_Analyzer *a, addr_t addr,
                                             const cs_insn *inst);
 
 /*
  * Advanced analysis for each instruction (gpr & flg's use-def)
  */
-Z_PRIVATE void __inst_analyzer_advance_analyze(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_advance_analyze(UCFG_Analyzer *a, addr_t addr,
                                                const cs_insn *inst);
 
 /*
  * Use-def analysis for eflag reigster
  */
-Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_analyze_flg(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst);
 
 /*
  * Use-def analysis for general purpose register
  */
-Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst);
 
 /*
  * Add predecessor and successor relation
  */
-Z_PRIVATE void __inst_analyzer_new_pred_and_succ(InstAnalyzer *a,
+Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
                                                  addr_t src_addr,
                                                  addr_t dst_addr);
 
@@ -37,10 +37,10 @@ Z_PRIVATE void __inst_analyzer_new_pred_and_succ(InstAnalyzer *a,
  * Check whether two instructions are consistent, so that simply replacing one
  * with another one will not influence current analysis result
  */
-Z_PRIVATE bool __inst_analyzer_check_consistent(const cs_insn *inst_alice,
+Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
                                                 const cs_insn *inst_bob);
 
-Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst) {
     if (a->opts->disable_opt) {
         return;
@@ -54,7 +54,7 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
     // step (1). update gpr_analyzed_succs
     {
         // check addr's succs
-        Buffer *succs = z_inst_analyzer_get_successors(a, addr);
+        Buffer *succs = z_ucfg_analyzer_get_successors(a, addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
         addr_t *succs_array = (addr_t *)z_buffer_get_raw_buf(succs);
@@ -70,7 +70,7 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
                             GSIZE_TO_POINTER(analyzed_succ_n));
 
         // update addr's preds
-        Buffer *preds = z_inst_analyzer_get_predecessors(a, addr);
+        Buffer *preds = z_ucfg_analyzer_get_predecessors(a, addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
         addr_t *preds_array = (addr_t *)z_buffer_get_raw_buf(preds);
@@ -92,11 +92,11 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
         // step (3.1). pop from queue and get basic information
         addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
 
-        Buffer *preds = z_inst_analyzer_get_predecessors(a, cur_addr);
+        Buffer *preds = z_ucfg_analyzer_get_predecessors(a, cur_addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
 
-        Buffer *succs = z_inst_analyzer_get_successors(a, cur_addr);
+        Buffer *succs = z_ucfg_analyzer_get_successors(a, cur_addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
 
@@ -104,7 +104,7 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
             a->reg_states, GSIZE_TO_POINTER(cur_addr));
         // XXX: a good observation is that for a given address, its known
         // successors must be added before it. And according to the logic of
-        // z_inst_analyzer_add_inst, any instruction will be analyzed once it is
+        // z_ucfg_analyzer_add_inst, any instruction will be analyzed once it is
         // added into analyzer. Hence, we can sure any instruction in the queue
         // is already analyzed (except addr itself).
         assert(rs != NULL);
@@ -165,7 +165,7 @@ Z_PRIVATE void __inst_analyzer_analyze_gpr(InstAnalyzer *a, addr_t addr,
     return;
 }
 
-Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_analyze_flg(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst) {
     if (a->opts->disable_opt) {
         return;
@@ -179,7 +179,7 @@ Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
 
     // step (1). check whether it is ready to analyze
     {
-        Buffer *succs = z_inst_analyzer_get_successors(a, addr);
+        Buffer *succs = z_ucfg_analyzer_get_successors(a, addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
         addr_t *succs_array = (addr_t *)z_buffer_get_raw_buf(succs);
@@ -232,11 +232,11 @@ Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
                                     GSIZE_TO_POINTER(cur_addr)));
 
         // step (2.2). basic infomration
-        Buffer *preds = z_inst_analyzer_get_predecessors(a, cur_addr);
+        Buffer *preds = z_ucfg_analyzer_get_predecessors(a, cur_addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
 
-        Buffer *succs = z_inst_analyzer_get_successors(a, cur_addr);
+        Buffer *succs = z_ucfg_analyzer_get_successors(a, cur_addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
 
@@ -297,7 +297,7 @@ Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
                                 GSIZE_TO_POINTER(pred_finish_succs));
             if (pred_finish_succs ==
                 (size_t)(
-                    z_buffer_get_size(z_inst_analyzer_get_successors(a, pred)) /
+                    z_buffer_get_size(z_ucfg_analyzer_get_successors(a, pred)) /
                     sizeof(addr_t))) {
                 g_queue_push_tail(queue, GSIZE_TO_POINTER(pred));
             }
@@ -307,13 +307,13 @@ Z_PRIVATE void __inst_analyzer_analyze_flg(InstAnalyzer *a, addr_t addr,
     g_queue_free(queue);
 }
 
-Z_PRIVATE void __inst_analyzer_advance_analyze(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_advance_analyze(UCFG_Analyzer *a, addr_t addr,
                                                const cs_insn *inst) {
-    __inst_analyzer_analyze_flg(a, addr, inst);
-    __inst_analyzer_analyze_gpr(a, addr, inst);
+    __ucfg_analyzer_analyze_flg(a, addr, inst);
+    __ucfg_analyzer_analyze_gpr(a, addr, inst);
 }
 
-Z_PRIVATE bool __inst_analyzer_check_consistent(const cs_insn *inst_alice,
+Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
                                                 const cs_insn *inst_bob) {
     // check size
     if (inst_alice->size != inst_bob->size) {
@@ -384,7 +384,7 @@ Z_PRIVATE bool __inst_analyzer_check_consistent(const cs_insn *inst_alice,
     return true;
 }
 
-Z_PRIVATE void __inst_analyzer_new_pred_and_succ(InstAnalyzer *a,
+Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
                                                  addr_t src_addr,
                                                  addr_t dst_addr) {
 #ifdef DEBUG
@@ -433,7 +433,7 @@ Z_PRIVATE void __inst_analyzer_new_pred_and_succ(InstAnalyzer *a,
 #undef __NEW_RELATION
 }
 
-Z_PRIVATE void __inst_analyzer_init_analyze(InstAnalyzer *a, addr_t addr,
+Z_PRIVATE void __ucfg_analyzer_init_analyze(UCFG_Analyzer *a, addr_t addr,
                                             const cs_insn *inst) {
     assert(inst != NULL);
 
@@ -445,10 +445,10 @@ Z_PRIVATE void __inst_analyzer_init_analyze(InstAnalyzer *a, addr_t addr,
 
         // avoid dupilicated succs/preds
         if (true) {
-            __inst_analyzer_new_pred_and_succ(a, addr, addr + inst->size);
+            __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size);
         }
         if (detail->x86.operands[0].imm != addr + inst->size) {
-            __inst_analyzer_new_pred_and_succ(a, addr,
+            __ucfg_analyzer_new_pred_and_succ(a, addr,
                                               detail->x86.operands[0].imm);
         }
 
@@ -457,18 +457,18 @@ Z_PRIVATE void __inst_analyzer_init_analyze(InstAnalyzer *a, addr_t addr,
         if ((detail->x86.op_count == 1) &&
             (detail->x86.operands[0].type == X86_OP_IMM)) {
             // we treat call as it will never return
-            __inst_analyzer_new_pred_and_succ(a, addr,
+            __ucfg_analyzer_new_pred_and_succ(a, addr,
                                               detail->x86.operands[0].imm);
         }
     } else if (z_capstone_is_terminator(inst)) {
         // do nothing for terminator
     } else {
-        __inst_analyzer_new_pred_and_succ(a, addr, addr + inst->size);
+        __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size);
     }
 }
 
-Z_API InstAnalyzer *z_inst_analyzer_create(SysOptArgs *opts) {
-    InstAnalyzer *a = STRUCT_ALLOC(InstAnalyzer);
+Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts) {
+    UCFG_Analyzer *a = STRUCT_ALLOC(UCFG_Analyzer);
 
     a->opts = opts;
 
@@ -495,7 +495,7 @@ Z_API InstAnalyzer *z_inst_analyzer_create(SysOptArgs *opts) {
     return a;
 }
 
-Z_API void z_inst_analyzer_destroy(InstAnalyzer *a) {
+Z_API void z_ucfg_analyzer_destroy(UCFG_Analyzer *a) {
     g_hash_table_destroy(a->insts);
     g_hash_table_destroy(a->reg_states);
     g_hash_table_destroy(a->preds);
@@ -508,7 +508,7 @@ Z_API void z_inst_analyzer_destroy(InstAnalyzer *a) {
     z_free(a);
 }
 
-Z_API void z_inst_analyzer_add_inst(InstAnalyzer *a, addr_t addr,
+Z_API void z_ucfg_analyzer_add_inst(UCFG_Analyzer *a, addr_t addr,
                                     const cs_insn *inst,
                                     bool maybe_duplicated) {
     assert(a != NULL);
@@ -517,7 +517,7 @@ Z_API void z_inst_analyzer_add_inst(InstAnalyzer *a, addr_t addr,
         cs_insn *ori_inst =
             (cs_insn *)g_hash_table_lookup(a->insts, GSIZE_TO_POINTER(addr));
         if (ori_inst) {
-            if (!__inst_analyzer_check_consistent(ori_inst, inst)) {
+            if (!__ucfg_analyzer_check_consistent(ori_inst, inst)) {
                 EXITME("inconsistent instruction update " CS_SHOW_INST(inst));
             }
             g_hash_table_insert(a->insts, GSIZE_TO_POINTER(addr),
@@ -539,12 +539,12 @@ Z_API void z_inst_analyzer_add_inst(InstAnalyzer *a, addr_t addr,
      * closely.
      */
     // initial analysis
-    __inst_analyzer_init_analyze(a, addr, inst);
+    __ucfg_analyzer_init_analyze(a, addr, inst);
     // advanced analysis
-    __inst_analyzer_advance_analyze(a, addr, inst);
+    __ucfg_analyzer_advance_analyze(a, addr, inst);
 }
 
-Z_API Buffer *z_inst_analyzer_get_successors(InstAnalyzer *a, addr_t addr) {
+Z_API Buffer *z_ucfg_analyzer_get_successors(UCFG_Analyzer *a, addr_t addr) {
     assert(a != NULL);
 
     Buffer *buf =
@@ -557,7 +557,7 @@ Z_API Buffer *z_inst_analyzer_get_successors(InstAnalyzer *a, addr_t addr) {
     return buf;
 }
 
-Z_API Buffer *z_inst_analyzer_get_predecessors(InstAnalyzer *a, addr_t addr) {
+Z_API Buffer *z_ucfg_analyzer_get_predecessors(UCFG_Analyzer *a, addr_t addr) {
     assert(a != NULL);
 
     Buffer *buf =
@@ -570,7 +570,7 @@ Z_API Buffer *z_inst_analyzer_get_predecessors(InstAnalyzer *a, addr_t addr) {
     return buf;
 }
 
-Z_API FLGState z_inst_analyzer_get_flg_need_write(InstAnalyzer *a,
+Z_API FLGState z_ucfg_analyzer_get_flg_need_write(UCFG_Analyzer *a,
                                                   addr_t addr) {
     FLGState state = (FLGState)g_hash_table_lookup(a->flg_need_write,
                                                    GSIZE_TO_POINTER(addr));
@@ -582,13 +582,14 @@ Z_API FLGState z_inst_analyzer_get_flg_need_write(InstAnalyzer *a,
     }
 }
 
-Z_API GPRState z_inst_analyzer_get_gpr_can_write(InstAnalyzer *a, addr_t addr) {
+Z_API GPRState z_ucfg_analyzer_get_gpr_can_write(UCFG_Analyzer *a,
+                                                 addr_t addr) {
     GPRState state =
         (GPRState)g_hash_table_lookup(a->gpr_can_write, GSIZE_TO_POINTER(addr));
     return state & GPRSTATE_ALL;
 }
 
-Z_API RegState *z_inst_analyzer_get_register_state(InstAnalyzer *a,
+Z_API RegState *z_ucfg_analyzer_get_register_state(UCFG_Analyzer *a,
                                                    addr_t addr) {
     return (RegState *)g_hash_table_lookup(a->reg_states,
                                            GSIZE_TO_POINTER(addr));

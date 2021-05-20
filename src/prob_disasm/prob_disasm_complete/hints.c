@@ -15,7 +15,7 @@ typedef struct reg_info_t {
  */
 Z_PRIVATE void __prob_disassembler_reg_hints_dfs(
     ProbDisassembler *pd, GHashTable *seen,
-    Buffer *(*get_next)(InstAnalyzer *, addr_t),
+    Buffer *(*get_next)(UCFG_Analyzer *, addr_t),
     void (*update_info)(ProbDisassembler *, addr_t, RegInfo *), addr_t cur_addr,
     RegInfo *info, bool is_first_addr);
 
@@ -69,7 +69,7 @@ Z_PRIVATE void __prob_disassembler_collect_value_hints(ProbDisassembler *pd);
 
 Z_PRIVATE void __prob_disassembler_reg_hints_dfs(
     ProbDisassembler *pd, GHashTable *seen,
-    Buffer *(*get_next)(InstAnalyzer *, addr_t),
+    Buffer *(*get_next)(UCFG_Analyzer *, addr_t),
     void (*update_info)(ProbDisassembler *, addr_t, RegInfo *), addr_t cur_addr,
     RegInfo *info, bool is_first_addr) {
     Disassembler *d = pd->base;
@@ -86,7 +86,7 @@ Z_PRIVATE void __prob_disassembler_reg_hints_dfs(
 
     // step [2]. get all necessary information
     Iter(addr_t, next_addrs);
-    z_iter_init_from_buf(next_addrs, (*get_next)(d->inst_analyzer, cur_addr));
+    z_iter_init_from_buf(next_addrs, (*get_next)(d->ucfg_analyzer, cur_addr));
 
     // step [3]. collect hints and update next info
     RegInfo backup_info = *info;
@@ -316,8 +316,8 @@ Z_PRIVATE void __prob_disassembler_collect_cf_hints(ProbDisassembler *pd) {
 
             // check pred's succs are valid
             Iter(addr_t, pred_succs);
-            z_iter_init_from_buf(pred_succs, z_inst_analyzer_get_successors(
-                                                 d->inst_analyzer, pred));
+            z_iter_init_from_buf(pred_succs, z_ucfg_analyzer_get_successors(
+                                                 d->ucfg_analyzer, pred));
 
             while (!z_iter_is_empty(pred_succs)) {
                 addr_t pred_succ = *(z_iter_next(pred_succs));
@@ -360,7 +360,7 @@ Z_PRIVATE void __update_info_for_usedef_reg_hint(ProbDisassembler *pd,
                                                  addr_t addr, RegInfo *info) {
     Disassembler *d = pd->base;
 
-    RegState *rs = z_inst_analyzer_get_register_state(d->inst_analyzer, addr);
+    RegState *rs = z_ucfg_analyzer_get_register_state(d->ucfg_analyzer, addr);
     assert(rs);
 
     if (rs->gpr_write_32_64 & info->gpr) {
@@ -389,7 +389,7 @@ Z_PRIVATE void __update_info_for_killed_reg_hint(ProbDisassembler *pd,
                                                  addr_t addr, RegInfo *info) {
     Disassembler *d = pd->base;
 
-    RegState *rs = z_inst_analyzer_get_register_state(d->inst_analyzer, addr);
+    RegState *rs = z_ucfg_analyzer_get_register_state(d->ucfg_analyzer, addr);
     assert(rs);
 
     if (rs->gpr_write_32_64 & info->gpr) {
@@ -431,7 +431,7 @@ Z_PRIVATE void __prob_disassembler_collect_reg_hints(ProbDisassembler *pd) {
 
     for (addr_t addr = text_addr; addr < text_addr + text_size; addr++) {
         RegState *rs =
-            z_inst_analyzer_get_register_state(d->inst_analyzer, addr);
+            z_ucfg_analyzer_get_register_state(d->ucfg_analyzer, addr);
         if (!rs) {
             continue;
         }
@@ -448,7 +448,7 @@ Z_PRIVATE void __prob_disassembler_collect_reg_hints(ProbDisassembler *pd) {
         g_hash_table_insert(seen, GSIZE_TO_POINTER(addr), GSIZE_TO_POINTER(1));
 
         __prob_disassembler_reg_hints_dfs(
-            pd, seen, &z_inst_analyzer_get_predecessors,
+            pd, seen, &z_ucfg_analyzer_get_predecessors,
             &__update_info_for_usedef_reg_hint, addr, &info, true);
 
         /*
@@ -463,7 +463,7 @@ Z_PRIVATE void __prob_disassembler_collect_reg_hints(ProbDisassembler *pd) {
         g_hash_table_insert(seen, GSIZE_TO_POINTER(addr), GSIZE_TO_POINTER(1));
 
         __prob_disassembler_reg_hints_dfs(
-            pd, seen, &z_inst_analyzer_get_predecessors,
+            pd, seen, &z_ucfg_analyzer_get_predecessors,
             &__update_info_for_killed_reg_hint, addr, &info, true);
     }
 }

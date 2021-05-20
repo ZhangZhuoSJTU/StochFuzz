@@ -60,7 +60,7 @@ OBJS=\
 	disassembler.o \
 	rewriter.o \
 	patcher.o \
-	inst_analyzer.o \
+	ucfg_analyzer.o \
 	capstone_.o \
 	diagnoser.o \
 	library_functions/library_functions.o \

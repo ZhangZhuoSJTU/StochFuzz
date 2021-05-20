@@ -2,7 +2,7 @@
 #include "buffer.h"
 #include "capstone_.h"
 #include "config.h"
-#include "inst_analyzer.h"
+#include "ucfg_analyzer.h"
 #include "utils.h"
 
 #include "x64_utils.c"
@@ -354,12 +354,12 @@ Z_PRIVATE int __rewriter_compare_address(addr_t x, addr_t y, void *_z) {
 
 Z_PRIVATE void __rewriter_emit_trampoline(Rewriter *r, addr_t addr) {
 #ifndef BINARY_SEARCH_INVALID_CRASH
-    InstAnalyzer *inst_analyzer =
-        z_disassembler_get_inst_analyzer(r->disassembler);
+    UCFG_Analyzer *ucfg_analyzer =
+        z_disassembler_get_ucfg_analyzer(r->disassembler);
 
     FLGState flg_state =
-        z_inst_analyzer_get_flg_need_write(inst_analyzer, addr);
-    GPRState gpr_state = z_inst_analyzer_get_gpr_can_write(inst_analyzer, addr);
+        z_ucfg_analyzer_get_flg_need_write(ucfg_analyzer, addr);
+    GPRState gpr_state = z_ucfg_analyzer_get_gpr_can_write(ucfg_analyzer, addr);
 
     // update total number of tramplines
     r->afl_trampoline_count += 1;

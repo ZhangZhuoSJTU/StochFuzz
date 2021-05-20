@@ -49,7 +49,7 @@ Z_RESERVED Z_PRIVATE void __disassembler_pre_disasm(Disassembler *d);
  * Getter and Setter
  */
 DEFINE_GETTER(Disassembler, disassembler, Binary *, binary);
-DEFINE_GETTER(Disassembler, disassembler, InstAnalyzer *, inst_analyzer);
+DEFINE_GETTER(Disassembler, disassembler, UCFG_Analyzer *, ucfg_analyzer);
 DEFINE_GETTER(Disassembler, disassembler, bool, enable_pdisasm);
 
 Z_PRIVATE void __disassembler_free_cs_insn(cs_insn *inst) { cs_free(inst, 1); }
@@ -167,7 +167,7 @@ Z_PRIVATE bool __disassembler_has_inlined_data(Disassembler *d) {
     return false;
 }
 
-// XXX: we do not use InstAnalyzer here, as the following code runs faster than
+// XXX: we do not use UCFG_Analyzer here, as the following code runs faster than
 // a searching operation in hashmap. Note that the following code will happen
 // during fuzzing
 Z_PRIVATE bool __disassembler_analyze_inst(cs_insn *inst, addr_t *targets) {
@@ -216,7 +216,7 @@ Z_PRIVATE void __disassembler_superset_disasm(Disassembler *d) {
          cur_addr++) {
         CS_DISASM(buf, cur_addr, 1);
         if (cs_count == 1) {
-            z_inst_analyzer_add_inst(d->inst_analyzer, cur_addr, cs_inst,
+            z_ucfg_analyzer_add_inst(d->ucfg_analyzer, cur_addr, cs_inst,
                                      false);
             g_hash_table_insert(d->superset_disasm, GSIZE_TO_POINTER(cur_addr),
                                 (gpointer)cs_inst);
@@ -286,7 +286,7 @@ Z_API Disassembler *z_disassembler_create(Binary *b, SysOptArgs *opts) {
     d->potential_blocks =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
-    d->inst_analyzer = z_inst_analyzer_create(d->opts);
+    d->ucfg_analyzer = z_ucfg_analyzer_create(d->opts);
 
     // we choose to superset disassemble relative-small binary
     ELF *e = z_binary_get_elf(d->binary);
@@ -341,7 +341,7 @@ Z_API void z_disassembler_destroy(Disassembler *d) {
 
     z_addr_dict_destroy(d->occ_addrs, &z_buffer_destroy);
 
-    z_inst_analyzer_destroy(d->inst_analyzer);
+    z_ucfg_analyzer_destroy(d->ucfg_analyzer);
 
     z_free(d);
 }
@@ -624,10 +624,10 @@ Z_API const cs_insn *z_disassembler_update_superset_disasm(Disassembler *d,
     CS_DISASM(ptr, addr, 1);
     if (cs_count == 1) {
         // update superset disassembly
-        // XXX: the z_inst_analyzer_add_inst must be placed before
+        // XXX: the z_ucfg_analyzer_add_inst must be placed before
         // g_hash_table_insert, as the g_hash_table_insert may free the original
         // instruction
-        z_inst_analyzer_add_inst(d->inst_analyzer, addr, cs_inst, true);
+        z_ucfg_analyzer_add_inst(d->ucfg_analyzer, addr, cs_inst, true);
         g_hash_table_insert(d->superset_disasm, GSIZE_TO_POINTER(addr),
                             (gpointer)cs_inst);
         res = cs_inst;
@@ -667,7 +667,7 @@ Z_API cs_insn *z_disassembler_get_superset_disasm(Disassembler *d,
         size_t off2 = text_size - off1;
         CS_DISASM_RAW(d->text_backup + off1, off2, addr, 1);
         if (cs_count == 1) {
-            z_inst_analyzer_add_inst(d->inst_analyzer, addr, cs_inst, false);
+            z_ucfg_analyzer_add_inst(d->ucfg_analyzer, addr, cs_inst, false);
             g_hash_table_insert(d->superset_disasm, GSIZE_TO_POINTER(addr),
                                 (gpointer)cs_inst);
 
@@ -751,7 +751,7 @@ Z_API Buffer *z_disassembler_get_predecessors(Disassembler *d, addr_t addr) {
         z_disassembler_get_superset_disasm(d, addr);
     }
 
-    return z_inst_analyzer_get_predecessors(d->inst_analyzer, addr);
+    return z_ucfg_analyzer_get_predecessors(d->ucfg_analyzer, addr);
 }
 
 Z_API Buffer *z_disassembler_get_successors(Disassembler *d, addr_t addr) {
@@ -760,5 +760,5 @@ Z_API Buffer *z_disassembler_get_successors(Disassembler *d, addr_t addr) {
         z_disassembler_get_superset_disasm(d, addr);
     }
 
-    return z_inst_analyzer_get_successors(d->inst_analyzer, addr);
+    return z_ucfg_analyzer_get_successors(d->ucfg_analyzer, addr);
 }
