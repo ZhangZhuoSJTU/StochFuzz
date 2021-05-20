@@ -31,13 +31,9 @@ STRUCT(Rewriter, {
     // it is not for those internal calls or white-listed library calls.
 
     // patched retaddr, which is potential to be crashpoint
-    GHashTable *retaddr_crashpoints;
-    // callees who will return
-    GHashTable *returned_callees;
-    // for a given callee, all potential retaddr crashpoints associated with it
-    GHashTable *callee2retaddrs;
-    // unlogged retaddr crashpoints because its callee is known to return
-    GHashTable *unlogged_retaddr_crashpoints;
+    GHashTable *potential_retaddrs;
+    // for a given callee, all unpatched retaddr crashpoints associated with it
+    GHashTable *unpatched_retaddrs;  // callee -> retaddrs
 
     // Statistical data
     size_t patched_safe_bg_count;
@@ -53,10 +49,6 @@ STRUCT(Rewriter, {
     // system optargs
     SysOptArgs *opts;
 });
-
-DECLARE_GETTER(Rewriter, rewriter, GHashTable *, unlogged_retaddr_crashpoints);
-DECLARE_GETTER(Rewriter, rewriter, GHashTable *, returned_callees);
-DECLARE_SETTER(Rewriter, rewriter, addr_t, returned_callees);
 
 // which instruction needs to be handled
 typedef bool (*REvent)(const cs_insn *);

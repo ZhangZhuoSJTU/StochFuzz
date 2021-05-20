@@ -402,9 +402,6 @@ DONE:
 // XXX: call qword byte [xxx]
 Z_API bool z_capstone_is_const_mem_ucall(const cs_insn *inst,
                                          addr_t *addr_ptr) {
-    // assign INVALID_ADDR to addr_ptr
-    *addr_ptr = INVALID_ADDR;
-
     // first check that it is a jump instruction
     if (inst->id != X86_INS_CALL) {
         return false;
@@ -424,16 +421,15 @@ Z_API bool z_capstone_is_const_mem_ucall(const cs_insn *inst,
     }
 
     // update addr_ptr
-    *addr_ptr = op->mem.disp;
+    if (addr_ptr) {
+        *addr_ptr = op->mem.disp;
+    }
     return true;
 }
 
 // XXX: call qword byte [rip+xxx]
 Z_API bool z_capstone_is_pc_related_ucall(const cs_insn *inst,
                                           addr_t *addr_ptr) {
-    // assign INVALID_ADDR to addr_ptr
-    *addr_ptr = INVALID_ADDR;
-
     // first check that it is a jump instruction
     if (inst->id != X86_INS_CALL) {
         return false;
@@ -453,15 +449,14 @@ Z_API bool z_capstone_is_pc_related_ucall(const cs_insn *inst,
     }
 
     // update addr_ptr
-    *addr_ptr = inst->address + inst->size + op->mem.disp;
+    if (addr_ptr) {
+        *addr_ptr = inst->address + inst->size + op->mem.disp;
+    }
     return true;
 }
 
 // XXX: jmp qword byte [xxx]
 Z_API bool z_capstone_is_const_mem_ujmp(const cs_insn *inst, addr_t *addr_ptr) {
-    // assign INVALID_ADDR to addr_ptr
-    *addr_ptr = INVALID_ADDR;
-
     // first check that it is a jump instruction
     if (inst->id != X86_INS_JMP) {
         return false;
@@ -481,16 +476,15 @@ Z_API bool z_capstone_is_const_mem_ujmp(const cs_insn *inst, addr_t *addr_ptr) {
     }
 
     // update addr_ptr
-    *addr_ptr = op->mem.disp;
+    if (addr_ptr) {
+        *addr_ptr = op->mem.disp;
+    }
     return true;
 }
 
 // XXX: jmp qword byte [rip+xxx]
 Z_API bool z_capstone_is_pc_related_ujmp(const cs_insn *inst,
                                          addr_t *addr_ptr) {
-    // assign INVALID_ADDR to addr_ptr
-    *addr_ptr = INVALID_ADDR;
-
     // first check that it is a jump instruction
     if (inst->id != X86_INS_JMP) {
         return false;
@@ -510,7 +504,9 @@ Z_API bool z_capstone_is_pc_related_ujmp(const cs_insn *inst,
     }
 
     // update addr_ptr
-    *addr_ptr = inst->address + inst->size + op->mem.disp;
+    if (addr_ptr) {
+        *addr_ptr = inst->address + inst->size + op->mem.disp;
+    }
     return true;
 }
 

@@ -123,17 +123,6 @@ Z_PRIVATE void __rewriter_count_conflicted_ids(Rewriter *r) {
     z_info("number of conflicted block IDs : %ld", conflicts);
 }
 
-/*
- * Getter and Setter
- */
-DEFINE_GETTER(Rewriter, rewriter, GHashTable *, unlogged_retaddr_crashpoints);
-DEFINE_GETTER(Rewriter, rewriter, GHashTable *, returned_callees);
-OVERLOAD_SETTER(Rewriter, rewriter, addr_t, returned_callees) {
-    g_hash_table_insert(rewriter->returned_callees,
-                        GSIZE_TO_POINTER(returned_callees),
-                        GSIZE_TO_POINTER(true));
-}
-
 Z_PRIVATE void z_rewriter_rewrite_beyond_main(Rewriter *r) {
     if (r->__main_rewritten) {
         EXITME(
@@ -934,14 +923,10 @@ Z_API Rewriter *z_rewriter_create(Disassembler *d, SysOptArgs *opts) {
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
     // init potential returen address info
-    r->retaddr_crashpoints =
+    r->potential_retaddrs =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-    r->returned_callees =
-        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-    r->callee2retaddrs = g_hash_table_new_full(
+    r->unpatched_retaddrs = g_hash_table_new_full(
         g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)&z_buffer_destroy);
-    r->unlogged_retaddr_crashpoints =
-        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
     // init statistical data
     r->patched_safe_bg_count = 0;
@@ -1018,10 +1003,8 @@ Z_API void z_rewriter_destroy(Rewriter *r) {
     g_hash_table_destroy(r->shadow_code);
     g_hash_table_destroy(r->rewritten_bbs);
 
-    g_hash_table_destroy(r->retaddr_crashpoints);
-    g_hash_table_destroy(r->returned_callees);
-    g_hash_table_destroy(r->callee2retaddrs);
-    g_hash_table_destroy(r->unlogged_retaddr_crashpoints);
+    g_hash_table_destroy(r->potential_retaddrs);
+    g_hash_table_destroy(r->unpatched_retaddrs);
 
     z_free(r);
 
@@ -1102,31 +1085,27 @@ Z_API addr_t z_rewriter_get_shadow_addr(Rewriter *r, addr_t addr) {
 }
 
 Z_API bool z_rewriter_check_retaddr_crashpoint(Rewriter *r, addr_t addr) {
-    return !!g_hash_table_lookup(r->retaddr_crashpoints,
-                                 GSIZE_TO_POINTER(addr));
+    return !!g_hash_table_lookup(r->potential_retaddrs, GSIZE_TO_POINTER(addr));
 }
 
-// XXX: every time we find a new retaddr, we will do following things:
-//  1. mark its corresponding callee as returnable
-//  2. find all the retaddrs associated with this callee and patch them
+// XXX: every time we find a new retaddr, we will return all the unpatched
+// retaddrs which share the same callee with this given retaddr.
 Z_API Buffer *z_rewriter_new_validate_retaddr(Rewriter *r, addr_t retaddr) {
     // step (1). find corresponding callee
-    addr_t callee = (addr_t)g_hash_table_lookup(r->retaddr_crashpoints,
+    addr_t callee = (addr_t)g_hash_table_lookup(r->potential_retaddrs,
                                                 GSIZE_TO_POINTER(retaddr));
     if (!callee) {
-        // this may happen when the target binary is multi-thread
+        // XXX: theoretically this branch cannot be reached, but when we have
+        // different rewriting order than last execution, the logged crashpoints
+        // may force the program to go into this branch.
         return z_buffer_create(NULL, 0);
     }
 
-    // step (2). mark callee as returnable
-    g_hash_table_insert(r->returned_callees, GSIZE_TO_POINTER(callee),
-                        GSIZE_TO_POINTER(true));
-
-    // step (3). get all retaddrs and remove the entity
-    Buffer *buf = (Buffer *)g_hash_table_lookup(r->callee2retaddrs,
+    // step (2). get all retaddrs and remove the entity
+    Buffer *buf = (Buffer *)g_hash_table_lookup(r->unpatched_retaddrs,
                                                 GSIZE_TO_POINTER(callee));
     assert(buf);
-    g_hash_table_steal(r->callee2retaddrs, GSIZE_TO_POINTER(callee));
+    g_hash_table_steal(r->unpatched_retaddrs, GSIZE_TO_POINTER(callee));
 
     return buf;
 }

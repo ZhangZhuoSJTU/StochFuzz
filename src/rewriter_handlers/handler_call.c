@@ -24,6 +24,11 @@ Z_PRIVATE void __rewriter_call_handler(Rewriter *r, GHashTable *holes,
                                        cs_insn *inst, addr_t ori_addr,
                                        addr_t ori_next_addr);
 
+/*
+ * Check whether it is a library call
+ */
+Z_PRIVATE const LFuncInfo *__rewriter_is_library_call(ELF *e, cs_insn *inst);
+
 Z_PRIVATE void __rewriter_call_handler(Rewriter *r, GHashTable *holes,
                                        cs_insn *inst, addr_t ori_addr,
                                        addr_t ori_next_addr) {
@@ -35,54 +40,40 @@ Z_PRIVATE void __rewriter_call_handler(Rewriter *r, GHashTable *holes,
 
     ELF *e = z_binary_get_elf(r->binary);
 
-    // first let's correct the inst->address
-    addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
-    inst->address = shadow_addr;
-
-    /*
-     * before handling each instruction, we first check whether this is a safe
-     * library call
-     */
-    {
-        cs_detail *detail = inst->detail;
-        cs_x86_op *op = &(detail->x86.operands[0]);
-
-        // check call to PLT
-        if (detail->x86.op_count == 1 && op->type == X86_OP_IMM) {
-            addr_t callee_addr = op->imm;
-            const LFuncInfo *lf_info = z_elf_get_plt_info(e, callee_addr);
-            if (lf_info && lf_info->ra_info == LRA_UNUSED) {
-                z_info("find plt call %s @ %#lx", lf_info->name, ori_addr);
-                // direct write down the instruction
-                KS_ASM_CALL(shadow_addr, callee_addr);
-                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
-                return;
-            }
-        }
-
-        // check call to GOT
-        addr_t got_addr = INVALID_ADDR;
-        if (z_capstone_is_pc_related_ucall(inst, &got_addr) ||
-            (!z_elf_get_is_pie(e) &&
-             z_capstone_is_const_mem_ucall(inst, &got_addr))) {
-            assert(got_addr != INVALID_ADDR);
-
-            const LFuncInfo *lf_info = z_elf_get_got_info(e, got_addr);
-            if (lf_info && lf_info->ra_info == LRA_UNUSED) {
-                z_info("find got call %s @ %#lx", lf_info->name, ori_addr);
-                // direct write down the instruction
-                z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
-                return;
-            }
-        }
-    }
-
     if (z_elf_get_is_pie(e)) {
         __rewriter_call_handler_for_pie(r, holes, inst, ori_addr,
                                         ori_next_addr);
     } else {
         __rewriter_call_handler_for_non_pie(r, holes, inst, ori_addr,
                                             ori_next_addr);
+    }
+}
+
+Z_PRIVATE const LFuncInfo *__rewriter_is_library_call(ELF *e, cs_insn *inst) {
+    const LFuncInfo *rv = NULL;
+    addr_t got_addr = INVALID_ADDR;
+
+    cs_detail *detail = inst->detail;
+    if (detail->x86.op_count != 1) {
+        return NULL;
+    }
+
+    cs_x86_op *op = &(detail->x86.operands[0]);
+
+    if (op->type == X86_OP_IMM) {
+        // check call to PLT
+        rv = z_elf_get_plt_info(e, op->imm);
+    } else if (z_capstone_is_pc_related_ucall(inst, &got_addr) ||
+               (!z_elf_get_is_pie(e) &&
+                z_capstone_is_const_mem_ucall(inst, &got_addr))) {
+        // check call to GOT
+        rv = z_elf_get_got_info(e, got_addr);
+    }
+
+    if (!rv || rv->cfg_info == LCFG_OBJ || rv->ra_info == LRA_OBJ) {
+        return NULL;
+    } else {
+        return rv;
     }
 }
 
@@ -105,6 +96,102 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
     addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
     ELF *e = z_binary_get_elf(r->binary);
 
+    // first let's correct the inst->address
+    inst->address = shadow_addr;
+
+    const LFuncInfo *lf_info = __rewriter_is_library_call(e, inst);
+
+    /*
+     * first handle library calls
+     */
+    if (lf_info) {
+        assert(detail->x86.op_count == 1);
+        if (op->type == X86_OP_IMM) {
+            // call to PLT
+            z_trace("find plt call %s @ %#lx", lf_info->name, ori_addr);
+
+            addr_t callee_addr = op->imm;
+
+            if (lf_info->ra_info == LRA_UNUSED || r->opts->safe_ret) {
+                // direct write down the instruction
+                KS_ASM_CALL(shadow_addr, callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+            } else {
+                KS_ASM(shadow_addr,
+                       "push %#lx;\n"
+                       "jmp %#lx;\n",
+                       ori_next_addr, callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+
+                // update retaddr information
+                if (lf_info->cfg_info != LCFG_TERM &&
+                    !g_hash_table_lookup(r->potential_retaddrs,
+                                         GSIZE_TO_POINTER(ori_next_addr))) {
+                    // we do not known whether this callee will return. Hence,
+                    // it is a potential CP_RETADDR. Additionaly, it is the
+                    // first time that we find this retaddr.
+                    g_hash_table_insert(r->potential_retaddrs,
+                                        GSIZE_TO_POINTER(ori_next_addr),
+                                        GSIZE_TO_POINTER(callee_addr));
+                    Buffer *buf = (Buffer *)g_hash_table_lookup(
+                        r->unpatched_retaddrs, GSIZE_TO_POINTER(callee_addr));
+                    if (!buf) {
+                        buf = z_buffer_create(NULL, 0);
+                        g_hash_table_insert(r->unpatched_retaddrs,
+                                            GSIZE_TO_POINTER(callee_addr),
+                                            (gpointer)buf);
+                    }
+                    z_buffer_append_raw(buf, (uint8_t *)&ori_next_addr,
+                                        sizeof(ori_next_addr));
+                }
+            }
+
+            return;
+        }
+
+        if (op->type == X86_OP_MEM) {
+            // call to GOT
+            z_trace("find got call %s @ %#lx", lf_info->name, ori_addr);
+
+            if (lf_info->ra_info == LRA_UNUSED || r->opts->safe_ret) {
+                // direct write down the instruction
+                z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
+            } else {
+                // we first push the retaddr
+                KS_ASM(shadow_addr, "push %#lx", ori_next_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                shadow_addr += ks_size;
+
+                addr_t got_addr = INVALID_ADDR;
+                if (z_capstone_is_pc_related_ucall(inst, &got_addr)) {
+                    // jmp qword ptr [rip+xxx]
+                    if (inst->size != 6) {
+                        EXITME("invalid pc-related ucall " CS_SHOW_INST(inst));
+                    }
+
+                    int32_t off = got_addr - (shadow_addr + inst->size);
+                    KS_ASM(shadow_addr, "jmp qword ptr [rip + %+d]", off);
+                    if (ks_size != 6) {
+                        EXITME("invalid pc-related ucall");
+                    }
+
+                    z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                } else {
+                    // jmp qword ptr [xxx]
+                    KS_ASM(shadow_addr, "jmp %s", inst->op_str);
+                    z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                }
+
+                // XXX: note that we do not update retaddr information here to
+                // avoid some case where the GOT gets changed during execution
+            }
+
+            return;
+        }
+
+        EXITME("unreachable code");
+    }
+
     if (detail->x86.op_count == 1 && op->type == X86_OP_IMM) {
         addr_t callee_addr = op->imm;
         // direct call
@@ -123,37 +210,6 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                        "jmp %#lx;\n",
                        ori_next_addr, callee_addr);
                 z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
-
-                // update retaddr meta-info
-                if (g_hash_table_lookup(r->returned_callees,
-                                        GSIZE_TO_POINTER(callee_addr))) {
-                    // this callee is known to return in future
-                    KS_ASM_JMP(ori_next_addr,
-                               z_binary_get_shadow_code_addr(r->binary));
-                    z_elf_write(e, ori_next_addr, ks_size, ks_encode);
-                    g_hash_table_insert(r->unlogged_retaddr_crashpoints,
-                                        GSIZE_TO_POINTER(ori_next_addr),
-                                        GSIZE_TO_POINTER(true));
-                } else if (!g_hash_table_lookup(
-                               r->retaddr_crashpoints,
-                               GSIZE_TO_POINTER(ori_next_addr))) {
-                    // we do not known whether this callee will return. Hence,
-                    // it is a potential CP_RETADDR. Additionaly, it is the
-                    // first time that we find this retaddr.
-                    g_hash_table_insert(r->retaddr_crashpoints,
-                                        GSIZE_TO_POINTER(ori_next_addr),
-                                        GSIZE_TO_POINTER(callee_addr));
-                    Buffer *buf = (Buffer *)g_hash_table_lookup(
-                        r->callee2retaddrs, GSIZE_TO_POINTER(callee_addr));
-                    if (!buf) {
-                        buf = z_buffer_create(NULL, 0);
-                        g_hash_table_insert(r->callee2retaddrs,
-                                            GSIZE_TO_POINTER(callee_addr),
-                                            (gpointer)buf);
-                    }
-                    z_buffer_append_raw(buf, (uint8_t *)&ori_next_addr,
-                                        sizeof(ori_next_addr));
-                }
             }
             return;
         }
