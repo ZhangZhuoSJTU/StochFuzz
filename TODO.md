@@ -18,7 +18,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
 + [ ] Apply AddrDict to all possible places..
 + [ ] Apply Iter to all possible places..
-+ [ ] Read PLT table to get library functions' names, and support the white-list for library functions.
++ [x] Read PLT table to get library functions' names, and support the white-list for library functions.
 + [x] Correctly handle timeout from AFL.
 + [x] Use shared memory for .text section, to avoid the expensive patch commands.
 + [x] Support self-correction procedure (delta debugging).
@@ -31,8 +31,8 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] When SINGLE\_SUCC\_OPT is enabled and sys\_config.disable\_opt is not set, remove the AFL trampoline before each function entrypoint.
 + [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
 + [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
-+ [ ] Add a new flag/option to enable early instrumentation for fork server (i.e., before the entrypoint of binary).
-+ [ ] Enable periodic checking (for coverage feedback) to determine those false postives which do not lead to crashes.
++ [x] Add a new flag/option to enable early instrumentation for fork server (i.e., before the entrypoint of binary).
++ [x] Enable periodic checking (for coverage feedback) to determine those false postives which do not lead to crashes.
 + [ ] Instead of patching a fixed invalid instruction (0x2f), randomly choose an invalid instruction to patch. More details can be found [here](http://ref.x86asm.net/coder64.html).
 + [ ] Automatically scale the number of executions triggering checking runs (based on the result of previous checking run).
 + [ ] Add a new license.
@@ -67,3 +67,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.6.0: support self correction procedure.
 + v0.7.0: support online probability calculation and dynamic hint logging.
 + v0.8.0: support advanced bridge patching (which can avoid inner jump) and -e option (which can install the fork server at the entrypoint).
++ v0.9.0: support periodic checking runs and library function detection.
