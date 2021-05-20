@@ -185,7 +185,7 @@ Z_PRIVATE void __prob_disassembler_collect_cf_hints(ProbDisassembler *pd) {
         }                                                                   \
                                                                             \
         /* check PLT transfer */                                            \
-        if (z_elf_check_plt(e, target)) {                                   \
+        if (z_elf_get_plt_info(e, target)) {                                \
             /* for PLT transfer, we have further check */                   \
             if (plt_check) {                                                \
                 z_trace("find PLT " #TYPE ": " CS_SHOW_INST(inst));         \

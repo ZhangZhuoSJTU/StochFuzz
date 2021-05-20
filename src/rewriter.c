@@ -580,6 +580,9 @@ TRANSLATE_RIP_INS:
                ori_pc - shadow_pc + op_mem_disp);
         assert(ks_size > 0);
         CS_DISASM_RAW(ks_encode, ks_size, shadow_addr, 1);
+        if (ks_size != cs_inst->size) {
+            EXITME("invalid instruction rewriting");
+        }
 
         // step [2.2]. check and re-fit next pc address
         if (shadow_addr + cs_inst->size == shadow_pc) {
@@ -690,6 +693,7 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
         REvent event = z_rhandler_get_event(handlers[i]);
         RHandlerFcn fcn = z_rhandler_get_fcn(handlers[i]);
         if ((*event)(inst)) {
+            // XXX: note that the inst->address is incorrect here
             (*fcn)(r, holes, inst, ori_addr, ori_next_addr);
             return;
         }

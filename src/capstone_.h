@@ -163,8 +163,12 @@ Z_API bool z_capstone_is_rare(const cs_insn *inst);
 
 Z_API bool z_capstone_is_pc_related_ujmp(const cs_insn *inst, addr_t *addr_ptr);
 
+Z_API bool z_capstone_is_const_mem_ujmp(const cs_insn *inst, addr_t *addr_ptr);
+
 Z_API bool z_capstone_is_pc_related_ucall(const cs_insn *inst,
                                           addr_t *addr_ptr);
+
+Z_API bool z_capstone_is_const_mem_ucall(const cs_insn *inst, addr_t *addr_ptr);
 
 Z_API RegState *z_capstone_get_register_state(const cs_insn *inst);
 

@@ -27,6 +27,9 @@ STRUCT(Rewriter, {
      * meta-info for CP_RETADDR
      */
     // XXX: note that when pdisasm is fully supported, CP_RETADDR is disabled.
+    // XXX: CP_RETADDR is only used for unknown library functions, which means
+    // it is not for those internal calls or white-listed library calls.
+
     // patched retaddr, which is potential to be crashpoint
     GHashTable *retaddr_crashpoints;
     // callees who will return

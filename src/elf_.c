@@ -1711,8 +1711,14 @@ Z_API bool z_elf_insert_utp(ELF *e, Snode *utp, addr_t *mmap_addr,
     return true;
 }
 
-Z_API bool z_elf_check_plt(ELF *e, addr_t addr) {
-    return (bool)(!!g_hash_table_lookup(e->plt, GSIZE_TO_POINTER(addr)));
+Z_API const LFuncInfo *z_elf_get_plt_info(ELF *e, addr_t addr) {
+    return (const LFuncInfo *)g_hash_table_lookup(e->plt,
+                                                  GSIZE_TO_POINTER(addr));
+}
+
+Z_API const LFuncInfo *z_elf_get_got_info(ELF *e, addr_t addr) {
+    return (const LFuncInfo *)g_hash_table_lookup(e->got,
+                                                  GSIZE_TO_POINTER(addr));
 }
 
 Z_API bool z_elf_check_state(ELF *e, ELFState state) {

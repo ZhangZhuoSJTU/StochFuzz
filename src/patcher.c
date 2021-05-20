@@ -8,7 +8,7 @@
 
 #include <math.h>
 
-#define PATCH_THRESHOLD 0.999
+#define PATCH_THRESHOLD 0.99999
 #define PATCH_THRESHOLD_FOR_RETADDR (PATCH_THRESHOLD / 2)
 #define PATCH_RET_DEPTH 20
 #define BRIDGE_PRE_DEPTH 5
@@ -360,14 +360,14 @@ Z_PRIVATE void __patcher_patch_all_F(Patcher *p) {
         }
 
         addr_t callee_addr = detail->x86.operands[0].imm;
-        if (!z_elf_check_plt(e, callee_addr) &&
+        if (!z_elf_get_plt_info(e, callee_addr) &&
             (callee_addr < text_addr || callee_addr >= text_addr + text_size)) {
             continue;
         }
 
         addr_t ret_addr = addr + inst->size;
 
-        if (!z_elf_check_plt(e, callee_addr)) {
+        if (!z_elf_get_plt_info(e, callee_addr)) {
             g_queue_push_tail(bfs, GSIZE_TO_POINTER(ret_addr));
             size_t bfs_n = 0;
             bool valid = false;

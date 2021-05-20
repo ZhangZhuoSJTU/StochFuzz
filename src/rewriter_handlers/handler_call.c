@@ -34,6 +34,49 @@ Z_PRIVATE void __rewriter_call_handler(Rewriter *r, GHashTable *holes,
     }
 
     ELF *e = z_binary_get_elf(r->binary);
+
+    // first let's correct the inst->address
+    addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
+    inst->address = shadow_addr;
+
+    /*
+     * before handling each instruction, we first check whether this is a safe
+     * library call
+     */
+    {
+        cs_detail *detail = inst->detail;
+        cs_x86_op *op = &(detail->x86.operands[0]);
+
+        // check call to PLT
+        if (detail->x86.op_count == 1 && op->type == X86_OP_IMM) {
+            addr_t callee_addr = op->imm;
+            const LFuncInfo *lf_info = z_elf_get_plt_info(e, callee_addr);
+            if (lf_info && lf_info->ra_info == LRA_UNUSED) {
+                z_info("find plt call %s @ %#lx", lf_info->name, ori_addr);
+                // direct write down the instruction
+                KS_ASM_CALL(shadow_addr, callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                return;
+            }
+        }
+
+        // check call to GOT
+        addr_t got_addr = INVALID_ADDR;
+        if (z_capstone_is_pc_related_ucall(inst, &got_addr) ||
+            (!z_elf_get_is_pie(e) &&
+             z_capstone_is_const_mem_ucall(inst, &got_addr))) {
+            assert(got_addr != INVALID_ADDR);
+
+            const LFuncInfo *lf_info = z_elf_get_got_info(e, got_addr);
+            if (lf_info && lf_info->ra_info == LRA_UNUSED) {
+                z_info("find got call %s @ %#lx", lf_info->name, ori_addr);
+                // direct write down the instruction
+                z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
+                return;
+            }
+        }
+    }
+
     if (z_elf_get_is_pie(e)) {
         __rewriter_call_handler_for_pie(r, holes, inst, ori_addr,
                                         ori_next_addr);

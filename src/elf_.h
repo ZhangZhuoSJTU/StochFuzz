@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "interval_splay.h"
+#include "library_functions/library_functions.h"
 #include "mem_file.h"
 #include "restricted_ptr.h"
 
@@ -237,9 +238,14 @@ Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf);
 Z_API bool z_elf_is_statically_linked(ELF *e);
 
 /*
- * Check PLT information
+ * Get PLT information
  */
-Z_API bool z_elf_check_plt(ELF *e, addr_t addr);
+Z_API const LFuncInfo *z_elf_get_plt_info(ELF *e, addr_t addr);
+
+/*
+ * Get GOT information
+ */
+Z_API const LFuncInfo *z_elf_get_got_info(ELF *e, addr_t addr);
 
 /*
  * Check where region is free.
