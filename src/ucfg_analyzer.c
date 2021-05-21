@@ -54,7 +54,7 @@ Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
     // step (1). update gpr_analyzed_succs
     {
         // check addr's succs
-        Buffer *succs = z_ucfg_analyzer_get_successors(a, addr);
+        Buffer *succs = z_ucfg_analyzer_get_direct_successors(a, addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
         addr_t *succs_array = (addr_t *)z_buffer_get_raw_buf(succs);
@@ -70,7 +70,7 @@ Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
                             GSIZE_TO_POINTER(analyzed_succ_n));
 
         // update addr's preds
-        Buffer *preds = z_ucfg_analyzer_get_predecessors(a, addr);
+        Buffer *preds = z_ucfg_analyzer_get_direct_predecessors(a, addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
         addr_t *preds_array = (addr_t *)z_buffer_get_raw_buf(preds);
@@ -92,11 +92,11 @@ Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
         // step (3.1). pop from queue and get basic information
         addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
 
-        Buffer *preds = z_ucfg_analyzer_get_predecessors(a, cur_addr);
+        Buffer *preds = z_ucfg_analyzer_get_direct_predecessors(a, cur_addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
 
-        Buffer *succs = z_ucfg_analyzer_get_successors(a, cur_addr);
+        Buffer *succs = z_ucfg_analyzer_get_direct_successors(a, cur_addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
 
@@ -179,7 +179,7 @@ Z_PRIVATE void __ucfg_analyzer_analyze_flg(UCFG_Analyzer *a, addr_t addr,
 
     // step (1). check whether it is ready to analyze
     {
-        Buffer *succs = z_ucfg_analyzer_get_successors(a, addr);
+        Buffer *succs = z_ucfg_analyzer_get_direct_successors(a, addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
         addr_t *succs_array = (addr_t *)z_buffer_get_raw_buf(succs);
@@ -232,11 +232,11 @@ Z_PRIVATE void __ucfg_analyzer_analyze_flg(UCFG_Analyzer *a, addr_t addr,
                                     GSIZE_TO_POINTER(cur_addr)));
 
         // step (2.2). basic infomration
-        Buffer *preds = z_ucfg_analyzer_get_predecessors(a, cur_addr);
+        Buffer *preds = z_ucfg_analyzer_get_direct_predecessors(a, cur_addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
 
-        Buffer *succs = z_ucfg_analyzer_get_successors(a, cur_addr);
+        Buffer *succs = z_ucfg_analyzer_get_direct_successors(a, cur_addr);
         assert(succs != NULL);
         size_t succ_n = z_buffer_get_size(succs) / sizeof(addr_t);
 
@@ -296,9 +296,9 @@ Z_PRIVATE void __ucfg_analyzer_analyze_flg(UCFG_Analyzer *a, addr_t addr,
             g_hash_table_insert(a->flg_finished_succs, GSIZE_TO_POINTER(pred),
                                 GSIZE_TO_POINTER(pred_finish_succs));
             if (pred_finish_succs ==
-                (size_t)(
-                    z_buffer_get_size(z_ucfg_analyzer_get_successors(a, pred)) /
-                    sizeof(addr_t))) {
+                (size_t)(z_buffer_get_size(
+                             z_ucfg_analyzer_get_direct_successors(a, pred)) /
+                         sizeof(addr_t))) {
                 g_queue_push_tail(queue, GSIZE_TO_POINTER(pred));
             }
         }
@@ -427,8 +427,8 @@ Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
 
 #endif
 
-    __NEW_RELATION(succs, src_addr, dst_addr);
-    __NEW_RELATION(preds, dst_addr, src_addr);
+    __NEW_RELATION(direct_succs, src_addr, dst_addr);
+    __NEW_RELATION(direct_preds, dst_addr, src_addr);
 
 #undef __NEW_RELATION
 }
@@ -477,10 +477,12 @@ Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts) {
     a->reg_states = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
                                           (GDestroyNotify)(&z_free));
 
-    a->preds = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
-                                     (GDestroyNotify)(&z_buffer_destroy));
-    a->succs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
-                                     (GDestroyNotify)(&z_buffer_destroy));
+    a->direct_preds =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                              (GDestroyNotify)(&z_buffer_destroy));
+    a->direct_succs =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                              (GDestroyNotify)(&z_buffer_destroy));
 
     a->flg_finished_succs =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -498,8 +500,8 @@ Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts) {
 Z_API void z_ucfg_analyzer_destroy(UCFG_Analyzer *a) {
     g_hash_table_destroy(a->insts);
     g_hash_table_destroy(a->reg_states);
-    g_hash_table_destroy(a->preds);
-    g_hash_table_destroy(a->succs);
+    g_hash_table_destroy(a->direct_preds);
+    g_hash_table_destroy(a->direct_succs);
     g_hash_table_destroy(a->flg_finished_succs);
     g_hash_table_destroy(a->flg_need_write);
     g_hash_table_destroy(a->gpr_analyzed_succs);
@@ -544,27 +546,31 @@ Z_API void z_ucfg_analyzer_add_inst(UCFG_Analyzer *a, addr_t addr,
     __ucfg_analyzer_advance_analyze(a, addr, inst);
 }
 
-Z_API Buffer *z_ucfg_analyzer_get_successors(UCFG_Analyzer *a, addr_t addr) {
+Z_API Buffer *z_ucfg_analyzer_get_direct_successors(UCFG_Analyzer *a,
+                                                    addr_t addr) {
     assert(a != NULL);
 
     Buffer *buf =
-        (Buffer *)g_hash_table_lookup(a->succs, GSIZE_TO_POINTER(addr));
+        (Buffer *)g_hash_table_lookup(a->direct_succs, GSIZE_TO_POINTER(addr));
     if (!buf) {
         buf = z_buffer_create(NULL, 0);
-        g_hash_table_insert(a->succs, GSIZE_TO_POINTER(addr), (gpointer)buf);
+        g_hash_table_insert(a->direct_succs, GSIZE_TO_POINTER(addr),
+                            (gpointer)buf);
     }
 
     return buf;
 }
 
-Z_API Buffer *z_ucfg_analyzer_get_predecessors(UCFG_Analyzer *a, addr_t addr) {
+Z_API Buffer *z_ucfg_analyzer_get_direct_predecessors(UCFG_Analyzer *a,
+                                                      addr_t addr) {
     assert(a != NULL);
 
     Buffer *buf =
-        (Buffer *)g_hash_table_lookup(a->preds, GSIZE_TO_POINTER(addr));
+        (Buffer *)g_hash_table_lookup(a->direct_preds, GSIZE_TO_POINTER(addr));
     if (!buf) {
         buf = z_buffer_create(NULL, 0);
-        g_hash_table_insert(a->preds, GSIZE_TO_POINTER(addr), (gpointer)buf);
+        g_hash_table_insert(a->direct_preds, GSIZE_TO_POINTER(addr),
+                            (gpointer)buf);
     }
 
     return buf;

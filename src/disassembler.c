@@ -745,20 +745,22 @@ Z_API bool z_disassembler_fully_support_prob_disasm(Disassembler *d) {
     return !z_strcmp("ProbDisassembler", STRUCT_TYPE(d->prob_disasm));
 }
 
-Z_API Buffer *z_disassembler_get_predecessors(Disassembler *d, addr_t addr) {
+Z_API Buffer *z_disassembler_get_direct_predecessors(Disassembler *d,
+                                                     addr_t addr) {
     // force superset disasm
     if (d->text_backup) {
         z_disassembler_get_superset_disasm(d, addr);
     }
 
-    return z_ucfg_analyzer_get_predecessors(d->ucfg_analyzer, addr);
+    return z_ucfg_analyzer_get_direct_predecessors(d->ucfg_analyzer, addr);
 }
 
-Z_API Buffer *z_disassembler_get_successors(Disassembler *d, addr_t addr) {
+Z_API Buffer *z_disassembler_get_direct_successors(Disassembler *d,
+                                                   addr_t addr) {
     // force superset disasm
     if (d->text_backup) {
         z_disassembler_get_superset_disasm(d, addr);
     }
 
-    return z_ucfg_analyzer_get_successors(d->ucfg_analyzer, addr);
+    return z_ucfg_analyzer_get_direct_successors(d->ucfg_analyzer, addr);
 }

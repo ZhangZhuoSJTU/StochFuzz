@@ -163,11 +163,13 @@ Z_API bool z_disassembler_is_within_disasm_range(Disassembler *d, addr_t addr);
 /*
  * Get predecessors
  */
-Z_API Buffer *z_disassembler_get_predecessors(Disassembler *d, addr_t addr);
+Z_API Buffer *z_disassembler_get_direct_predecessors(Disassembler *d,
+                                                     addr_t addr);
 
 /*
  * Get successors
  */
-Z_API Buffer *z_disassembler_get_successors(Disassembler *d, addr_t addr);
+Z_API Buffer *z_disassembler_get_direct_successors(Disassembler *d,
+                                                   addr_t addr);
 
 #endif

@@ -9,6 +9,7 @@ SysOptArgs sys_optargs = {
     .safe_ret = false,
     .instrument_early = false,
     .force_pdisasm = false,
+    .disable_callthrough = false,
     .force_linear = false,
     .log_level = LOG_INFO,
     .timeout = SYS_TIMEOUT,

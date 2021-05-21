@@ -11,7 +11,7 @@
 
 /*
  * Light-weight instruction-level analyzer, which aims at analyzing conservative
- * use-def relation on an incomplete CFG.
+ * use-def relation on the Universal CFG (UCFG).
  */
 STRUCT(UCFG_Analyzer, {
     // basic instruction information
@@ -22,8 +22,8 @@ STRUCT(UCFG_Analyzer, {
 
     // successors and predecessor
     //  note that it is possible to return preds/succs for an invalid address
-    GHashTable *preds;
-    GHashTable *succs;
+    GHashTable *direct_preds;
+    GHashTable *direct_succs;
 
     // eflags register analysis
     GHashTable *flg_finished_succs;
@@ -57,14 +57,18 @@ Z_API void z_ucfg_analyzer_add_inst(UCFG_Analyzer *a, addr_t addr,
                                     const cs_insn *inst, bool maybe_duplicated);
 
 /*
- * Get succerrors (return value will never be NULL)
+ * Get succerrors without the call-fallthrough edges (return value will never be
+ * NULL)
  */
-Z_API Buffer *z_ucfg_analyzer_get_successors(UCFG_Analyzer *a, addr_t addr);
+Z_API Buffer *z_ucfg_analyzer_get_direct_successors(UCFG_Analyzer *a,
+                                                    addr_t addr);
 
 /*
- * Get predecessor (return value will never be NULL)
+ * Get predecessor without the call-fallthrough edges (return value will never
+ * be NULL)
  */
-Z_API Buffer *z_ucfg_analyzer_get_predecessors(UCFG_Analyzer *a, addr_t addr);
+Z_API Buffer *z_ucfg_analyzer_get_direct_predecessors(UCFG_Analyzer *a,
+                                                      addr_t addr);
 
 /*
  * Get *need-write* information for flag registers

@@ -30,6 +30,7 @@ typedef struct system_optargs_t {
     bool safe_ret;
     bool instrument_early;
     bool force_pdisasm;
+    bool disable_callthrough;
     bool force_linear;  // secret option
 
     int32_t log_level;

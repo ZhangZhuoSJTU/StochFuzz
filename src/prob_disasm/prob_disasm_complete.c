@@ -311,7 +311,8 @@ Z_RESERVED Z_PRIVATE void __prob_disassembler_search_path(ProbDisassembler *pd,
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
     GQueue *stack = g_queue_new();
 
-    if (!__prob_disassembler_path_dfs(pd, &z_ucfg_analyzer_get_successors,
+    if (!__prob_disassembler_path_dfs(pd,
+                                      &z_ucfg_analyzer_get_direct_successors,
                                       stack, seen, src, dst)) {
         EXITME("cannot reach %#lx from %#lx", dst, src);
     } else {
@@ -387,7 +388,8 @@ Z_PRIVATE bool __prob_disassembler_get_propogate_successors(
         return false;
     }
 
-    Buffer *succs_buf = z_ucfg_analyzer_get_successors(d->ucfg_analyzer, addr);
+    Buffer *succs_buf =
+        z_ucfg_analyzer_get_direct_successors(d->ucfg_analyzer, addr);
     assert(succs_buf);
 
     // XXX:  option one: propogate hints through fall-through edges for calls

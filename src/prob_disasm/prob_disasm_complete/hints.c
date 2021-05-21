@@ -316,8 +316,9 @@ Z_PRIVATE void __prob_disassembler_collect_cf_hints(ProbDisassembler *pd) {
 
             // check pred's succs are valid
             Iter(addr_t, pred_succs);
-            z_iter_init_from_buf(pred_succs, z_ucfg_analyzer_get_successors(
-                                                 d->ucfg_analyzer, pred));
+            z_iter_init_from_buf(
+                pred_succs,
+                z_ucfg_analyzer_get_direct_successors(d->ucfg_analyzer, pred));
 
             while (!z_iter_is_empty(pred_succs)) {
                 addr_t pred_succ = *(z_iter_next(pred_succs));
@@ -448,7 +449,7 @@ Z_PRIVATE void __prob_disassembler_collect_reg_hints(ProbDisassembler *pd) {
         g_hash_table_insert(seen, GSIZE_TO_POINTER(addr), GSIZE_TO_POINTER(1));
 
         __prob_disassembler_reg_hints_dfs(
-            pd, seen, &z_ucfg_analyzer_get_predecessors,
+            pd, seen, &z_ucfg_analyzer_get_direct_predecessors,
             &__update_info_for_usedef_reg_hint, addr, &info, true);
 
         /*
@@ -463,7 +464,7 @@ Z_PRIVATE void __prob_disassembler_collect_reg_hints(ProbDisassembler *pd) {
         g_hash_table_insert(seen, GSIZE_TO_POINTER(addr), GSIZE_TO_POINTER(1));
 
         __prob_disassembler_reg_hints_dfs(
-            pd, seen, &z_ucfg_analyzer_get_predecessors,
+            pd, seen, &z_ucfg_analyzer_get_direct_predecessors,
             &__update_info_for_killed_reg_hint, addr, &info, true);
     }
 }
@@ -679,8 +680,8 @@ Z_PRIVATE void __prob_disassembler_collect_cmp_cjmp_hints(
         Iter(addr_t, succ_addrs);
 
         for (size_t i = 0; i < CMP_CJMP_DISTANCE; i++) {
-            z_iter_init_from_buf(succ_addrs,
-                                 z_disassembler_get_successors(d, cur_addr));
+            z_iter_init_from_buf(
+                succ_addrs, z_disassembler_get_direct_successors(d, cur_addr));
             if (z_iter_get_size(succ_addrs) != 1) {
                 break;
             }
@@ -748,8 +749,8 @@ Z_PRIVATE void __prob_disassembler_collect_arg_call_hints(
         Iter(addr_t, succ_addrs);
 
         for (size_t i = 0; i < ARG_CALL_DISTANCE; i++) {
-            z_iter_init_from_buf(succ_addrs,
-                                 z_disassembler_get_successors(d, cur_addr));
+            z_iter_init_from_buf(
+                succ_addrs, z_disassembler_get_direct_successors(d, cur_addr));
             if (z_iter_get_size(succ_addrs) != 1) {
                 break;
             }

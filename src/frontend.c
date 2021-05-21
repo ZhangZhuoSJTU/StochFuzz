@@ -56,12 +56,14 @@ static void usage(const char *argv0, int ret_status) {
         "  -c            - count the number of basic blocks with conflicting "
         "hash values\n"
         "  -d            - disable instrumentation optimization\n"
-        "  -e            - install the fork server at the entrypoint instead "
-        "of the main function\n"
         "  -r            - assume the return addresses are only used by RET "
         "instructions\n"
+        "  -e            - install the fork server at the entrypoint instead "
+        "of the main function\n"
         "  -f            - forcedly assume there is data interleaving with "
-        "code\n\n"
+        "code\n"
+        "  -i            - ignore the call-fallthrough edges to defense "
+        "RET-misusing obfuscation\n\n"
 
         "Other stuff:\n\n"
 
@@ -96,7 +98,7 @@ static int parse_args(int argc, const char **argv) {
     bool check_execs_given = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgcedrfnht:l:x:")) >
+    while ((opt = getopt(argc, (char *const *)argv, "+SRPDVgceidrfnht:l:x:")) >
            0) {
         switch (opt) {
 #define __MODE_CASE(c, m)                                   \
@@ -123,6 +125,7 @@ static int parse_args(int argc, const char **argv) {
             __SETTING_CASE('r', safe_ret);
             __SETTING_CASE('e', instrument_early);
             __SETTING_CASE('f', force_pdisasm);
+            __SETTING_CASE('i', disable_callthrough);
             // This is a secret undocumented option! It is mainly used for
             // Github Actions which has memory limitation. Forcely using linear
             // disassembly (which means not doing pre-disassembly and patching
