@@ -1,6 +1,7 @@
 #ifndef __UCFG_ANALYZER_H
 #define __UCFG_ANALYZER_H
 
+#include "binary.h"
 #include "buffer.h"
 #include "capstone_.h"
 #include "config.h"
@@ -20,10 +21,23 @@ STRUCT(UCFG_Analyzer, {
     // register state for each instruction
     GHashTable *reg_states;
 
-    // successors and predecessor
-    //  note that it is possible to return preds/succs for an invalid address
+    /*
+     * successors and predecessor
+     * XXX: note that it is possible to return preds/succs for an invalid
+     * address
+     *
+     * all_preds = direct_preds U intra_preds
+     * all_succs = direct_succs U intra_succs
+     */
+    // direct/explict successors and predecessors without call-fallthrough edges
     GHashTable *direct_preds;
     GHashTable *direct_succs;
+    // intra-procedure successsors and predecessors
+    GHashTable *intra_preds;
+    GHashTable *intra_succs;
+    // successors and predecessors with call-fallthrough edges
+    GHashTable *all_preds;
+    GHashTable *all_succs;
 
     // eflags register analysis
     GHashTable *flg_finished_succs;
@@ -33,14 +47,19 @@ STRUCT(UCFG_Analyzer, {
     GHashTable *gpr_analyzed_succs;
     GHashTable *gpr_can_write;
 
+    // whether an inst can reach a RET inst via intra-procedure edges
+    GHashTable *can_ret;
+
     // system optargs
     SysOptArgs *opts;
+
+    Binary *binary;
 });
 
 /*
  * Create an ucfg_analyzer
  */
-Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts);
+Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary, SysOptArgs *opts);
 
 /*
  * Destroy an ucfg_analyzer
@@ -69,6 +88,29 @@ Z_API Buffer *z_ucfg_analyzer_get_direct_successors(UCFG_Analyzer *a,
  */
 Z_API Buffer *z_ucfg_analyzer_get_direct_predecessors(UCFG_Analyzer *a,
                                                       addr_t addr);
+
+/*
+ * Get intra-procedure successors
+ */
+Z_API Buffer *z_ucfg_analyzer_get_intra_successors(UCFG_Analyzer *a,
+                                                   addr_t addr);
+
+/*
+ * Get intra-procedure predecessors
+ */
+Z_API Buffer *z_ucfg_analyzer_get_intra_predecessors(UCFG_Analyzer *a,
+                                                     addr_t addr);
+
+/*
+ * Get all successors
+ */
+Z_API Buffer *z_ucfg_analyzer_get_all_successors(UCFG_Analyzer *a, addr_t addr);
+
+/*
+ * Get all predecessors
+ */
+Z_API Buffer *z_ucfg_analyzer_get_all_predecessors(UCFG_Analyzer *a,
+                                                   addr_t addr);
 
 /*
  * Get *need-write* information for flag registers

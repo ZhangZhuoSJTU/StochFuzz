@@ -1,5 +1,27 @@
 #include "ucfg_analyzer.h"
+#include "elf_.h"
+#include "iterator.h"
+#include "library_functions/library_functions.h"
 #include "utils.h"
+
+// XXX: there are three types of UCFG edges:
+//  DIRECT_UEDGE              : call edges to the callee
+//  INTRA_UEDGE               : call-fallthrough edges
+//  DIRECT_UEDGE | INTRA_UEDGE: other control flow edges
+typedef enum ucfg_edge_t {
+    DIRECT_UEDGE = (1 << 0),
+    INTRA_UEDGE = (1 << 1),
+} UEdge;
+
+#define __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(t, k)        \
+    ({                                                     \
+        Buffer *buf = (Buffer *)g_hash_table_lookup(t, k); \
+        if (!buf) {                                        \
+            buf = z_buffer_create(NULL, 0);                \
+            g_hash_table_insert(t, k, (gpointer)buf);      \
+        }                                                  \
+        buf;                                               \
+    })
 
 /*
  * Initial analysis for each instruction (calculate direct successors and
@@ -27,11 +49,18 @@ Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst);
 
 /*
+ * Returning / non-returning functions analysis: whether a given inst (at addr)
+ * can reach a RET instruction via intra-procedure edges
+ */
+Z_PRIVATE void __ucfg_analyzer_analyze_ret(UCFG_Analyzer *a, addr_t addr,
+                                           const cs_insn *inst);
+
+/*
  * Add predecessor and successor relation
  */
 Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
                                                  addr_t src_addr,
-                                                 addr_t dst_addr);
+                                                 addr_t dst_addr, UEdge edge);
 
 /*
  * Check whether two instructions are consistent, so that simply replacing one
@@ -39,6 +68,135 @@ Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
  */
 Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
                                                 const cs_insn *inst_bob);
+
+Z_PRIVATE void __ucfg_analyzer_analyze_ret(UCFG_Analyzer *a, addr_t addr,
+                                           const cs_insn *inst) {
+    if (a->opts->disable_callthrough) {
+        return;
+    }
+
+    // this addr cannot be in a->can_ret now
+    assert(!g_hash_table_lookup(a->can_ret, GSIZE_TO_POINTER(addr)));
+
+    // step (1). add intra-procedure edges if inst is calling a returning
+    // function
+    if (z_capstone_is_call(inst)) {
+        Buffer *succ_buf = z_ucfg_analyzer_get_intra_successors(a, addr);
+
+        if (!z_buffer_get_size(succ_buf)) {
+            // XXX: no intra-procedure successor found
+            cs_detail *detail = inst->detail;
+
+            if ((detail->x86.op_count == 1) &&
+                (detail->x86.operands[0].type == X86_OP_IMM)) {
+                addr_t callee_addr = detail->x86.operands[0].imm;
+                if (callee_addr != addr + inst->size &&
+                    g_hash_table_lookup(a->can_ret,
+                                        GSIZE_TO_POINTER(callee_addr))) {
+                    // XXX: avoid duplicated edges
+                    z_trace("call-fallthrough: %#lx -> %#lx", addr,
+                            addr + inst->size);
+
+                    __ucfg_analyzer_new_pred_and_succ(
+                        a, addr, addr + inst->size, INTRA_UEDGE);
+                    if (z_unlikely(!z_buffer_get_size(succ_buf))) {
+                        EXITME("invalid intra-procedure successors");
+                    }
+                }
+            }
+        }
+    }
+
+    // step (2). check whether current address is returnable
+    GQueue *queue = g_queue_new();  // queue for back trace
+    {
+        if (z_capstone_is_ret(inst)) {
+            // it is a RET instruction
+            g_hash_table_add(a->can_ret, GSIZE_TO_POINTER(addr));
+            g_queue_push_tail(queue, GSIZE_TO_POINTER(addr));
+        } else {
+            // this is all intra-procedure success
+            Iter(addr_t, intra_succs);
+            z_iter_init_from_buf(intra_succs,
+                                 z_ucfg_analyzer_get_intra_successors(a, addr));
+
+            // other instructions
+            while (!z_iter_is_empty(intra_succs)) {
+                addr_t succ_addr = *(z_iter_next(intra_succs));
+                if (g_hash_table_lookup(a->can_ret,
+                                        GSIZE_TO_POINTER(succ_addr))) {
+                    g_hash_table_add(a->can_ret, GSIZE_TO_POINTER(addr));
+                    g_queue_push_tail(queue, GSIZE_TO_POINTER(addr));
+                    break;
+                }
+            }
+            z_iter_destroy(intra_succs);
+        }
+    }
+
+    // step (3). update all predecessors
+    while (!g_queue_is_empty(queue)) {
+        addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
+        z_trace("find returanable address: %#lx", cur_addr);
+        assert(g_hash_table_lookup(a->can_ret, GSIZE_TO_POINTER(cur_addr)));
+
+        // step (3.1). first update calls if cur_addr is a function entrypoint
+        Iter(addr_t, direct_preds);
+        z_iter_init_from_buf(
+            direct_preds, z_ucfg_analyzer_get_direct_predecessors(a, cur_addr));
+        while (!z_iter_is_empty(direct_preds)) {
+            addr_t pred_addr = *(z_iter_next(direct_preds));
+            const cs_insn *pred_inst = (const cs_insn *)g_hash_table_lookup(
+                a->insts, GSIZE_TO_POINTER(pred_addr));
+            // pred_inst cannot be NULL
+            assert(pred_inst);
+
+            if (!z_capstone_is_call(pred_inst)) {
+                continue;
+            }
+
+            addr_t call_addr = pred_addr;
+            addr_t fallthrough_addr = call_addr + pred_inst->size;
+
+            if (fallthrough_addr == cur_addr) {
+                // XXX: avoid duplicated edges
+                continue;
+            }
+
+            if (z_buffer_get_size(
+                    z_ucfg_analyzer_get_intra_successors(a, call_addr))) {
+                continue;
+            }
+
+            __ucfg_analyzer_new_pred_and_succ(a, call_addr, fallthrough_addr,
+                                              INTRA_UEDGE);
+            if (g_hash_table_lookup(a->can_ret,
+                                    GSIZE_TO_POINTER(fallthrough_addr))) {
+                z_trace("call-fallthrough: %#lx -> %#lx", call_addr,
+                        fallthrough_addr);
+                g_hash_table_add(a->can_ret, GSIZE_TO_POINTER(call_addr));
+                g_queue_push_tail(queue, GSIZE_TO_POINTER(call_addr));
+            }
+        }
+        z_iter_destroy(direct_preds);
+
+        // step (3.2) update all intra-procedure predecessors
+        Iter(addr_t, intra_preds);
+        z_iter_init_from_buf(
+            intra_preds, z_ucfg_analyzer_get_intra_predecessors(a, cur_addr));
+        while (!z_iter_is_empty(intra_preds)) {
+            addr_t pred_addr = *(z_iter_next(intra_preds));
+            if (!g_hash_table_lookup(a->can_ret, GSIZE_TO_POINTER(pred_addr))) {
+                g_hash_table_add(a->can_ret, GSIZE_TO_POINTER(pred_addr));
+                g_queue_push_tail(queue, GSIZE_TO_POINTER(pred_addr));
+            }
+        }
+        z_iter_destroy(intra_preds);
+    }
+
+    // destroy queue
+    g_queue_free(queue);
+}
 
 Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst) {
@@ -69,7 +227,7 @@ Z_PRIVATE void __ucfg_analyzer_analyze_gpr(UCFG_Analyzer *a, addr_t addr,
         g_hash_table_insert(a->gpr_analyzed_succs, GSIZE_TO_POINTER(addr),
                             GSIZE_TO_POINTER(analyzed_succ_n));
 
-        // update addr's preds
+        // update addr's direct preds
         Buffer *preds = z_ucfg_analyzer_get_direct_predecessors(a, addr);
         assert(preds != NULL);
         size_t pred_n = z_buffer_get_size(preds) / sizeof(addr_t);
@@ -311,6 +469,7 @@ Z_PRIVATE void __ucfg_analyzer_advance_analyze(UCFG_Analyzer *a, addr_t addr,
                                                const cs_insn *inst) {
     __ucfg_analyzer_analyze_flg(a, addr, inst);
     __ucfg_analyzer_analyze_gpr(a, addr, inst);
+    __ucfg_analyzer_analyze_ret(a, addr, inst);
 }
 
 Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
@@ -386,7 +545,7 @@ Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
 
 Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
                                                  addr_t src_addr,
-                                                 addr_t dst_addr) {
+                                                 addr_t dst_addr, UEdge edge) {
 #ifdef DEBUG
 
 #define __NEW_RELATION(relation, from_addr, to_addr)                         \
@@ -427,8 +586,18 @@ Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
 
 #endif
 
-    __NEW_RELATION(direct_succs, src_addr, dst_addr);
-    __NEW_RELATION(direct_preds, dst_addr, src_addr);
+    if (edge & DIRECT_UEDGE) {
+        __NEW_RELATION(direct_succs, src_addr, dst_addr);
+        __NEW_RELATION(direct_preds, dst_addr, src_addr);
+    }
+
+    if (edge & INTRA_UEDGE) {
+        __NEW_RELATION(intra_succs, src_addr, dst_addr);
+        __NEW_RELATION(intra_preds, dst_addr, src_addr);
+    }
+
+    __NEW_RELATION(all_succs, src_addr, dst_addr);
+    __NEW_RELATION(all_preds, dst_addr, src_addr);
 
 #undef __NEW_RELATION
 }
@@ -445,30 +614,67 @@ Z_PRIVATE void __ucfg_analyzer_init_analyze(UCFG_Analyzer *a, addr_t addr,
 
         // avoid dupilicated succs/preds
         if (true) {
-            __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size);
+            __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size,
+                                              DIRECT_UEDGE | INTRA_UEDGE);
         }
         if (detail->x86.operands[0].imm != addr + inst->size) {
             __ucfg_analyzer_new_pred_and_succ(a, addr,
-                                              detail->x86.operands[0].imm);
+                                              detail->x86.operands[0].imm,
+                                              DIRECT_UEDGE | INTRA_UEDGE);
         }
 
-    } else if (z_capstone_is_jmp(inst) || z_capstone_is_call(inst) ||
-               z_capstone_is_xbegin(inst)) {
+    } else if (z_capstone_is_jmp(inst) || z_capstone_is_xbegin(inst)) {
         if ((detail->x86.op_count == 1) &&
             (detail->x86.operands[0].type == X86_OP_IMM)) {
-            // we treat call as it will never return
             __ucfg_analyzer_new_pred_and_succ(a, addr,
-                                              detail->x86.operands[0].imm);
+                                              detail->x86.operands[0].imm,
+                                              DIRECT_UEDGE | INTRA_UEDGE);
+        }
+    } else if (z_capstone_is_call(inst)) {
+        ELF *e = z_binary_get_elf(a->binary);
+        if ((detail->x86.op_count == 1) &&
+            (detail->x86.operands[0].type == X86_OP_IMM)) {
+            // get callee first
+            addr_t callee_addr = detail->x86.operands[0].imm;
+
+            // add the inter-procedure edge (the call edge)
+            __ucfg_analyzer_new_pred_and_succ(a, addr, callee_addr,
+                                              DIRECT_UEDGE);
+
+            // check plt
+            const LFuncInfo *lf_info = z_elf_get_plt_info(e, callee_addr);
+            if (lf_info && lf_info->cfg_info == LCFG_RET) {
+                if (callee_addr == addr + inst->size) {
+                    EXITME("invalid PLT call: " CS_SHOW_INST(inst));
+                }
+                __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size,
+                                                  INTRA_UEDGE);
+            }
+        } else {
+            // let check GOT call
+            addr_t got_addr = INVALID_ADDR;
+            if (z_capstone_is_pc_related_ucall(inst, &got_addr) ||
+                (!z_elf_get_is_pie(e) &&
+                 z_capstone_is_const_mem_ucall(inst, &got_addr))) {
+                const LFuncInfo *lf_info = z_elf_get_got_info(e, got_addr);
+                if (lf_info && lf_info->cfg_info == LCFG_RET) {
+                    __ucfg_analyzer_new_pred_and_succ(
+                        a, addr, addr + inst->size, INTRA_UEDGE);
+                }
+            }
         }
     } else if (z_capstone_is_terminator(inst)) {
         // do nothing for terminator
     } else {
-        __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size);
+        __ucfg_analyzer_new_pred_and_succ(a, addr, addr + inst->size,
+                                          DIRECT_UEDGE | INTRA_UEDGE);
     }
 }
 
-Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts) {
+Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary, SysOptArgs *opts) {
     UCFG_Analyzer *a = STRUCT_ALLOC(UCFG_Analyzer);
+
+    a->binary = binary;
 
     a->opts = opts;
 
@@ -483,6 +689,14 @@ Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts) {
     a->direct_succs =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
                               (GDestroyNotify)(&z_buffer_destroy));
+    a->intra_preds = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                                           (GDestroyNotify)(&z_buffer_destroy));
+    a->intra_succs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                                           (GDestroyNotify)(&z_buffer_destroy));
+    a->all_preds = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                                         (GDestroyNotify)(&z_buffer_destroy));
+    a->all_succs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                                         (GDestroyNotify)(&z_buffer_destroy));
 
     a->flg_finished_succs =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -494,6 +708,9 @@ Z_API UCFG_Analyzer *z_ucfg_analyzer_create(SysOptArgs *opts) {
     a->gpr_can_write =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
+    a->can_ret =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+
     return a;
 }
 
@@ -502,10 +719,15 @@ Z_API void z_ucfg_analyzer_destroy(UCFG_Analyzer *a) {
     g_hash_table_destroy(a->reg_states);
     g_hash_table_destroy(a->direct_preds);
     g_hash_table_destroy(a->direct_succs);
+    g_hash_table_destroy(a->intra_preds);
+    g_hash_table_destroy(a->intra_succs);
+    g_hash_table_destroy(a->all_preds);
+    g_hash_table_destroy(a->all_succs);
     g_hash_table_destroy(a->flg_finished_succs);
     g_hash_table_destroy(a->flg_need_write);
     g_hash_table_destroy(a->gpr_analyzed_succs);
     g_hash_table_destroy(a->gpr_can_write);
+    g_hash_table_destroy(a->can_ret);
 
     z_free(a);
 }
@@ -549,31 +771,43 @@ Z_API void z_ucfg_analyzer_add_inst(UCFG_Analyzer *a, addr_t addr,
 Z_API Buffer *z_ucfg_analyzer_get_direct_successors(UCFG_Analyzer *a,
                                                     addr_t addr) {
     assert(a != NULL);
-
-    Buffer *buf =
-        (Buffer *)g_hash_table_lookup(a->direct_succs, GSIZE_TO_POINTER(addr));
-    if (!buf) {
-        buf = z_buffer_create(NULL, 0);
-        g_hash_table_insert(a->direct_succs, GSIZE_TO_POINTER(addr),
-                            (gpointer)buf);
-    }
-
-    return buf;
+    return __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(a->direct_succs,
+                                                 GSIZE_TO_POINTER(addr));
 }
 
 Z_API Buffer *z_ucfg_analyzer_get_direct_predecessors(UCFG_Analyzer *a,
                                                       addr_t addr) {
     assert(a != NULL);
+    return __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(a->direct_preds,
+                                                 GSIZE_TO_POINTER(addr));
+}
 
-    Buffer *buf =
-        (Buffer *)g_hash_table_lookup(a->direct_preds, GSIZE_TO_POINTER(addr));
-    if (!buf) {
-        buf = z_buffer_create(NULL, 0);
-        g_hash_table_insert(a->direct_preds, GSIZE_TO_POINTER(addr),
-                            (gpointer)buf);
-    }
+Z_API Buffer *z_ucfg_analyzer_get_intra_successors(UCFG_Analyzer *a,
+                                                   addr_t addr) {
+    assert(a != NULL);
+    return __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(a->intra_succs,
+                                                 GSIZE_TO_POINTER(addr));
+}
 
-    return buf;
+Z_API Buffer *z_ucfg_analyzer_get_intra_predecessors(UCFG_Analyzer *a,
+                                                     addr_t addr) {
+    assert(a != NULL);
+    return __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(a->intra_preds,
+                                                 GSIZE_TO_POINTER(addr));
+}
+
+Z_API Buffer *z_ucfg_analyzer_get_all_successors(UCFG_Analyzer *a,
+                                                 addr_t addr) {
+    assert(a != NULL);
+    return __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(a->all_succs,
+                                                 GSIZE_TO_POINTER(addr));
+}
+
+Z_API Buffer *z_ucfg_analyzer_get_all_predecessors(UCFG_Analyzer *a,
+                                                   addr_t addr) {
+    assert(a != NULL);
+    return __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER(a->all_preds,
+                                                 GSIZE_TO_POINTER(addr));
 }
 
 Z_API FLGState z_ucfg_analyzer_get_flg_need_write(UCFG_Analyzer *a,
@@ -600,3 +834,5 @@ Z_API RegState *z_ucfg_analyzer_get_register_state(UCFG_Analyzer *a,
     return (RegState *)g_hash_table_lookup(a->reg_states,
                                            GSIZE_TO_POINTER(addr));
 }
+
+#undef __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER

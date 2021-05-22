@@ -286,7 +286,7 @@ Z_API Disassembler *z_disassembler_create(Binary *b, SysOptArgs *opts) {
     d->potential_blocks =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
-    d->ucfg_analyzer = z_ucfg_analyzer_create(d->opts);
+    d->ucfg_analyzer = z_ucfg_analyzer_create(d->binary, d->opts);
 
     // we choose to superset disassemble relative-small binary
     ELF *e = z_binary_get_elf(d->binary);
