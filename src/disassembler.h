@@ -160,16 +160,17 @@ Z_API bool z_disassembler_is_potential_inst_entrypoint(Disassembler *d,
  */
 Z_API bool z_disassembler_is_within_disasm_range(Disassembler *d, addr_t addr);
 
-/*
- * Get predecessors
- */
-Z_API Buffer *z_disassembler_get_direct_predecessors(Disassembler *d,
-                                                     addr_t addr);
+#define __DISASSEMBLER_DEFINE_SUCC_AND_PRED(etype, rtype)               \
+    Z_API Buffer *z_disassembler_get_##etype##_##rtype(Disassembler *d, \
+                                                       addr_t addr)
 
-/*
- * Get successors
- */
-Z_API Buffer *z_disassembler_get_direct_successors(Disassembler *d,
-                                                   addr_t addr);
+__DISASSEMBLER_DEFINE_SUCC_AND_PRED(direct, predecessors);
+__DISASSEMBLER_DEFINE_SUCC_AND_PRED(direct, successors);
+__DISASSEMBLER_DEFINE_SUCC_AND_PRED(intra, predecessors);
+__DISASSEMBLER_DEFINE_SUCC_AND_PRED(intra, successors);
+__DISASSEMBLER_DEFINE_SUCC_AND_PRED(all, predecessors);
+__DISASSEMBLER_DEFINE_SUCC_AND_PRED(all, successors);
+
+#undef __DISASSEMBLER_DEFINE_SUCC_AND_PRED
 
 #endif

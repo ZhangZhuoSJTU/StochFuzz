@@ -745,22 +745,22 @@ Z_API bool z_disassembler_fully_support_prob_disasm(Disassembler *d) {
     return !z_strcmp("ProbDisassembler", STRUCT_TYPE(d->prob_disasm));
 }
 
-Z_API Buffer *z_disassembler_get_direct_predecessors(Disassembler *d,
-                                                     addr_t addr) {
-    // force superset disasm
-    if (d->text_backup) {
-        z_disassembler_get_superset_disasm(d, addr);
+#define __DISASSEMBLER_DECLARE_SUCC_AND_PRED(etype, rtype)                    \
+    Z_API Buffer *z_disassembler_get_##etype##_##rtype(Disassembler *d,       \
+                                                       addr_t addr) {         \
+        /* force superset disasm */                                           \
+        if (d->text_backup) {                                                 \
+            z_disassembler_get_superset_disasm(d, addr);                      \
+        }                                                                     \
+                                                                              \
+        return z_ucfg_analyzer_get_##etype##_##rtype(d->ucfg_analyzer, addr); \
     }
 
-    return z_ucfg_analyzer_get_direct_predecessors(d->ucfg_analyzer, addr);
-}
+__DISASSEMBLER_DECLARE_SUCC_AND_PRED(direct, predecessors);
+__DISASSEMBLER_DECLARE_SUCC_AND_PRED(direct, successors);
+__DISASSEMBLER_DECLARE_SUCC_AND_PRED(intra, predecessors);
+__DISASSEMBLER_DECLARE_SUCC_AND_PRED(intra, successors);
+__DISASSEMBLER_DECLARE_SUCC_AND_PRED(all, predecessors);
+__DISASSEMBLER_DECLARE_SUCC_AND_PRED(all, successors);
 
-Z_API Buffer *z_disassembler_get_direct_successors(Disassembler *d,
-                                                   addr_t addr) {
-    // force superset disasm
-    if (d->text_backup) {
-        z_disassembler_get_superset_disasm(d, addr);
-    }
-
-    return z_ucfg_analyzer_get_direct_successors(d->ucfg_analyzer, addr);
-}
+#undef __DISASSEMBLER_DECLARE_SUCC_AND_PRED

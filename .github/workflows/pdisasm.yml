@@ -41,31 +41,6 @@ jobs:
         run: |
           ./build.sh
   
-  debug:
-    runs-on: ubuntu-18.04
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            capstone/
-            keystone/
-            glib/
-          key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
-      - name: make format
-        run: make format
-        working-directory: ./src
-      - name: make debug
-        run: |
-          clang --version
-          make clean
-          make debug
-        working-directory: ./src
-      - name: make test
-        run: timeout --signal=KILL 15m make test TEST_OPTIONS='-f'
-        working-directory: ./src
-  
   release:
     runs-on: ubuntu-18.04
     needs: [build]
