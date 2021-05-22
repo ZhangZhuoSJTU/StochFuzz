@@ -22,7 +22,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [x] Correctly handle timeout from AFL.
 + [x] Use shared memory for .text section, to avoid the expensive patch commands.
 + [x] Support self-correction procedure (delta debugging).
-+ [ ] Support non-return analysis on UCFG, with the help of the white-list for library functions.
++ [x] Support non-return analysis on UCFG, with the help of the white-list for library functions.
 + [x] Support the on-the-fly probability recalculation.
 + [ ] Support other disassembly backends (for the initial disassembly).
 + [x] Use simple linear disassembly to check the existence of inlined data.
@@ -68,3 +68,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.7.0: support online probability calculation and dynamic hint logging.
 + v0.8.0: support advanced bridge patching (which can avoid inner jump) and -e option (which can install the fork server at the entrypoint).
 + v0.9.0: support periodic checking runs and library function detection.
++ v1.0.0: finish system migration.

@@ -199,7 +199,7 @@ Z_PRIVATE void __patcher_bfs_certain_addresses(Patcher *p, addr_t addr) {
         // step (3.3). check successors
         Iter(addr_t, succ_addrs);
         z_iter_init_from_buf(succ_addrs,
-                             z_disassembler_get_direct_successors(d, cur_addr));
+                             z_disassembler_get_all_successors(d, cur_addr));
         while (!z_iter_is_empty(succ_addrs)) {
             addr_t succ_addr = *(z_iter_next(succ_addrs));
 
@@ -588,7 +588,7 @@ Z_API void z_patcher_describe(Patcher *p) {
             z_free((void *)inst_str);
             Iter(addr_t, succ_addrs);
             z_iter_init_from_buf(succ_addrs,
-                                 z_disassembler_get_direct_successors(d, addr));
+                                 z_disassembler_get_all_successors(d, addr));
             while (!z_iter_is_empty(succ_addrs)) {
                 z_sayf(" {%#lx}", *(z_iter_next(succ_addrs)));
             }
@@ -1128,8 +1128,7 @@ TRY_TO_PATCH_DONE:
             // get predecessors
             Iter(addr_t, pred_addrs);
             z_iter_init_from_buf(
-                pred_addrs,
-                z_disassembler_get_direct_predecessors(d, cur_addr));
+                pred_addrs, z_disassembler_get_all_predecessors(d, cur_addr));
 
             while (!z_iter_is_empty(pred_addrs)) {
                 // pred_addr must in .text (it may be incomplete when
