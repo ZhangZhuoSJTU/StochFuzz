@@ -1684,6 +1684,9 @@ Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
     assert(e != NULL);
 
     Snode *segment = __elf_find_segment_by_vaddr(e, addr);
+    if (!segment) {
+        EXITME("invalid address: %#lx", addr);
+    }
     FChunk *fc = (FChunk *)z_snode_get_data(segment);
 
     if (z_fchunk_get_extendable(fc)) {
@@ -1708,6 +1711,16 @@ Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
         // We cannot directly use __elf_stream_vaddr2off here, as addr may not
         // in current virtual memroy.
         z_mem_file_pwrite(underlying_stream, buf, n, write_off);
+
+        if (write_off + n == z_mem_file_get_size(underlying_stream)) {
+            // XXX: if the underlying stream is fully written, we need to extend
+            // it. For example, if the original address range is [0x1000,
+            // 0x1100) and we wrote all the 0x100 bytes, next time we want to
+            // write on address 0x1100. It sould be valid because the underlying
+            // stream is extendable.
+            z_mem_file_pwrite(underlying_stream, "", 1, write_off + n);
+            assert(write_off + n < z_mem_file_get_size(underlying_stream));
+        }
 
         // calculate new node
         size_t new_size = z_mem_file_get_size(underlying_stream) - tp_off;

@@ -38,7 +38,7 @@ STRUCT(Binary, {
     addr_t lookup_table_addr;  // Address of lookup table
 
     // Retaddr mapping
-    addr_t retaddr_n;             // Number of retaddr mapping entities
+    size_t retaddr_n;             // Number of retaddr mapping entities
     addr_t retaddr_mapping_addr;  // Address of the retaddr mapping
     addr_t retaddr_entity_addr;   // Address of the next retaddr mapping entity
 
@@ -112,4 +112,10 @@ Z_API void z_binary_fsync(Binary *b);
  * Wrapper for z_elf_check_state()
  */
 Z_API bool z_binary_check_state(Binary *b, ELFState state);
+
+/*
+ * Add a new retaddr entity
+ */
+Z_API void z_binary_new_retaddr_entity(Binary *b, addr_t shadow_retaddr,
+                                       addr_t ori_retaddr);
 #endif

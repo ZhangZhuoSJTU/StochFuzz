@@ -427,3 +427,20 @@ Z_API void z_binary_update_lookup_table(Binary *b, addr_t ori_addr,
 Z_API bool z_binary_check_state(Binary *b, ELFState state) {
     return z_elf_check_state(b->elf, state);
 }
+
+Z_API void z_binary_new_retaddr_entity(Binary *b, addr_t shadow_retaddr,
+                                       addr_t ori_retaddr) {
+    // update retaddr_n first
+    b->retaddr_n += 1;
+    z_elf_write(b->elf, b->retaddr_mapping_addr, sizeof(size_t),
+                &(b->retaddr_n));
+
+    // insert shadow_retaddr
+    z_elf_write(b->elf, b->retaddr_entity_addr, sizeof(addr_t),
+                &shadow_retaddr);
+    b->retaddr_entity_addr += sizeof(addr_t);
+
+    // insert ori_retaddr
+    z_elf_write(b->elf, b->retaddr_entity_addr, sizeof(addr_t), &ori_retaddr);
+    b->retaddr_entity_addr += sizeof(addr_t);
+}

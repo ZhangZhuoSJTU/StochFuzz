@@ -112,7 +112,13 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
 
             addr_t callee_addr = op->imm;
 
-            if (lf_info->ra_info == LRA_UNUSED || r->opts->safe_ret) {
+            if (r->opts->safe_ret) {
+                // direct write down the instruction
+                KS_ASM_CALL(shadow_addr, callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                z_binary_new_retaddr_entity(r->binary, shadow_addr + ks_size,
+                                            ori_next_addr);
+            } else if (lf_info->ra_info == LRA_UNUSED) {
                 // direct write down the instruction
                 KS_ASM_CALL(shadow_addr, callee_addr);
                 z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
@@ -153,7 +159,12 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
             // call to GOT
             z_trace("find got call %s @ %#lx", lf_info->name, ori_addr);
 
-            if (lf_info->ra_info == LRA_UNUSED || r->opts->safe_ret) {
+            if (r->opts->safe_ret) {
+                // direct write down the instruction
+                z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
+                z_binary_new_retaddr_entity(r->binary, shadow_addr + inst->size,
+                                            ori_next_addr);
+            } else if (lf_info->ra_info == LRA_UNUSED) {
                 // direct write down the instruction
                 z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
             } else {
@@ -204,6 +215,8 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                 // directly write
                 KS_ASM_CALL(shadow_addr, callee_addr);
                 z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                z_binary_new_retaddr_entity(r->binary, shadow_addr + ks_size,
+                                            ori_next_addr);
             } else {
                 KS_ASM(shadow_addr,
                        "push %#lx;\n"
@@ -217,8 +230,8 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
         /*
          * step [2]. get shadow callee and prepare hole_buf
          */
-#ifndef NSINGLE_SUCC_OPT
         uint64_t hole_buf = 0;
+#ifndef NSINGLE_SUCC_OPT
         addr_t shadow_callee_addr;
         if (r->opts->disable_opt) {
             shadow_callee_addr = (addr_t)g_hash_table_lookup(
@@ -233,7 +246,6 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
             r->optimized_single_succ += 1;
         }
 #else
-        uint64_t hole_buf = X86_INS_JMP;
         addr_t shadow_callee_addr = (addr_t)g_hash_table_lookup(
             r->rewritten_bbs, GSIZE_TO_POINTER(callee_addr));
 #endif
@@ -243,38 +255,39 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
          */
         if (shadow_callee_addr) {
             if (r->opts->safe_ret) {
-                // TODO: check whether we can simply change it as a call inst
-                KS_ASM(shadow_addr,
-                       "push END;\n"
-                       "jmp %#lx;\n"
-                       "END:\n",
-                       shadow_callee_addr);
+                KS_ASM_CALL(shadow_addr, shadow_callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                z_binary_new_retaddr_entity(r->binary, shadow_addr + ks_size,
+                                            ori_next_addr);
             } else {
                 KS_ASM(shadow_addr,
                        "push %#lx;\n"
                        "jmp %#lx;\n",
                        ori_next_addr, shadow_callee_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
             }
-            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
         } else {
             // rewrite return address
             if (r->opts->safe_ret) {
-                KS_ASM(shadow_addr,
-                       "push END + %lu;\n"
-                       "END:\n",
-                       __rewriter_get_hole_len(X86_INS_JMP));
-            } else {
-                KS_ASM(shadow_addr, "push %#lx;\n", ori_next_addr);
-            }
-
-            shadow_addr =
-                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
-            shadow_addr += ks_size;
-
-            // insert hole
-            shadow_addr =
+                // insert hole
+                hole_buf = X86_INS_CALL;
                 z_binary_insert_shadow_code(r->binary, (uint8_t *)(&hole_buf),
                                             __rewriter_get_hole_len(hole_buf));
+
+                z_binary_new_retaddr_entity(
+                    r->binary, shadow_addr + __rewriter_get_hole_len(hole_buf),
+                    ori_next_addr);
+            } else {
+                KS_ASM(shadow_addr, "push %#lx;\n", ori_next_addr);
+                z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+                shadow_addr += ks_size;
+
+                // insert hole
+                hole_buf = X86_INS_JMP;
+                z_binary_insert_shadow_code(r->binary, (uint8_t *)(&hole_buf),
+                                            __rewriter_get_hole_len(hole_buf));
+            }
+
             g_hash_table_insert(holes, GSIZE_TO_POINTER(shadow_addr),
                                 GSIZE_TO_POINTER(callee_addr));
         }
@@ -374,6 +387,8 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
         shadow_addr += ks_size;
         if (r->opts->safe_ret) {
             KS_ASM(shadow_addr, "call qword ptr [rsp - 144]");
+            z_binary_new_retaddr_entity(r->binary, shadow_addr + ks_size,
+                                        ori_next_addr);
         } else {
             KS_ASM(shadow_addr,
                    "push %#lx;\n"
