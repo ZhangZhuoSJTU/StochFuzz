@@ -11,9 +11,7 @@ typedef enum crs_status_t {
     CRS_STATUS_REMMAP,   // fork server needs to remmap shadow code
     CRS_STATUS_DEBUG,    // the program are set into delta debugging mode
     CRS_STATUS_CRASH,    // a crash in the subject program
-
-    // XXX: note that fork server would not receive CRS_STATUS_NORMAL
-    CRS_STATUS_NORMAL = -1,  // normal exit without crash
+    CRS_STATUS_NORMAL,   // normal exit without crash
 } CRSStatus;
 
 /*

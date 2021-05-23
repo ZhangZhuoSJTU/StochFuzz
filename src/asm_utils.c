@@ -77,8 +77,7 @@ Z_UTILS void utils_output_number(uint64_t n) {
 Z_UTILS void __utils_error(const char *err_str, bool need_exit) {
     utils_puts(err_str, true);
     if (need_exit) {
-        sys_kill(/*pid=*/0, SIGKILL);
-        asm volatile("ud2");
+        asm volatile("int3");
         __builtin_unreachable();
     }
 }
@@ -118,7 +117,7 @@ Z_UTILS size_t utils_mmap_external_file(const char *filename, bool remmap,
 #endif
 
     // Step (1): open file
-    int fd = sys_open(filename, O_RDONLY, 0);
+    int fd = sys_open(filename, (prot & PROT_WRITE) ? O_RDWR : O_RDONLY, 0);
     if (fd < 0) {
         utils_puts(filename, false);
         utils_puts(s_ + 13, false);

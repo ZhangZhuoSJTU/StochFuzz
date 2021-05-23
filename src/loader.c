@@ -436,6 +436,31 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
         fullpath, true, (unsigned long)shared_text_base, PROT_READ | PROT_EXEC);
     RW_PAGE_INFO(shared_text_base) = (addr_t)shared_text_base;
 
+    // retaddr mapping file
+    __PARSE_FILENAME(cur_, name);
+    utils_strcpy(RW_PAGE_INFO(retaddr_mapping_path), fullpath);
+    utils_puts(RW_PAGE_INFO(retaddr_mapping_path), true);
+    addr_t retaddr_mapping_addr = rip_base + RETADDR_MAPPING_ADDR;
+    RW_PAGE_INFO(retaddr_mapping_base) = retaddr_mapping_addr;
+    RW_PAGE_INFO(retaddr_mapping_size) = utils_mmap_external_file(
+        fullpath, false, retaddr_mapping_addr, PROT_READ | PROT_WRITE);
+    if (*((int64_t *)retaddr_mapping_addr) == -1) {
+        // retaddr mapping is useless
+        uint64_t ori_size = RW_PAGE_INFO(retaddr_mapping_size);
+        if (sys_munmap(retaddr_mapping_addr, ori_size)) {
+            utils_error(loader_err_str, true);
+        }
+        RW_PAGE_INFO(retaddr_mapping_used) = false;
+        RW_PAGE_INFO(retaddr_mapping_size) = 0;
+    } else {
+        RW_PAGE_INFO(retaddr_mapping_used) = true;
+        // set the function pointer as NULL
+        *((void **)retaddr_mapping_addr + 1) = NULL;
+        // remap the page as read only
+        utils_mmap_external_file(fullpath, true, retaddr_mapping_addr,
+                                 PROT_READ);
+    }
+
 #undef __PARSE_FILENAME
 
     // set the client pid as the pid of fork server (loader) itself

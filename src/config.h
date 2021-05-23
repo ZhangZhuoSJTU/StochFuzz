@@ -104,6 +104,11 @@ typedef struct __loading_info_t {
     uint64_t shared_text_size;
     addr_t shared_text_base;
 
+    char retaddr_mapping_path[0x100];
+    uint64_t retaddr_mapping_size;
+    addr_t retaddr_mapping_base;
+    bool retaddr_mapping_used;
+
     bool daemon_attached;
 
 } __LoadingInfo;

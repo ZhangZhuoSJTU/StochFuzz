@@ -567,7 +567,7 @@ NO_INLINE void fork_server_start(char **envp) {
                 crs_status != CRS_STATUS_NORMAL) {
                 // check remmap
                 if (crs_status == CRS_STATUS_REMMAP) {
-                    // munmap current shadow file
+                    // munmap current shadow file (due to the different size)
                     if (sys_munmap(RW_PAGE_INFO(shadow_base),
                                    RW_PAGE_INFO(shadow_size))) {
                         utils_error(mumap_err_str, true);
@@ -576,6 +576,19 @@ NO_INLINE void fork_server_start(char **envp) {
                     RW_PAGE_INFO(shadow_size) = utils_mmap_external_file(
                         RW_PAGE_INFO(shadow_path), false,
                         RW_PAGE_INFO(shadow_base), PROT_READ | PROT_EXEC);
+
+                    if (RW_PAGE_INFO(retaddr_mapping_used)) {
+                        // munmap current retaddr mapping
+                        if (sys_munmap(RW_PAGE_INFO(retaddr_mapping_base),
+                                       RW_PAGE_INFO(retaddr_mapping_size))) {
+                            utils_error(mumap_err_str, true);
+                        }
+                        // remmap it
+                        RW_PAGE_INFO(retaddr_mapping_size) =
+                            utils_mmap_external_file(
+                                RW_PAGE_INFO(retaddr_mapping_path), false,
+                                RW_PAGE_INFO(retaddr_mapping_base), PROT_READ);
+                    }
                 }
 
                 // check delta debugging mode
