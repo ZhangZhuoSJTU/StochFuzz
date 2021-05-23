@@ -26,6 +26,7 @@
  * Magic string to indicate the file is patched
  */
 #define MAGIC_STRING "2015.05.02 Shanghai Snow"
+#define MAGIC_NUMBER 0x527569787565
 
 /*
  * Genral macro and types
@@ -64,6 +65,7 @@ typedef long double double128_t;
  * XXX:
  *  + SHADOW_CODE_ADDR: random address based on ASLR/PIE
  *  + SIGNAL_STACK_ADDR: random address based on ASLR/PIE
+ *  + RETADDR_MAPPING_ADDR: random address based on ASLR/PIE
  *  + RW_PAGE_ADDR: fixed address
  *  + LOOKUP_TABLE_ADDR: fixed address
  */
@@ -73,6 +75,8 @@ typedef long double double128_t;
 // XXX: we pick a high address to avoid overflow with other important pages
 #define SIGNAL_STACK_SIZE SIGSTKSZ
 #define SIGNAL_STACK_ADDR (0x100000000 + SIGNAL_STACK_SIZE)
+
+#define RETADDR_MAPPING_ADDR (SIGNAL_STACK_ADDR + SIGNAL_STACK_SIZE)
 
 /*
  * [RW_PAGE_ADDR] The meta information needed during loading
@@ -117,6 +121,7 @@ typedef struct __loading_info_t {
 #define LOOKUP_TABNAME_PREFIX ".lookup."
 #define TRAMPOLINES_NAME_PREFIX ".shadow."
 #define SHARED_TEXT_PREFIX ".text."
+#define RETADDR_MAPPING_PREFIX ".ret."
 #define CRASHPOINT_LOG_PREFIX ".crashpoint."
 #define PIPE_FILENAME_PREFIX ".pipe."
 #define PDISASM_FILENAME_PREFIX ".pdisasm."

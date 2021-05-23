@@ -95,6 +95,8 @@ STRUCT(ELF, {
     addr_t trampolines_addr;   // Base address of trampolines(TP)
     addr_t lookup_table_addr;  // Base address of lookup table
     addr_t shared_text_addr;   // Base address of shared .text (page-aligned)
+    addr_t
+        retaddr_mapping_addr;  // Base address of retaddr mapping (page-aligned)
 
     /*
      * Lookup table
@@ -118,6 +120,12 @@ STRUCT(ELF, {
      * Pipeline
      */
     char *pipe_filename;  // Name of pipe communicated with daemon
+
+    /*
+     * Return address mapping
+     */
+    char *retaddr_mapping_name;  // Name of the mapping of return addreseses
+    _MEM_FILE *retaddr_mapping_stream;  // _MEM_FILE of retaddr mapping
 
     /*
      * ELF state
@@ -172,6 +180,7 @@ DECLARE_GETTER(ELF, elf, addr_t, loader_addr);
 DECLARE_GETTER(ELF, elf, addr_t, trampolines_addr);
 DECLARE_GETTER(ELF, elf, addr_t, lookup_table_addr);
 DECLARE_GETTER(ELF, elf, addr_t, shared_text_addr);
+DECLARE_GETTER(ELF, elf, addr_t, retaddr_mapping_addr);
 DECLARE_GETTER(ELF, elf, bool, is_pie);
 DECLARE_GETTER(ELF, elf, addr_t, ori_entry);
 DECLARE_GETTER(ELF, elf, addr_t, main);
@@ -184,6 +193,7 @@ DECLARE_GETTER(ELF, elf, const char *, lookup_tabname);
 DECLARE_GETTER(ELF, elf, const char *, trampolines_name);
 DECLARE_GETTER(ELF, elf, const char *, shared_text_name);
 DECLARE_GETTER(ELF, elf, const char *, pipe_filename);
+DECLARE_GETTER(ELF, elf, const char *, retaddr_mapping_name);
 DECLARE_GETTER(ELF, elf, size_t, plt_n);
 
 /*

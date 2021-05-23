@@ -37,6 +37,11 @@ Z_PRIVATE void __binary_setup_loader(Binary *b);
 Z_PRIVATE void __binary_setup_lookup_table(Binary *b);
 
 /*
+ * Setup retaddr mapping
+ */
+Z_PRIVATE void __binary_setup_retaddr_mapping(Binary *b);
+
+/*
  * Setup fork server
  */
 Z_PRIVATE void __binary_setup_fork_server(Binary *b);
@@ -159,10 +164,16 @@ Z_PRIVATE void __binary_setup_loader(Binary *b) {
                 shared_text_name);
     cur_addr += z_strlen(shared_text_name) + 1;
 
-    // step (12). 16-byte alignment for fork server (avoid error in xmm)
+    // step (12). store retaddr mapping filename
+    const char *retaddr_mapping_name = z_elf_get_retaddr_mapping_name(b->elf);
+    z_elf_write(b->elf, cur_addr, z_strlen(retaddr_mapping_name) + 1,
+                retaddr_mapping_name);
+    cur_addr += z_strlen(retaddr_mapping_name) + 1;
+
+    // step (13). 16-byte alignment for fork server (avoid error in xmm)
     cur_addr = BITS_ALIGN_CELL(cur_addr, 4);
 
-    // step (13). prepare the address of fork server
+    // step (14). prepare the address of fork server
     b->fork_server_addr = cur_addr;
     z_info("fork server address: %#lx", b->fork_server_addr);
     if (b->prior_fork_server) {
@@ -259,6 +270,21 @@ Z_PRIVATE void __binary_setup_lookup_table(Binary *b) {
     b->lookup_table_addr = z_elf_get_lookup_table_addr(b->elf);
 }
 
+Z_PRIVATE void __binary_setup_retaddr_mapping(Binary *b) {
+    // XXX: the memory layout of retaddr mapping"
+    //      0  - 7 : number of entities
+    //      8  - 15: address of real_unw_step
+    //      16 - ??: mapping entities
+    b->retaddr_mapping_addr = z_elf_get_retaddr_mapping_addr(b->elf);
+    b->retaddr_entity_addr = b->retaddr_mapping_addr + 0x10;
+    b->retaddr_n = 0;
+
+    // XXX: we first set the number of entities as -1 to indicate this space is
+    // useless
+    int64_t n = -1;
+    z_elf_write(b->elf, b->retaddr_mapping_addr, sizeof(int64_t), &n);
+}
+
 Z_PRIVATE void __binary_setup_tp_zone(Binary *b) {
     b->trampolines_addr = z_elf_get_trampolines_addr(b->elf);
     b->last_tp_addr = b->trampolines_addr;
@@ -293,6 +319,9 @@ Z_API Binary *z_binary_open(const char *pathname, bool prior_fork_server) {
 
     // step (5). setup trampoline zone
     __binary_setup_tp_zone(b);
+
+    // step (6). setup retaddr mapping
+    __binary_setup_retaddr_mapping(b);
 
     return b;
 }

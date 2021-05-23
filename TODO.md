@@ -38,6 +38,7 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [ ] Add a new license.
 + [ ] Set the default log level as WARN (note that we need to update `make test` and `make benchmark`).
 + [x] Do not use a global sys\_config, but put the options into each object.
++ [ ] Use a general method to add segments in the given ELF instead of using the simple PT\_NOTE trick.
 
 ## Known Issues
 

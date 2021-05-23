@@ -27,6 +27,7 @@
 #endif
 
 #define TRAMPOLINES_INIT_SIZE (ZONE_SIZE * 0x100)
+#define RETADDR_MAPPING_INIT_SIZE ZONE_SIZE
 
 /*
  * Define special getter and setter for ELF
@@ -61,19 +62,22 @@ STRUCT(FChunk, {
     _MEM_FILE *stream;
     size_t offset;
     size_t size;
+    bool extendable;
 });
 
 DEFINE_GETTER(FChunk, fchunk, _MEM_FILE *, stream);
+DEFINE_GETTER(FChunk, fchunk, bool, extendable);
 DEFINE_GETTER(FChunk, fchunk, size_t, offset);
 DEFINE_GETTER(FChunk, fchunk, size_t, size);
 DEFINE_SETTER(FChunk, fchunk, size_t, size);
 
-Z_PRIVATE FChunk *z_fchunk_create(_MEM_FILE *stream, size_t offset,
-                                  size_t size) {
+Z_PRIVATE FChunk *z_fchunk_create(_MEM_FILE *stream, size_t offset, size_t size,
+                                  bool extendable) {
     FChunk *fc = STRUCT_ALLOC(FChunk);
     fc->stream = stream;
     fc->offset = offset;
     fc->size = size;
+    fc->extendable = extendable;
     return fc;
 }
 
@@ -83,6 +87,11 @@ Z_PRIVATE void z_fchunk_destroy(FChunk *fc) { z_free(fc); }
  * Find Elf64_Dyn by tag name
  */
 Z_PRIVATE Elf64_Dyn *__elf_find_dyn_by_tag(ELF *e, Elf64_Xword tag);
+
+/*
+ * Fine Segment by virtual addr
+ */
+Z_PRIVATE Snode *__elf_find_segment_by_vaddr(ELF *e, addr_t vaddr);
 
 /*
  * Open a file (ori_filename) and load data into _MEM_FILE
@@ -140,6 +149,11 @@ Z_PRIVATE void __elf_extend_zones(ELF *e);
  * Setup lookup table
  */
 Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename);
+
+/*
+ * Setup retaddr mapping
+ */
+Z_PRIVATE void __elf_setup_retaddr_mapping(ELF *e, const char *filename);
 
 /*
  * Setup trampolines (shadow code)
@@ -216,12 +230,14 @@ DEFINE_GETTER(ELF, elf, addr_t, loader_addr);
 DEFINE_GETTER(ELF, elf, addr_t, trampolines_addr);
 DEFINE_GETTER(ELF, elf, addr_t, lookup_table_addr);
 DEFINE_GETTER(ELF, elf, addr_t, shared_text_addr);
+DEFINE_GETTER(ELF, elf, addr_t, retaddr_mapping_addr);
 DEFINE_GETTER(ELF, elf, bool, is_pie);
 DEFINE_GETTER(ELF, elf, addr_t, ori_entry);
 DEFINE_GETTER(ELF, elf, const char *, lookup_tabname);
 DEFINE_GETTER(ELF, elf, const char *, trampolines_name);
 DEFINE_GETTER(ELF, elf, const char *, shared_text_name);
 DEFINE_GETTER(ELF, elf, const char *, pipe_filename);
+DEFINE_GETTER(ELF, elf, const char *, retaddr_mapping_name);
 
 OVERLOAD_GETTER(ELF, elf, size_t, plt_n) { return g_hash_table_size(elf->plt); }
 
@@ -275,17 +291,15 @@ OVERLOAD_GETTER(ELF, elf, addr_t, load_fini) {
 
 Z_PRIVATE size_t __elf_stream_vaddr2off(ELF *e, addr_t addr) {
     // Get corresponding segment
-    Snode *segment = z_splay_search(e->vmapping, addr);
+    Snode *segment = __elf_find_segment_by_vaddr(e, addr);
     if (segment == NULL) {
         EXITME("invalid virtual address [%#lx]", addr);
     }
-    assert(addr >= z_snode_get_lower_bound(segment));
-    assert(addr <= z_snode_get_upper_bound(segment));
 
     // Create Rptr
     FChunk *fc = (FChunk *)z_snode_get_data(segment);
     if (fc == NULL || z_strcmp(STRUCT_TYPE(fc), "FChunk")) {
-        EXITME("get address into trampoline");
+        EXITME("get address into dynamically allocated space");
     }
     size_t off1 = addr - z_snode_get_lower_bound(segment);
     size_t off2 = z_fchunk_get_offset(fc);
@@ -354,6 +368,40 @@ Z_PRIVATE void __elf_setup_pipe(ELF *e, const char *filename) {
     return;
 }
 
+Z_PRIVATE void __elf_setup_retaddr_mapping(ELF *e, const char *filename) {
+    assert(e != NULL);
+
+    // step (0). update retaddr_mapping_addr
+    e->retaddr_mapping_addr = RETADDR_MAPPING_ADDR;
+
+    // step (1). get filename
+    assert(!z_strchr(filename, '/'));
+    e->retaddr_mapping_name = z_strcat(RETADDR_MAPPING_PREFIX, filename);
+
+    // step (2). create _MEM_FILE
+    e->retaddr_mapping_stream =
+        z_mem_file_fopen((const char *)e->retaddr_mapping_name, "w+");
+    z_mem_file_pwrite(e->retaddr_mapping_stream, "", 1,
+                      RETADDR_MAPPING_INIT_SIZE - 1);
+
+    // step (3). insert into virtual mapping
+    Snode *node = NULL;
+    FChunk *fc = z_fchunk_create(e->retaddr_mapping_stream, 0,
+                                 RETADDR_MAPPING_INIT_SIZE, true);
+    node = z_snode_create(e->retaddr_mapping_addr, RETADDR_MAPPING_INIT_SIZE,
+                          (void *)fc, (void (*)(void *))(&z_fchunk_destroy));
+    if (!z_splay_insert(e->vmapping, node)) {
+        EXITME("overlapped retaddr mapping");
+    }
+
+    // step (4). update mmapped informaiton
+    node = z_snode_create(e->retaddr_mapping_addr, RETADDR_MAPPING_INIT_SIZE,
+                          NULL, NULL);
+    if (!z_splay_insert(e->mmapped_pages, node)) {
+        EXITME("overlapped retaddr mapping");
+    }
+}
+
 Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename) {
     assert(e != NULL);
 
@@ -398,7 +446,8 @@ Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename) {
 
     // step (5). insert into virtual mapping
     Snode *node = NULL;
-    FChunk *fc = z_fchunk_create(e->lookup_table_stream, 0, LOOKUP_TABLE_SIZE);
+    FChunk *fc =
+        z_fchunk_create(e->lookup_table_stream, 0, LOOKUP_TABLE_SIZE, false);
     node = z_snode_create(e->lookup_table_addr, LOOKUP_TABLE_SIZE, (void *)fc,
                           (void (*)(void *))(&z_fchunk_destroy));
     if (!z_splay_insert(e->vmapping, node)) {
@@ -447,13 +496,13 @@ Z_PRIVATE void __elf_setup_shared_text(ELF *e, const char *filename) {
     memcpy(dst, src, aligned_size);
 
     // step (4). generate virtual mapping information
-    FChunk *fc = z_fchunk_create(e->shared_text_stream, 0, aligned_size);
+    FChunk *fc = z_fchunk_create(e->shared_text_stream, 0, aligned_size, false);
     Snode *node = z_snode_create(aligned_addr, aligned_size, (void *)fc,
                                  (void (*)(void *))(&z_fchunk_destroy));
 
     // step (5). insert into virtual mapping
     if (!z_splay_insert(e->vmapping, node)) {
-        EXITME("overlapped trampolines");
+        EXITME("overlapped shared .text section");
     }
 
     // XXX: mapped_pages will be updated in __elf_set_virtual_mapping
@@ -477,7 +526,7 @@ Z_PRIVATE void __elf_setup_trampolines(ELF *e, const char *filename) {
     // step (3). insert into virtual mapping
     Snode *node = NULL;
     FChunk *fc =
-        z_fchunk_create(e->trampolines_stream, 0, TRAMPOLINES_INIT_SIZE);
+        z_fchunk_create(e->trampolines_stream, 0, TRAMPOLINES_INIT_SIZE, true);
     node = z_snode_create(e->trampolines_addr, TRAMPOLINES_INIT_SIZE,
                           (void *)fc, (void (*)(void *))(&z_fchunk_destroy));
     if (!z_splay_insert(e->vmapping, node)) {
@@ -518,7 +567,8 @@ Z_PRIVATE void __elf_extend_zones(ELF *e) {
         vaddr = zones_addr[i];
         *zones[i] = vaddr;
 
-        FChunk *fc = z_fchunk_create(e->stream, offset, zone_size - zone_guard);
+        FChunk *fc =
+            z_fchunk_create(e->stream, offset, zone_size - zone_guard, false);
         node = z_snode_create(vaddr, zone_size - zone_guard, (void *)fc,
                               (void (*)(void *))(&z_fchunk_destroy));
 
@@ -541,6 +591,18 @@ Z_PRIVATE void __elf_extend_zones(ELF *e) {
     z_mem_file_pwrite(e->stream, "", 1, offset - 1);
 }
 
+Z_PRIVATE Snode *__elf_find_segment_by_vaddr(ELF *e, addr_t vaddr) {
+    Snode *segment = z_splay_search(e->vmapping, vaddr);
+    if (segment == NULL) {
+        return NULL;
+    }
+
+    assert(vaddr >= z_snode_get_lower_bound(segment));
+    assert(vaddr <= z_snode_get_upper_bound(segment));
+
+    return segment;
+}
+
 Z_PRIVATE Elf64_Dyn *__elf_find_dyn_by_tag(ELF *e, Elf64_Xword tag) {
     Elf64_Phdr *dynamic_phdr = z_elf_get_phdr_dynamic(e);
     if (z_unlikely(!dynamic_phdr)) {
@@ -559,7 +621,7 @@ Z_PRIVATE Elf64_Dyn *__elf_find_dyn_by_tag(ELF *e, Elf64_Xword tag) {
         dyn++;
     }
 
-    return NULL;
+    return (tag == DT_NULL ? dyn : NULL);
 }
 
 Z_RESERVED Z_PRIVATE void __elf_set_relro(ELF *e) {
@@ -870,6 +932,16 @@ Z_PRIVATE void __elf_parse_relocation(ELF *e) {
     z_free((void *)rela_plt);
     z_free((void *)rela_dyn);
     z_free((void *)dynsym);
+
+    /*
+     * step (5). change the value of DT_NULL to indicate this program is patched
+     * by StochFuzz
+     */
+    Elf64_Dyn *dyn_ = __elf_find_dyn_by_tag(e, DT_NULL);
+    if (!dyn_) {
+        EXITME("DT_NULL not found");
+    }
+    dyn_->d_un.d_val = MAGIC_NUMBER;
 }
 
 Z_PRIVATE void __elf_parse_shdr(ELF *e) {
@@ -1162,7 +1234,8 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
             addr_t aligned_addr = BITS_ALIGN_FLOOR(text_addr, PAGE_SIZE_POW2);
             if (vaddr < aligned_addr) {
                 assert(aligned_addr - vaddr <= filesz);
-                fc = z_fchunk_create(e->stream, offset, aligned_addr - vaddr);
+                fc = z_fchunk_create(e->stream, offset, aligned_addr - vaddr,
+                                     false);
                 node = z_snode_create(vaddr, aligned_addr - vaddr, (void *)fc,
                                       (void (*)(void *))(&z_fchunk_destroy));
                 if (!z_splay_insert(e->vmapping, node)) {
@@ -1191,7 +1264,7 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
                     // it means the tail part contains some data bytes
                     fc = z_fchunk_create(e->stream,
                                          offset + aligned_addr - vaddr,
-                                         vaddr + filesz - aligned_addr);
+                                         vaddr + filesz - aligned_addr, false);
                     node = z_snode_create(
                         aligned_addr, vaddr + memsz - aligned_addr, (void *)fc,
                         (void (*)(void *))(&z_fchunk_destroy));
@@ -1205,7 +1278,7 @@ Z_PRIVATE void __elf_set_virtual_mapping(ELF *e, const char *filename) {
             // step (3). setup shared .text section
             __elf_setup_shared_text(e, filename);
         } else {
-            fc = z_fchunk_create(e->stream, offset, filesz);
+            fc = z_fchunk_create(e->stream, offset, filesz, false);
             node = z_snode_create(vaddr, memsz, (void *)fc,
                                   (void (*)(void *))(&z_fchunk_destroy));
             if (!z_splay_insert(e->vmapping, node)) {
@@ -1452,26 +1525,29 @@ Z_API ELF *z_elf_open(const char *ori_filename, bool detect_main) {
     // Step (8). Setup pipe file
     __elf_setup_pipe(e, ori_filename);
 
-    // Step (9). Detect and parse main function
+    // Step (9). Setup retaddr mapping
+    __elf_setup_retaddr_mapping(e, ori_filename);
+
+    // Step (10). Detect and parse main function
     __elf_parse_main(e);
 
-    // Step (10). Rewrite PT_NOTE meta info
+    // Step (11). Rewrite PT_NOTE meta info
     __elf_rewrite_pt_note(e);
 
-    // Step (11). Set RELRO for elf (REMOVE to allow gdb load library symbols)
+    // Step (12). Set RELRO for elf (REMOVE to allow gdb load library symbols)
     // XXX: AFL already set LD_BIND_NOW to stops the linker from doing extra
     // work post-fork()
     // __elf_set_relro(e);
 
-    // step (12). Get relocation information
+    // step (13). Get relocation information
     __elf_parse_relocation(e);
 
-    // step (13). link patched file
+    // step (14). link patched file
     char *patched_filename = z_strcat(ori_filename, PATCHED_FILE_SUFFIX);
     z_elf_save(e, patched_filename);
     z_free(patched_filename);
 
-    // step (14). set state
+    // step (15). set state
     e->state = ELFSTATE_CONNECTED;
 
     return e;
@@ -1481,16 +1557,15 @@ Z_API Rptr *z_elf_vaddr2ptr(ELF *e, addr_t vaddr) {
     assert(e != NULL);
 
     // Get corresponding segment
-    Snode *segment = z_splay_search(e->vmapping, vaddr);
-    if (segment == NULL)
+    Snode *segment = __elf_find_segment_by_vaddr(e, vaddr);
+    if (segment == NULL) {
         return NULL;
-    assert(vaddr >= z_snode_get_lower_bound(segment));
-    assert(vaddr <= z_snode_get_upper_bound(segment));
+    }
 
     // Create Rptr
     FChunk *fc = (FChunk *)z_snode_get_data(segment);
     if (z_strcmp(STRUCT_TYPE(fc), "FChunk")) {
-        z_trace("get address into trampoline");
+        z_trace("get address into dynamically allocated space");
         return NULL;
     }
     size_t off1 = vaddr - z_snode_get_lower_bound(segment);
@@ -1514,11 +1589,13 @@ Z_API void z_elf_destroy(ELF *e) {
     g_hash_table_destroy(e->got);
     g_hash_table_destroy(e->plt);
 
+    z_free(e->retaddr_mapping_name);
     z_free(e->lookup_tabname);
     z_free(e->trampolines_name);
     z_free(e->shared_text_name);
     z_free(e->pipe_filename);
 
+    z_mem_file_fclose(e->retaddr_mapping_stream);
     z_mem_file_fclose(e->lookup_table_stream);
     z_mem_file_fclose(e->trampolines_stream);
     z_mem_file_fclose(e->shared_text_stream);
@@ -1606,37 +1683,41 @@ Z_API size_t z_elf_read(ELF *e, addr_t addr, size_t n, void *buf) {
 Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
     assert(e != NULL);
 
-    // XXX: we should guarantee there is no other pages between the trampolines
-    // and the lookup table.
-    // TODO: as trampolines_addr is based on ASLR/PIE but lookup_table_addr is
-    // not, it may have problems when instrumenting PIE binary.
-    if (addr >= e->trampolines_addr && addr < e->lookup_table_addr) {
-        // write on trampolines, which is extensive.
+    Snode *segment = __elf_find_segment_by_vaddr(e, addr);
+    FChunk *fc = (FChunk *)z_snode_get_data(segment);
 
-        size_t tp_off = __elf_stream_vaddr2off(e, e->trampolines_addr);
+    if (z_fchunk_get_extendable(fc)) {
+        // write on an extendable space
+        addr_t segment_base_addr = z_snode_get_lower_bound(segment);
+        _MEM_FILE *underlying_stream = z_fchunk_get_stream(fc);
+
+        // XXX: similar to the false branch, the overhead of
+        // __elf_stream_vaddr2off is small because the target snode is already
+        // at the root of Splay
+        size_t tp_off = __elf_stream_vaddr2off(e, segment_base_addr);
         assert(tp_off == 0);
 
-        size_t write_off = addr - e->trampolines_addr + tp_off;
-        if (z_mem_file_get_size(e->trampolines_stream) < write_off) {
+        size_t write_off = addr - segment_base_addr + tp_off;
+        if (z_mem_file_get_size(underlying_stream) < write_off) {
             EXITME("write on too bigger address: %#lx", addr);
         }
 
         // get old size
-        size_t old_size = z_mem_file_get_size(e->trampolines_stream) - tp_off;
+        size_t old_size = z_mem_file_get_size(underlying_stream) - tp_off;
 
         // We cannot directly use __elf_stream_vaddr2off here, as addr may not
         // in current virtual memroy.
-        z_mem_file_pwrite(e->trampolines_stream, buf, n, write_off);
+        z_mem_file_pwrite(underlying_stream, buf, n, write_off);
 
         // calculate new node
-        size_t new_size = z_mem_file_get_size(e->trampolines_stream) - tp_off;
+        size_t new_size = z_mem_file_get_size(underlying_stream) - tp_off;
 
         // update if new_size is not equal to old_size
         if (new_size != old_size) {
             assert(new_size > old_size);
 
             // delete previous node
-            Snode *node = z_splay_delete(e->vmapping, e->trampolines_addr);
+            Snode *node = z_splay_delete(e->vmapping, segment_base_addr);
             assert(node != NULL);
 
             addr_t vaddr = z_snode_get_lower_bound(node);
@@ -1662,6 +1743,9 @@ Z_API size_t z_elf_write(ELF *e, addr_t addr, size_t n, const void *buf) {
     } else {
         // other range
 
+        // XXX: the overhead of re-searching splay is small because the target
+        // snode is already at the root, so we re-invoke z_elf_vaddr2pter for
+        // the easy understanding of the code
         Rptr *rptr = z_elf_vaddr2ptr(e, addr);
         z_rptr_memcpy(rptr, buf, n);
         z_rptr_destroy(rptr);

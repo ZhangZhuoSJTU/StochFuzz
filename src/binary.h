@@ -37,6 +37,11 @@ STRUCT(Binary, {
     // Lookup table
     addr_t lookup_table_addr;  // Address of lookup table
 
+    // Retaddr mapping
+    addr_t retaddr_n;             // Number of retaddr mapping entities
+    addr_t retaddr_mapping_addr;  // Address of the retaddr mapping
+    addr_t retaddr_entity_addr;   // Address of the next retaddr mapping entity
+
     // Shadow Code and Trampolines
     addr_t trampolines_addr;  // Next avaiable address of trampolines
     addr_t last_tp_addr;
