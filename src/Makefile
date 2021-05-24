@@ -235,7 +235,7 @@ $(GOOGLE_FTS): prepare_google_fts
 benchmark: prepare_google_fts $(GOOGLE_FTS)
 
 clean:
-	rm -rf $(OBJS) *.out *.bin *.o *.a *.so *_bin.c $(TOOLNAME) test/
+	rm -rf $(OBJS) *.out *.bin *.o *.a *.so *_bin.c $(TOOLNAME) test/ library_functions/library_functions_load.c rewriter_handlers/handler_main.c
 	$(MAKE) -C trampolines clean
 
 SOURCES:=$(OBJS:.o=.c)
