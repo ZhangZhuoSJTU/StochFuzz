@@ -4,7 +4,7 @@
 [![benchmark](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml/badge.svg)](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml)
 
 <p>
-<a href="https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf"> <img title="" src="imgs/paper.png" alt="loading-ag-167" align="right" width="225"></a>
+<a href="https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf"> <img title="" src="imgs/paper.png" alt="loading-ag-167" align="right" width="220"></a>
 
 StochFuzz is a (probabilistically) sound and cost-effective fuzzing technique for stripped binaries. It is facilitated by a novel incremental and stochastic rewriting technique that is particularly suitable for binary-only fuzzing. Any AFL-based fuzzer, which takes edge coverage (defined by AFL) as runtime feedback, can acquire benefits from StochFuzz to directly fuzz stripped binaries.
 </p>
@@ -15,6 +15,8 @@ More data and the results of the experiments can be found [here](https://github.
 
 + We adopt a new system design than the one from the paper. Details can be found at [system.md](docs/system.md).
 + In the paper, when we are talking about `e9patch`, we are actually talking about the binary-only fuzzing tool built upon e9patch, namely `e9tool`. Please refer to its [website](https://github.com/GJDuck/e9patch/blob/master/README.md#building) for more details.
++ Although StochFuzz does support Position-independent code (PIC), there are some implementation bugs which make fuzzing PIC binaries failed. I will fix them in one month (June 2021).
+
 
 
 ## Building StochFuzz
