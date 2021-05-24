@@ -9,6 +9,7 @@ OFF="\033[0m"
 CAPSTONE_VERSION="4.0.2"
 KEYSTONE_VERSION="0.9.2"
 GLIB_VERSION="2.68.0"
+LIBUNWIND_VERSION="1.5"
 
 #
 # check necessary command
@@ -121,6 +122,32 @@ then
     cd ..
 fi
 
+#
+# build libunwind
+#
+
+LIBUNWIND_URL="https://github.com/libunwind/libunwind/archive/v$LIBUNWIND_VERSION.zip"
+
+if [ ! -d libunwind ]
+then
+    if [ ! -f libunwind.zip ]
+    then
+        echo -e "${GREEN}$0${OFF}: downloading libunwind.zip..."
+        wget -O libunwind.zip $LIBUNWIND_URL
+    fi
+
+    echo -e "${GREEN}$0${OFF}: extracting libunwind.zip..."
+    unzip libunwind.zip
+    mv libunwind-$LIBUNWIND_VERSION libunwind
+
+    echo -e "${GREEN}$0${OFF}: building libunwind.zip..."
+    cd libunwind
+    mkdir install
+    ./autogen.sh
+    ./configure --prefix=`pwd`/install --enable-cxx-exceptions
+    make install -j8
+    cd ..
+fi
 
 #
 # build src

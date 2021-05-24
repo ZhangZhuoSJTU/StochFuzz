@@ -47,6 +47,10 @@ LDFLAGS += -lstdc++ -lm
 CFLAGS += -I $(realpath ..)/capstone/include
 LDFLAGS +=
 
+# libunwind
+LIBUNWIND_RT_STEP_OFFSET = 0x$(shell readelf -s $(realpath ..)/libunwind/install/lib/libunwind.so  | grep _ULx86_64_step | head -n 1 | awk '{print $$2}')
+LIBUNWIND_RT_CFLAGS += -fPIC -shared -I $(realpath ..)/libunwind/install/include -DSTEP_OFFSET=$(LIBUNWIND_RT_STEP_OFFSET)
+
 OBJS=\
 	binary.o \
 	buffer.o \
@@ -68,6 +72,9 @@ OBJS=\
 
 .PHONY: clean format
 
+libstochfuzzRT:
+	gcc $(LIBUNWIND_RT_CFLAGS) -o libstochfuzzRT.so libstochfuzzRT.c
+
 debug: CFLAGS += -g -O0 -fsanitize=address -fno-omit-frame-pointer -DDEBUG
 debug: SHELLCODE_CFLAGS += -DDEBUG
 debug: executable
@@ -80,7 +87,7 @@ release: CFLAGS += -O2 -DNDEBUG
 release: SHELLCODE_CFLAGS += -DNDEBUG
 release: executable
 
-executable: loader fork_server tps handlers library_functions_load $(OBJS)
+executable: loader fork_server tps handlers library_functions_load libstochfuzzRT $(OBJS)
 	ar rcs $(LIBNAME).a $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared $(OBJS) $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o $(LIBNAME).so
 	$(CC) $(CFLAGS) $(LDFLAGS) frontend.c $(LIBNAME).a $(realpath ..)/glib/lib/x86_64-linux-gnu/libglib-2.0.a $(realpath ..)/keystone/build/llvm/lib/libkeystone.a $(realpath ..)/capstone/libcapstone.a -o $(TOOLNAME)
@@ -216,7 +223,7 @@ clean:
 
 SOURCES:=$(OBJS:.o=.c)
 HEADERS:=$(OBJS:.o=.h)
-SOURCES += loader.c fork_server.c frontend.c asm_syscall.c asm_utils.c
+SOURCES += loader.c fork_server.c frontend.c asm_syscall.c asm_utils.c libstochfuzzRT.c
 SOURCES += rewriter_handlers/*.c rewriter_handlers/*.in
 SOURCES += prob_disasm/*.c
 SOURCES += prob_disasm/prob_disasm_complete/*.c
