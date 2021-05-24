@@ -4,12 +4,18 @@
 [![benchmark](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml/badge.svg)](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml)
 
 <p>
-<a href="https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf"> <img title="" src="imgs/paper.png" alt="loading-ag-167" align="right" width="200"></a>
+<a href="https://www.cs.purdue.edu/homes/zhan3299/res/SP21b.pdf"> <img title="" src="imgs/paper.png" alt="loading-ag-167" align="right" width="225"></a>
 
 StochFuzz is a (probabilistically) sound and cost-effective fuzzing technique for stripped binaries. It is facilitated by a novel incremental and stochastic rewriting technique that is particularly suitable for binary-only fuzzing. Any AFL-based fuzzer, which takes edge coverage (defined by AFL) as runtime feedback, can acquire benefits from StochFuzz to directly fuzz stripped binaries.
 </p>
   
 More data and the results of the experiments can be found [here](https://github.com/ZhangZhuoSJTU/StochFuzz-data).
+
+## Clarifications
+
++ We adopt a new system design than the one from the paper. Details can be found at [system.md](docs/system.md).
++ In the paper, when we are talking about `e9patch`, we are actually talking about the binary-only fuzzing tool built upon e9patch, namely `e9tool`. Please refer to its [website](https://github.com/GJDuck/e9patch/blob/master/README.md#building) for more details.
+
 
 ## Building StochFuzz
 
@@ -92,7 +98,7 @@ Compared with the compiler-based instrumentation (e.g., afl-clang-fast), StochFu
 
 Inspired by a recent [work](https://dl.acm.org/doi/abs/10.1145/3445814.3446765), we provide an advanced rewriting strategy where we do not emulate _call_ instructions but wrap the `_ULx86_64_step` function from [libunwind](https://github.com/libunwind/libunwind) to support stack unwinding. This strategy works for most binaries but may fail in some cases like fuzzing statically linked binaries.
 
-To enable such strategy, simply provide a __-r__ option for StochFuzz.
+To enable such strategy, simply provide a __-r__ option to StochFuzz.
 
 ```bash
 $ cd /root/
@@ -110,5 +116,25 @@ Following demo shows how to apply this advanced strategy.
 
 [![asciicast](https://asciinema.org/a/415990.svg)](https://asciinema.org/a/415990)
 
-## TODO List
-Todo list can be found [here](TODO.md).
+## Troubleshootings
+
+Common issues can be referred to [trouble.md](docs/trouble.md). If it cannot help solve your problem, please kindly open a Github issue.
+
+Besides, we provide some tips about how on using StochFuzz, which can be found at [tips.md](docs/tips.md)
+
+## Development
+
+Currently, we have many todo items and some pending decisions of improving StochFuzz. Details can be found at [todo.md](docs/todo.md). 
+
+I will try my best to maintain StochFuzz, but sometimes it may take me more time to respond. Thanks for your understanding.
+
+## Cite
+
+Zhang, Zhuo, et al. "STOCHFUZZ: Sound and Cost-effective Fuzzing of Stripped Binaries by Incremental and Stochastic Rewriting." 2021 IEEE Symposium on Security and Privacy (SP). IEEE, 2021.
+
+## References
+
++ Duck, Gregory J., Xiang Gao, and Abhik Roychoudhury. "Binary rewriting without control flow recovery." Proceedings of the 41st ACM SIGPLAN Conference on Programming Language Design and Implementation. 2020.
++ Meng, Xiaozhu, and Weijie Liu. "Incremental CFG patching for binary rewriting." Proceedings of the 26th ACM International Conference on Architectural Support for Programming Languages and Operating Systems. 2021.
++ Aschermann, Cornelius, et al. "Ijon: Exploring deep state spaces via fuzzing." 2020 IEEE Symposium on Security and Privacy (SP). IEEE, 2020.
++ Google. “Google/AFL.” GitHub, github.com/google/AFL. 
