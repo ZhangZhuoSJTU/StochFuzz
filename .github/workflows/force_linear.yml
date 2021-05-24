@@ -22,6 +22,7 @@ jobs:
             capstone/
             keystone/
             glib/
+            libunwind/
           key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
 
       - name: set up python 3.x
@@ -52,6 +53,7 @@ jobs:
             capstone/
             keystone/
             glib/
+            libunwind/
           key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
       - name: make format
         run: make format
@@ -77,6 +79,7 @@ jobs:
             capstone/
             keystone/
             glib/
+            libunwind/
           key: ${{ runner.os }}-${{ hashFiles('build.sh') }}
       - name: make format
         run: make format
