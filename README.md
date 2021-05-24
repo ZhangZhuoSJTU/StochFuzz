@@ -67,6 +67,8 @@ Other stuff:
 
 ```
 
+__It is worth first trying the [advanced strategy](#advanced-usage) because it is much more cost-effective.__
+
 ### Basic Usage
 
 To fuzz a stripped binary, namely `example.out`, we need to `cd` to the directory of the target binary. For example, if the full path of `example.out` is `/root/example.out`, we need to first `cd /root/`. This restriction is due to some design faults and we will try to relax it in the future. 
@@ -82,7 +84,31 @@ After the initial rewriting, we will get a phantom file named `example.out.phant
 
 Here is a demo that shows how StochFuzz works.
 
-[![asciicast](https://asciinema.org/a/415985.svg)](https://asciinema.org/a/415985)
+[![asciicast](https://asciinema.org/a/415987.svg)](https://asciinema.org/a/415987)
+
+### Advanced Usage
+
+Compared with the compiler-based instrumentation (e.g., afl-clang-fast), StochFuzz has additional runtime overhead because it needs to emulate each _call_ instruction to support stack unwinding
+
+Inspired by a recent [work](https://dl.acm.org/doi/abs/10.1145/3445814.3446765), we provide an advanced rewriting strategy where we do not emulate _call_ instructions but wrap the `_ULx86_64_step` function from [libunwind](https://github.com/libunwind/libunwind) to support stack unwinding. This strategy works for most binaries but may fail in some cases like fuzzing statically linked binaries.
+
+To enable such strategy, simply provide a __-r__ option for StochFuzz.
+
+```bash
+$ cd /root/
+$ /root/StochFuzz/src/stoch-fuzz -r -- example.out 
+```
+
+Addtionally, before fuzzing, we need to prepare the `AFL_PRELOAD` environment variable for AFL.
+
+```bash
+$ /root/StochFuzz/scritps/stochfuzz_env.sh # for zsh, run . /root/StochFuzz/scritps/stochfuzz_env.sh
+$ AFL_PRELOAD=$STOCHFUZZ_PRELOAD afl-fuzz -i seeds -o output -t 2000 -- example.out.phantom @@
+```
+
+Following demo shows how to apply this advanced strategy.
+
+[![asciicast](https://asciinema.org/a/415990.svg)](https://asciinema.org/a/415990)
 
 ## TODO List
 Todo list can be found [here](TODO.md).
