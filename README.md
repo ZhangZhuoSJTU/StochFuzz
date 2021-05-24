@@ -128,7 +128,7 @@ Besides, we provide some tips about how on using StochFuzz, which can be found a
 
 Currently, we have many todo items and some pending decisions of improving StochFuzz. Details can be found at [todo.md](docs/todo.md). 
 
-I will try my best to maintain StochFuzz, but sometimes it may take me more time to respond. Thanks for your understanding.
+I will try my best to maintain StochFuzz timely, but sometimes it may take me more time to respond. Thanks for your understanding in advance.
 
 ## Cite
 
