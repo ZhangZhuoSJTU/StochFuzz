@@ -122,11 +122,13 @@ Following demo shows how to apply this advanced strategy.
 
 Common issues can be referred to [trouble.md](docs/trouble.md). If it cannot help solve your problem, please kindly open a Github issue.
 
-Besides, we provide some tips about how on using StochFuzz, which can be found at [tips.md](docs/tips.md)
+Besides, we provide some tips on using StochFuzz, which can be found at [tips.md](docs/tips.md)
 
 ## Development
 
 Currently, we have many todo items and some pending decisions of improving StochFuzz. Details can be found at [todo.md](docs/todo.md). 
+
+StochFuzz should be considered an alpha-quality software and it is likely to contain bugs. 
 
 I will try my best to maintain StochFuzz timely, but sometimes it may take me more time to respond. Thanks for your understanding in advance.
 
