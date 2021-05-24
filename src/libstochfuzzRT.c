@@ -14,8 +14,8 @@
 typedef int (*unw_step_fn_type)(unw_cursor_t*);
 
 typedef struct retaddr_entity_t {
-    unw_word_t shadow;
-    unw_word_t original;
+    uint32_t shadow;
+    uint32_t original;
 } Retaddr;
 
 typedef struct retaddr_mapping_t {

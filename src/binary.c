@@ -435,12 +435,16 @@ Z_API void z_binary_new_retaddr_entity(Binary *b, addr_t shadow_retaddr,
     z_elf_write(b->elf, b->retaddr_mapping_addr, sizeof(size_t),
                 &(b->retaddr_n));
 
+    uint32_t addr_buf;
     // insert shadow_retaddr
-    z_elf_write(b->elf, b->retaddr_entity_addr, sizeof(addr_t),
-                &shadow_retaddr);
-    b->retaddr_entity_addr += sizeof(addr_t);
+    addr_buf = (uint32_t)shadow_retaddr;
+    assert((addr_t)addr_buf == shadow_retaddr);
+    z_elf_write(b->elf, b->retaddr_entity_addr, sizeof(uint32_t), &addr_buf);
+    b->retaddr_entity_addr += sizeof(uint32_t);
 
     // insert ori_retaddr
-    z_elf_write(b->elf, b->retaddr_entity_addr, sizeof(addr_t), &ori_retaddr);
-    b->retaddr_entity_addr += sizeof(addr_t);
+    addr_buf = (uint32_t)ori_retaddr;
+    assert((addr_t)addr_buf == ori_retaddr);
+    z_elf_write(b->elf, b->retaddr_entity_addr, sizeof(uint32_t), &addr_buf);
+    b->retaddr_entity_addr += sizeof(uint32_t);
 }
