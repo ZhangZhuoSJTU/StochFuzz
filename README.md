@@ -14,7 +14,7 @@ More data and the results of the experiments can be found [here](https://github.
 ## Building StochFuzz
 
 The dependences of StochFuzz can be built by [build.sh](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/build.sh).
-
+ 
 ```bash
 $ git clone https://github.com/ZhangZhuoSJTU/StochFuzz.git
 $ cd StochFuzz
@@ -75,10 +75,14 @@ Assuming StochFuzz is located at `/root/StochFuzz/src/stoch-fuzz`, execute the f
 
 ```bash
 $ cd /root/
-$ /root/StochFuzz/src/stoch-fuzz -- example.out
+$ /root/StochFuzz/src/stoch-fuzz -- example.out # do not use ./example.out here
 ```
 
 After the initial rewriting, we will get a phantom file named `example.out.phantom`. This phantom file can be directly fuzzed by AFL or any AFL-based fuzzer. Note that the StochFuzz process would not stop during fuzzing, so please make sure the process is alive during fuzzing.
+
+Here is a demo that shows how StochFuzz works.
+
+[![asciicast](https://asciinema.org/a/415985.svg)](https://asciinema.org/a/415985)
 
 ## TODO List
 Todo list can be found [here](TODO.md).
