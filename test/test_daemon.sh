@@ -16,8 +16,13 @@ for i in {1..100}
 do
     if [ -f $phantom ]; then
         echo "$target: daemon is up"
-        ./$phantom ${@:4}
-        code=$?
+        if [ -v STOCHFUZZ_PRELOAD ]; then
+            LD_PRELOAD=$STOCHFUZZ_PRELOAD ./$phantom ${@:4}
+            code=$?
+        else
+            ./$phantom ${@:4}
+            code=$?
+        fi
         kill -0 $daemon_pid
         if [ "$?" -eq "0" ]; then
             wait $daemon_pid

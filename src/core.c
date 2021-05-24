@@ -317,6 +317,12 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             dup2(dev_null_fd, 2);
             close(dev_null_fd);
 #endif
+
+            // set LD_PRELOAD if needed
+            if (core->opts->safe_ret && getenv("STOCHFUZZ_PRELOAD")) {
+                setenv("LD_PRELOAD", getenv("STOCHFUZZ_PRELOAD"), 1);
+            }
+
             execv(argv_[0], (char **)argv_);
             exit(0);
         } else {
@@ -396,6 +402,14 @@ Z_PUBLIC Core *z_core_create(const char *pathname, SysOptArgs *opts) {
     core->opts = opts;
 
     core->binary = z_binary_open(pathname, core->opts->instrument_early);
+    if (core->opts->safe_ret && !core->opts->instrument_early) {
+        ELF *e = z_binary_get_elf(core->binary);
+        if (z_elf_is_statically_linked(e)) {
+            z_warn(
+                "it is a statically-linked ELF file, make sure you DO NOT set "
+                "LD_PRELOAD when running the phantom file.");
+        }
+    }
 
     core->disassembler = z_disassembler_create(core->binary, core->opts);
     core->rewriter = z_rewriter_create(core->disassembler, core->opts);

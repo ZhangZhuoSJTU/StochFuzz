@@ -113,6 +113,20 @@ handlers:
 library_functions_load:
 	python3 library_functions/generate.py lib.csv library_functions
 
+ifeq ($(findstring -r,$(TEST_OPTIONS)), -r)
+STOCHFUZZ_PRELOAD = $(shell ../scripts/stochfuzz_env.sh)
+define test_succ
+	cd test && ( STOCHFUZZ_PRELOAD=$(STOCHFUZZ_PRELOAD) ${1} )
+endef
+
+define test_fail
+	cd test && ( ! STOCHFUZZ_PRELOAD=$(STOCHFUZZ_PRELOAD) ${1} )
+endef
+
+define test_whatever
+	cd test && ( STOCHFUZZ_PRELOAD=$(STOCHFUZZ_PRELOAD) ${1} || true )
+endef
+else
 define test_succ
 	cd test && ( ${1} )
 endef
@@ -124,6 +138,7 @@ endef
 define test_whatever
 	cd test && ( ${1} || true )
 endef
+endif
 
 test:
 	rm -rf test; cp -r ../test test
@@ -133,6 +148,7 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- bzip2.no.pie )
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libpng-1.2.56 seed.png)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- libpng-1.2.56)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- json-2017-02-12.normal json.seed)
 	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- crash mdzz)
 	$(call test_succ, ../$(TOOLNAME) -V $(TEST_OPTIONS) -- crash )
 	$(call test_succ, ../$(TOOLNAME) -P $(TEST_OPTIONS) -- openssl-1.0.1f)
@@ -153,24 +169,28 @@ ifeq ($(findstring -e,$(TEST_OPTIONS)), -e)
 	$(call test_fail, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- no_main mdzz)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- no_main)
 endif
-ifneq ($(findstring -r,$(TEST_OPTIONS)), -r)
 ifneq ($(findstring -f,$(TEST_OPTIONS)), -f)
 	$(call test_whatever, ../$(TOOLNAME) -R -t 5000 $(TEST_OPTIONS) -- z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
-endif
 endif
 	# test daemon
 	rm -rf test; cp -r ../test test
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' bzip2.no.pie -kfd test.c.bz2)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libpng-1.2.56 seed.png)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' json-2017-02-12.normal json.seed)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' openssl-1.0.1f leak-268f0e85f4bc45cbaf4d257222b830eac18977f3)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' rar e -o+ -mt3 -- test.rar)
 	$(call test_fail, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' crash mdzz)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' crash)
+ifeq ($(findstring -r,$(TEST_OPTIONS)), -r)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -e' hello)
+else
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
+endif
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' unintentional_crash mdzz)
 endif
 ifneq ($(findstring -f,$(TEST_OPTIONS)), -f)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' hello)
+	$(call test_whatever, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
 endif
 ifeq ($(findstring -e,$(TEST_OPTIONS)), -e)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' no_main mdzz)

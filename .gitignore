@@ -102,3 +102,5 @@ test/*
 !test/unintentional_crash.c
 !test/no_main
 !test/no_main.c
+!test/json-2017-02-12.normal
+!test/json.seed
