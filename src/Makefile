@@ -189,9 +189,6 @@ endif
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' unintentional_crash mdzz)
 endif
-ifneq ($(findstring -f,$(TEST_OPTIONS)), -f)
-	$(call test_whatever, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
-endif
 ifeq ($(findstring -e,$(TEST_OPTIONS)), -e)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' no_main mdzz)
 endif
