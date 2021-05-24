@@ -70,3 +70,4 @@ We have marked multiple tags when migrating the system, many of which reflect th
 + v0.8.0: support advanced bridge patching (which can avoid inner jump) and -e option (which can install the fork server at the entrypoint).
 + v0.9.0: support periodic checking runs and library function detection.
 + v1.0.0: finish system migration.
++ v1.1.0: add license
