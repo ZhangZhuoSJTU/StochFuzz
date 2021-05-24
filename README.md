@@ -36,7 +36,7 @@ $ make release
 
 ## How to Use
 
-StochFuzz provides multiple rewriting options, which follows the AFL's style of passing arguments. Details can be found at [options.md](docs/options.md).
+StochFuzz provides multiple rewriting options, which follows the AFL's style of passing arguments.
 
 ```
 $ ./stoch-fuzz -h
