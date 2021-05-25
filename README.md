@@ -1,4 +1,4 @@
-# StochFuzz: A New Binary-only Fuzzing Solution
+# StochFuzz: A New Solution for Binary-only Fuzzing
 
 [![test](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/basic.yml/badge.svg)](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/basic.yml)
 [![benchmark](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml/badge.svg)](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml)
@@ -79,7 +79,7 @@ __It is worth first trying the [advanced strategy](#advanced-usage) because it i
 
 ### Basic Usage
 
-To fuzz a stripped binary, namely `example.out`, we need to `cd` to the directory of the target binary. For example, if the full path of `example.out` is `/root/example.out`, we need to first `cd /root/`. This restriction is due to some design faults and we will try to relax it in the future. 
+To fuzz a stripped binary, namely `example.out`, we need to `cd` to the directory of the target binary. For example, if the full path of `example.out` is `/root/example.out`, we need to first `cd /root/`. Furthermore, _it is dangerous to run two StochFuzz instances under the same directory._ These restrictions are caused by some design faults and we will try to relax them in the future. 
 
 Assuming StochFuzz is located at `/root/StochFuzz/src/stoch-fuzz`, execute the following command to start rewriting the target binary.
 
@@ -96,7 +96,7 @@ Here is a demo that shows how StochFuzz works.
 
 ### Advanced Usage
 
-Compared with the compiler-based instrumentation (e.g., afl-clang-fast), StochFuzz has additional runtime overhead because it needs to emulate each _call_ instruction to support stack unwinding
+Compared with the compiler-based instrumentation (e.g., afl-clang-fast), StochFuzz has additional runtime overhead because it needs to emulate each _call_ instruction to support stack unwinding.
 
 Inspired by a recent [work](https://dl.acm.org/doi/abs/10.1145/3445814.3446765), we provide an advanced rewriting strategy where we do not emulate _call_ instructions but wrap the `_ULx86_64_step` function from [libunwind](https://github.com/libunwind/libunwind) to support stack unwinding. This strategy works for most binaries but may fail in some cases like fuzzing statically linked binaries.
 
