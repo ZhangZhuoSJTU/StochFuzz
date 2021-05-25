@@ -363,15 +363,15 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                 * for addresses outside .text, directly go through
                 */
                "  cmp rcx, %#lx;\n" // compare upper bound of .text
-               "  jae fuck;\n"
+               "  jae hug;\n"
                "  sub rcx, %#lx;\n" // sub .text base and compare
-               "  jb fuck;\n"
+               "  jb hug;\n"
                /*
                 * update bitmap and prev_id
                 */
                "  mov [rsp - 152], rdx;\n"
                "  mov [rsp - 160], rdi;\n"
-               "  xor rdx, rdx;\n" // FUCK keystone (issue #295)
+               "  xor rdx, rdx;\n" // hug keystone (issue #295)
                "  mov rdi, qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdx];\n"
                "  mov rdx, rcx;\n"
                "  shr rdx, " STRING(AFL_MAP_SIZE_POW2) ";\n"
@@ -379,7 +379,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                "  and rdx, " STRING(AFL_MAP_SIZE_MASK) ";\n"
                "  xor rdi, rdx;\n"
                "  inc BYTE PTR [" STRING(AFL_MAP_ADDR) " + rdi];\n"
-               "  xor rdi, rdi;\n" // FUCK keystone (issue #295)
+               "  xor rdi, rdi;\n" // hug keystone (issue #295)
                "  shr rdx, 1;\n"
                "  mov qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdi], rdx;\n"
                "  mov rdi, [rsp - 160];\n"
@@ -393,7 +393,7 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
                /*
                 * go to target
                 */
-               "fuck:\n"
+               "hug:\n"
                // "  add al, 127;\n"
                // "  sahf;\n"
                // "  mov rax, [rsp - 120 - 8];\n"

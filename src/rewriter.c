@@ -524,7 +524,7 @@ TRANSLATE_RIP_INS:
                  * refer to
                  * https://github.com/keystone-engine/keystone/issues/92
                  */
-                // TODO: build our own keystone and capstone (FUCK!)
+                // TODO: build our own keystone and capstone (HUG!)
                 size_t hooked_size = op->size;
                 if (inst->id == X86_INS_COMISS) {
                     hooked_size = 4;

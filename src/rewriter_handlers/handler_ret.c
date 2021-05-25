@@ -51,13 +51,13 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                // "  seto al;\n"
                "  mov rcx, [rsp];\n"
                "  cmp rcx, %#lx;\n"
-               "  jae fuck;\n"
+               "  jae hug;\n"
                "  sub rcx, %#lx;\n"  // sub .text base
-               "  jb fuck;\n"
+               "  jb hug;\n"
                "  shl rcx, " STRING(LOOKUP_TABLE_CELL_SIZE_POW2) ";\n"
                "  movsxd rcx, dword ptr [" STRING(LOOKUP_TABLE_ADDR) " + rcx];\n"  // lookup table
                "  mov [rsp], rcx;\n"
-               "fuck:\n"
+               "hug:\n"
                // "  add al, 127;\n"
                // "  sahf;\n"
                // "  mov rax, [rsp - 120];\n"

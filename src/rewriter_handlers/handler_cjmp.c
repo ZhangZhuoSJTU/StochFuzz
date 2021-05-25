@@ -61,9 +61,9 @@ Z_PRIVATE void __rewriter_cjmp_handler_for_rcx(Rewriter *r, GHashTable *holes,
     /*
      * We will rewrite the instruction in following format:
      *
-     *      j*cxz fuck:
+     *      j*cxz hug:
      *      jmp shadow_false_branch;
-     *  fuck:
+     *  hug:
      *      jmp shadow_true_brach;
      *
      */

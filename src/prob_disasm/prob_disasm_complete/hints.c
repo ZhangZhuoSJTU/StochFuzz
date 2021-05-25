@@ -195,7 +195,7 @@ Z_PRIVATE void __prob_disassembler_collect_cf_hints(ProbDisassembler *pd) {
             continue;                                                       \
         }                                                                   \
                                                                             \
-        /* additional check for invalid prefix: FUCK capstone */            \
+        /* additional check for invalid prefix: HUG capstone */             \
         KS_ASM(inst->address, "%s %s", inst->mnemonic, inst->op_str);       \
         if (ks_size != inst->size) {                                        \
             z_trace("find invalid prefix: " CS_SHOW_INST(inst));            \
