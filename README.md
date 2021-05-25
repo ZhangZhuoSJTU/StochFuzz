@@ -108,7 +108,7 @@ To enable such strategy, simply provide a __-r__ option to StochFuzz.
 
 ```bash
 $ cd /root/
-$ /root/StochFuzz/src/stoch-fuzz -r -- example.out 
+$ /root/StochFuzz/src/stoch-fuzz -r -- example.out # do not use ./example.out here
 ```
 
 Addtionally, before fuzzing, we need to prepare the `AFL_PRELOAD` environment variable for AFL.
