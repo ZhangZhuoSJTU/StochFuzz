@@ -114,7 +114,7 @@ $ /root/StochFuzz/src/stoch-fuzz -r -- example.out # do not use ./example.out he
 Addtionally, before fuzzing, we need to prepare the `AFL_PRELOAD` environment variable for AFL.
 
 ```bash
-$ /root/StochFuzz/scritps/stochfuzz_env.sh # for zsh, run . /root/StochFuzz/scritps/stochfuzz_env.sh
+$ export STOCHFUZZ_PRELOAD=$(/root/StochFuzz/scritps/stochfuzz_env.sh)
 $ AFL_PRELOAD=$STOCHFUZZ_PRELOAD afl-fuzz -i seeds -o output -t 2000 -- example.out.phantom @@
 ```
 
