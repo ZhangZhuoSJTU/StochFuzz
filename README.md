@@ -120,7 +120,7 @@ $ AFL_PRELOAD=$STOCHFUZZ_PRELOAD afl-fuzz -i seeds -o output -t 2000 -- example.
 
 Following demo shows how to apply this advanced strategy.
 
-[![asciicast](https://asciinema.org/a/415990.svg)](https://asciinema.org/a/415990)
+[![asciicast](https://asciinema.org/a/416230.svg)](https://asciinema.org/a/416230)
 
 ## Troubleshootings
 
