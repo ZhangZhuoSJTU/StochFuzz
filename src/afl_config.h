@@ -41,7 +41,8 @@
 #define AFL_MAP_SIZE_MASK ((1 << AFL_MAP_SIZE_POW2) - 1)
 
 // #define AFL_BB_ID(x) ((((x) >> 4) ^ ((x) << 8)) & AFL_MAP_SIZE_MASK)
-// AFL_BB_ID Algorithm used in AFL-QEMU, but it seems bad on statical rewrite
+// AFL_BB_ID Algorithm used in AFL-QEMU, but it seems bad on static binary
+// rewriting
 
 #define AFL_BB_ID(x) (((x) ^ ((x) >> AFL_MAP_SIZE_POW2)) & AFL_MAP_SIZE_MASK)
 
