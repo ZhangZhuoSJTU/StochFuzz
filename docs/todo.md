@@ -1,7 +1,10 @@
-## Todo
+# Development Plan
 
-While we are migrating StochFuzz to a new system design, followings are some to-do tasks.
+## Todo List
 
+While we have successfully migrated StochFuzz to a new system design, we can still improve StochFuzz from multiple places.
+
++ [x] __NEW SYSTEM DESIGN__ (daemon), which separates AFL and StochFuzz and makes advanced fuzzing possible.
 + [x] In release version, remove unnecessary z\_log (e.g., z\_debug, z\_trace, and etc.).
 + [x] Support probabilisitic disassembly.
 + [x] Mark .text section non-writable.
@@ -12,63 +15,54 @@ While we are migrating StochFuzz to a new system design, followings are some to-
 + [x] Support `jrcxz` and `jecxz` instructions.
 + [x] It may be a good idea to additionally hook SIGILL caused by mis-patched instructions. In that design, exiting the program with a specific status code (in SIGSEGV handler) is a better approach, compared with raising SIGILL. It can also avoid recursive signal handling.
 + [x] Support retaddr patch when pdisasm is enabled (check retaddr's probability) -- it seems impossible. Note that we cannot guarantee the control flow is returned from the callee even the returen address is visited.
-+ [x] __NEW SYSTEM DESIGN__ (daemon), which separates AFL and StochFuzz and makes advanced fuzzing possible.
 + [x] A better frontend for passing arguments.
 + [x] Use runtime arguments to set different modes, instead of makefile.
-+ [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
-+ [ ] Apply AddrDict to all possible places..
-+ [ ] Apply Iter to all possible places..
++ [x] Use simple linear disassembly to check the existence of inlined data.
 + [x] Read PLT table to get library functions' names, and support the white-list for library functions.
 + [x] Correctly handle timeout from AFL.
 + [x] Use shared memory for .text section, to avoid the expensive patch commands.
 + [x] Support self-correction procedure (delta debugging).
 + [x] Support non-return analysis on UCFG, with the help of the white-list for library functions.
 + [x] Support the on-the-fly probability recalculation.
-+ [ ] Support other disassembly backends (for the initial disassembly).
-+ [x] Use simple linear disassembly to check the existence of inlined data.
-+ [ ] Calculate [entropy](https://github.com/NationalSecurityAgency/ghidra/issues/1035) to check the existence of inlined data (ADVANCED).
-+ [ ] Fix the bugs when rewriting PIE binary and support it.
-+ [ ] When SINGLE\_SUCC\_OPT is enabled and sys\_config.disable\_opt is not set, remove the AFL trampoline before each function entrypoint.
-+ [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
-+ [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
 + [x] Add a new flag/option to enable early instrumentation for fork server (i.e., before the entrypoint of binary).
 + [x] Enable periodic checking (for coverage feedback) to determine those false postives which do not lead to crashes.
++ [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
++ [x] Add a license.
++ [x] Do not use a global sys\_config, but put the options into each object.
++ [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
++ [ ] Apply AddrDict to all possible places..
++ [ ] Apply Iter to all possible places..
++ [ ] Support other disassembly backends (for the initial disassembly).
++ [ ] Calculate [entropy](https://github.com/NationalSecurityAgency/ghidra/issues/1035) to check the existence of inlined data (ADVANCED).
++ [ ] Fix the bugs when rewriting PIE binary and support it.
++ [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer supported).
 + [ ] Instead of patching a fixed invalid instruction (0x2f), randomly choose an invalid instruction to patch. More details can be found [here](http://ref.x86asm.net/coder64.html).
 + [ ] Automatically scale the number of executions triggering checking runs (based on the result of previous checking run).
-+ [x] Add a new license.
 + [ ] Set the default log level as WARN (note that we need to update `make test` and `make benchmark`).
-+ [x] Do not use a global sys\_config, but put the options into each object.
 + [ ] Use a general method to add segments in the given ELF instead of using the simple PT\_NOTE trick.
 + [ ] Current TP\_EMIT is only compatible with fuzzers compiled with AFL\_MAP\_SIZE = (1 << 16), we need to change the underlying implementation of TP\_EMIT to automatically fit the AFL\_MAP\_SIZE.
++ [ ] Fix the failed Github Actions on Ubuntu 20.04 (the root cause is unknown currently).
 
-## Known Issues
 
-There are some known issues which we are trying to resolve.
+## Challenges
 
-+ Fixed LOOKUP\_TABLE\_ADDR is mixed with other random addresses, may cause bugs in PIE binary.
-+ When running, the input file may be modified by previous crashed run (due to the new system design).
-+ Timeout needs to be set up separately for AFL and StochFuzz (due to the new system design).
-+ Test failed on Github Actions Ubuntu 20.04 (the root cause is unknown currently).
-+ The auto-scaled timeout of AFL may cause incorrect error diagnosis (the dd\_status may change), so it is recommended to specify a timeout (>= 1000ms or >= AFL\_HANG\_TMOUT if set) to AFL by -t option.
-+ Self correction procedure may encounter problems under dry run mode (-R) due to ASLR.
-+ The glibc code contains some overlapping instructions (e.g., the instructions with the LOCK prefix), which may cause trouble for the patcher and pdisasm.
+We additionally have some challenges which may cause troubles or make StochFuzz not that easy to use. We are trying to resolve them.
 
-## Undecided Changes
++ The fixed LOOKUP\_TABLE\_ADDR is mixed with other random addresses, which may cause bugs in PIE binary.
++ The glibc code contains some overlapping instructions (e.g., the [instructions with the LOCK prefix](https://code.woboq.org/userspace/glibc/sysdeps/x86/atomic-machine.h.html#_M/__arch_c_compare_and_exchange_val_8_acq)), which may cause troubles for the patcher and pdisasm.
 
-+ Hook more signals to collect address information and send real signal in the meantime.
+There are some other challenges introduced by the [new system design](system.md).
 
-## Tag Info
++ The input file may be changed by the previous crashed executing, which makes the next execution incorrect. This problem is caused by the new system design. But it seems ok in practice, because fuzzing is a highly repeative procedure which can fix the incorrect feedback quickly.
++ Timeout needs to be set up separately for AFL and StochFuzz, which may bother the users a little bit.
++ The auto-scaled timeout of AFL may cause incorrect error diagnosis (the [dd\_status](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/src/diagnoser.h#L91) may be invalid), so it is highly recommended to specify a timeout (>= 1000ms or >= AFL\_HANG\_TMOUT if set) for AFL by `-t` option, to disable the feature of auto-scaled timeout.
 
-We have marked multiple tags when migrating the system, many of which reflect the migration progress.
+Note that in the old design, we can fully control AFL, so that we can _create a new input file for the next execution_, _use the same timeout_, or _disable the auto-scaled timeout_ to avoid aforementioned challenges.
 
-+ v0.1.0: apply the new system design and test the new StochFuzz with all benchmarks mentioned in the paper.
-+ v0.2.0: adopt a better frontend to parse arguments and automatically decide whether we need a complete probabilistic disassembly.
-+ v0.3.0: support timeout for daemon and add benchmark testing for each tag.
-+ v0.4.0: support shared .text section for the new system design and simplify the communication between the daemon and binary.
-+ v0.5.0: support automatically fixing overlapped bridges (i.e., patched *jmp* instructions in the original code space).
-+ v0.6.0: support self correction procedure.
-+ v0.7.0: support online probability calculation and dynamic hint logging.
-+ v0.8.0: support advanced bridge patching (which can avoid inner jump) and -e option (which can install the fork server at the entrypoint).
-+ v0.9.0: support periodic checking runs and library function detection.
-+ v1.0.0: finish system migration.
-+ v1.1.0: add license
+## Pending Development Decisions
+
+Currently, there are many steps which we are hesitating to take. We may need to carefully evaluate them. __If you have any suggestion, please kindly let us know__. We are happy to take any possible discussion about improving StochFuzz.
+
++ Currently, we use a lookup table to translate indirect call/jump on the fly. We are not sure whether it is necessary because simply patching a jump instruction at the target address may also work well. Note that a large lookup table may increase the cache missing rate and the overhead of process forking.
++ For now, to support the [advanced strategy](https://github.com/ZhangZhuoSJTU/StochFuzz#advanced-usage), we maintain a retaddr mapping and do _O(log n)_ online binary searching to find the original retaddr when unwinding stack. It may be better to maintain a retaddr lookup table which supports _O(1)_ looking up. But also, this lookup table will extremely increase the memory usage as well as the cache missing rate and the overhead of process forking.
++ Hook more signals to collect address information for a better error diagnosis, which, on the other hand, may cause conflicts of signal handlers set by the subject program.
