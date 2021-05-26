@@ -79,7 +79,7 @@ Other stuff:
 
 ```
 
-__It is worth first trying the [advanced strategy](#advanced-usage) because it is much more cost-effective.__
+__It is worth first trying the [advanced strategy](#advanced-usage) because that is much more cost-effective.__
 
 ### Basic Usage
 
