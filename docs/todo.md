@@ -53,7 +53,7 @@ We additionally have some challenges which may cause troubles or make StochFuzz 
 
 There are some other challenges introduced by the [new system design](system.md).
 
-+ The input file may be changed by the previous crashed executing, which makes the next execution incorrect. This problem is caused by the new system design. But it seems ok in practice, because fuzzing is a highly repeative procedure which can fix the incorrect feedback quickly.
++ The input file may be changed by the previous crashed executing, which makes the next execution incorrect. But it seems ok in practice, because fuzzing is a highly repeative procedure which can fix the incorrect feedback automatically and quickly.
 + Timeout needs to be set up separately for AFL and StochFuzz, which may bother the users a little bit.
 + The auto-scaled timeout of AFL may cause incorrect error diagnosis (the [dd\_status](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/src/diagnoser.h#L91) may be invalid), so it is highly recommended to specify a timeout (>= 1000ms or >= AFL\_HANG\_TMOUT if set) for AFL by `-t` option, to disable the feature of auto-scaled timeout.
 
