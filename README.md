@@ -130,7 +130,7 @@ Besides, we provide some tips on using StochFuzz, which can be found at [tips.md
 
 ## Development
 
-Currently, we have many todo items and some pending decisions of improving StochFuzz. Details can be found at [todo.md](docs/todo.md). 
+Currently, we have many todo items. We present them in [todo.md](docs/todo.md). We also present many pending decisions which we are hesitating to take, in [todo.md](docs/todo.md). __If you have any thought/suggestion, do not hesitate to let us know.__ It would be very appreciated if you can help us improve StochFuzz.
 
 StochFuzz should be considered an alpha-quality software and it is likely to contain bugs. 
 
