@@ -11,3 +11,6 @@ First of all, it is easy for the old design to keep multiple versions of rewritt
 Besides, we need to manually set the timeout for StochFuzz, which should be consistent with the one of AFL. `-t` option is for the timeout.
 
 A good observation is that the edge coverage is at the block level, which means we do not need to trap all instructions but one instruction per block. This observation helps us avoid many rewriting errors.
+
+## Case: Polyglot
+
