@@ -20,7 +20,7 @@ In this case study, we try to combine Polyglot with StochFuzz to provide a more 
 
 Before starting our experiments, we need to make a slight change on StochFuzz. Since the developers of Polyglot extend the [size of AFL shared memory](https://github.com/s3team/Polyglot/blob/a49f67ffb95684ae2227800a85eb7963eeb2692d/AFL_replace_mutate/config.h#L323), we need to update it in StochFuzz accordingly.
 
-Specifically, we need first to change [AFL_MAP_SIZE_POW2](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/f90db25c300e79b9dd37748da883cb9d66a8253f/src/afl_config.h#L37) to 20. To avoid the conflicts of mmap, we additionally need to change [AFL_MAP_ADDR](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/f90db25c300e79b9dd37748da883cb9d66a8253f/src/afl_config.h#L39). I change it to 0x180000 in this case. The new [afl_config.h](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/f90db25c300e79b9dd37748da883cb9d66a8253f/src/afl_config.h) would look like:
+Specifically, we need first to change [AFL_MAP_SIZE_POW2](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/f90db25c300e79b9dd37748da883cb9d66a8253f/src/afl_config.h#L37) to 20. To avoid the conflicts of mmap, we additionally need to change [AFL_MAP_ADDR](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/f90db25c300e79b9dd37748da883cb9d66a8253f/src/afl_config.h#L39). I set it as 0x180000 in this case. The new [afl_config.h](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/f90db25c300e79b9dd37748da883cb9d66a8253f/src/afl_config.h) would look like:
 
 ```c
 ...
