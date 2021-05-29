@@ -14,3 +14,10 @@ A good observation is that the edge coverage is at the block level, which means 
 
 ## Case: Polyglot
 
+[Polyglot](https://github.com/s3team/Polyglot) is a state-of-the-art language fuzzer that focuses on testing compilers and language interpreters. Since many programming languages are bootstrapping, which means their language processors are written in themselves, it is difficult or time-consuming to instrument these processors (e.g., __GCC__). The developers of Polyglot originally used AF QEMU mode to test such processors. 
+
+In this case study, we try to combine Polyglot with StochFuzz to provide a more efficient fuzzing test for GCC. 
+
+Before starting our experiments, we need to make a slight change on StochFuzz. Since the developers of Polyglot extend the [size of AFL shared memory](https://github.com/s3team/Polyglot/blob/main/AFL_replace_mutate/config.h#L323), we need to update it in StochFuzz accordingly.
+
+https://github.com/s3team/Polyglot/blob/a49f67ffb95684ae2227800a85eb7963eeb2692d/AFL_replace_mutate/config.h#L323
