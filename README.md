@@ -80,9 +80,12 @@ Other stuff:
 
 ```
 
-__It is worth first trying the [advanced strategy](#advanced-usage) because that is much more cost-effective.__
 
 ### Basic Usage
+
+```diff
+- It is worth first trying the advanced strategy (see below) because that is much more cost-effective.
+```
 
 To fuzz a stripped binary, namely `example.out`, we need to `cd` to the directory of the target binary. For example, if the full path of `example.out` is `/root/example.out`, we need to first `cd /root/`. Furthermore, _it is dangerous to run two StochFuzz instances under the same directory._ These restrictions are caused by some design faults and we will try to relax them in the future. 
 
