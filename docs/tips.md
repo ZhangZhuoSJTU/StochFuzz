@@ -1,3 +1,6 @@
+<style>p{color:red;}</style>
+
+
 # Tips
 
 To enable a more effective and efficient fuzzing, we provide several tips about better using StochFuzz. 
