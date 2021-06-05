@@ -8,7 +8,7 @@ As mentioned in [README.md](../README.md#advanced-usage), we recommend every use
 
 StochFuzz tries to provide a conservative rewriting. As such, it emulates all the _CALL_ instructions to maintain an unchanged data flow. 
 
-However, in most cases, the return addresses pushed by _CALL_ instructions are only used by _RET_ instructions and the stack unwinding. Based on this observation, we provide an advanced rewriting strategy that does not need to emulate _CALL_ instructions but hooks the process of stack unwinding. This kind of strategy is much efficient and can reduce around 80% overhead of StochFuzz.
+However, in most cases, the return addresses pushed by _CALL_ instructions are only used by _RET_ instructions and the stack unwinding. Based on this observation, we provide an advanced rewriting strategy that hooks the process of stack unwinding and hence does not need to emulate _CALL_ instructions. This strategy is quite efficient and can reduce around 80% overhead of StochFuzz.
 
 The advanced strategy can be applied to most binaries but will cause rewriting errors on some including:
 
@@ -17,7 +17,7 @@ The advanced strategy can be applied to most binaries but will cause rewriting e
 + some go-written binary
 + ...
 
-How to apply the advanced rewriting strategy can be found in [README.md](../README.md#advanced-usage).
+How to adopt the advanced rewriting strategy can be found in [README.md](../README.md#advanced-usage).
 
 ## Timeout
 
