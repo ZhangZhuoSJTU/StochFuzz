@@ -4,7 +4,7 @@ To enable a more effective and efficient fuzzing, we provide several tips about 
 
 ## Advanced Strategy
 
-As mentioned in [README.md](../README.md#advanced-usage), we recommend every user first tries the advanced strategy.
+As mentioned in [README.md](../README.md#advanced-usage), we strongly recommend every user first tries the advanced strategy.
 
 StochFuzz tries to provide a conservative rewriting. As such, it emulates all the _CALL_ instructions to maintain an unchanged data flow. 
 
