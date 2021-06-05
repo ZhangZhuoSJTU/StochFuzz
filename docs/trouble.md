@@ -9,7 +9,7 @@ This documentation mainly talks about how to handle inputs that cause inconsiste
 
 ## How to check whether an input will cause inconsistent behaviors.
 
-As mentioned in [README.md](../readme.md#basic-usage), after the initial rewriting, StochFuzz will generate a _phantom file_. Originally, if we want to do binary-only fuzzing, we attach AFL to this phantom binary. 
+As mentioned in [README.md](../README.md#basic-usage), after the initial rewriting, StochFuzz will generate a _phantom file_. Originally, if we want to do binary-only fuzzing, we attach AFL to this phantom binary. 
 
 Actually, this phantom binary can also be directly executed, with the same arguments as the original binary has. 
 
