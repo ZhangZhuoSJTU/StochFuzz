@@ -1,6 +1,3 @@
-<style>p{color:red;}</style>
-
-
 # Tips
 
 To enable a more effective and efficient fuzzing, we provide several tips about better using StochFuzz. 
@@ -33,7 +30,7 @@ StochFuzz needs to specify a timeout for any execution caused by the increment r
 
 AFL, or any attached AFL-based fuzzer, needs to specify a timeout either. We recommend that the two timeouts should be set consistently, but it is not mandatory. 
 
-However, for the binaries with inlined data, the timeout set for the attached fuzzer should __be larger than 1000ms__. Otherwise, the auto-scaling feature of AFL timeout will cause incorrect error diagnosis during the stochastic rewriting. 
+However, for the binaries with inlined data, the timeout set for the attached fuzzer should __BE LARGER THAN 1000MS__. Otherwise, the auto-scaling feature of AFL timeout will cause incorrect error diagnosis during the stochastic rewriting. 
 
 ## Checking Executions
 
@@ -59,6 +56,6 @@ In a nutshell, the larger number we set, the fewer check executions we will take
 
 For example, if _M = 1000_, _p = 1e-4_, _N = 1e8_. The overhead caused by checking executions is _0.1%_ and the probability of have an undetected rewriting error is _4.5e-5_.
 
-The user may need to provide a suitable number. __A number larger than 200 is recommended__. 
+The user may need to provide a suitable number. __A NUMBER LARGER THAN 200 IS RECOMMENDED__. 
 
 Note that this option is useful only when the inlined data is presented. To eliminate the overhead caused by checking executions, we additionally plan to set up two different fuzzing instances like what [QSYM](https://github.com/sslab-gatech/qsym) does, where one is for fuzzing and the other is for checking executions.
