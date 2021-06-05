@@ -101,9 +101,9 @@ Here is a demo that shows how StochFuzz works.
 
 ### Advanced Usage
 
-Compared with the compiler-based instrumentation (e.g., afl-clang-fast), StochFuzz has additional runtime overhead because it needs to emulate each _call_ instruction to support stack unwinding.
+Compared with the compiler-based instrumentation (e.g., afl-clang-fast), StochFuzz has additional runtime overhead because it needs to emulate each _CALL_ instruction to support stack unwinding.
 
-Inspired by a recent [work](https://dl.acm.org/doi/abs/10.1145/3445814.3446765), we provide an advanced rewriting strategy where we do not emulate _call_ instructions but wrap the `_ULx86_64_step` function from [libunwind](https://github.com/libunwind/libunwind) to support stack unwinding. This strategy works for most binaries but may fail in some cases like fuzzing statically linked binaries.
+Inspired by a recent [work](https://dl.acm.org/doi/abs/10.1145/3445814.3446765), we provide an advanced rewriting strategy where we do not emulate _CALL_ instructions but wrap the `_ULx86_64_step` function from [libunwind](https://github.com/libunwind/libunwind) to support stack unwinding. This strategy works for most binaries but may fail in some cases like fuzzing statically linked binaries.
 
 To enable such strategy, simply provide a __-r__ option to StochFuzz.
 
