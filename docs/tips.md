@@ -2,6 +2,36 @@
 
 To enable a more effective and efficient fuzzing, we provide several tips about better using StochFuzz. 
 
+## Advanced Strategy
+
+As mentioned in [README.md](../README.md#advanced-usage), we recommend every user first tries the advanced strategy.
+
+StochFuzz tries to provide a conservative rewriting. As such, it emulates all the _CALL_ instructions to maintain an unchanged data flow. 
+
+However, in most cases, the return addresses pushed by _CALL_ instructions are only used by _RET_ instructions and the stack unwinding. Based on this observation, we provide an advanced rewriting strategy that does not need to emulate _CALL_ instructions but hooks the process of stack unwinding. This kind of strategy is much efficient and can reduce around 80% overhead of StochFuzz.
+
+The advanced strategy can be applied to most binaries but will cause rewriting errors on some including:
+
++ statically-linked binaries that do online stack unwinding
++ some CFI-protected binaries
++ some go-written binary
++ ...
+
+How to apply the advanced rewriting strategy can be found in [README.md](../README.md#advanced-usage).
+
+## Timeout
+
+StochFuzz needs to specify a timeout for any execution caused by the increment rewriting. The timeout is configured by the `-t` option.
+
+```
+  -t msec       - set the timeout for each daemon-triggering execution
+                  set it as zero to ignore the timeout (default: 2000 ms)
+```
+
+AFL, or any attached AFL-based fuzzer, needs to specify a timeout either. We recommend that the two timeouts should be set consistently, but it is not mandatory. 
+
+However, for the binaries with inlined data, the timeout set for the attached fuzzer should __be larger than 1000ms__. Otherwise, the auto-scaling feature of AFL timeout will cause incorrect error diagnosis during the stochastic rewriting. 
+
 ## Checking Executions
 
 As we mentioned in [system.md](system.md), we adopt a new system design to have a wide application in the fields of binary-only fuzzing. This new architecture design is enabled by the observation that we only need to instrument an instruction per basic block to collect the code coverage of AFL and is facilitated by a new technique named checking executions. 
@@ -26,6 +56,6 @@ In a nutshell, the larger number we set, the fewer check executions we will take
 
 For example, if _M = 1000_, _p = 1e-4_, _N = 1e8_. The overhead caused by checking executions is _0.1%_ and the probability of have an undetected rewriting error is _4.5e-5_.
 
-The user may need to provide a suitable number. __A number between 200 and 2000 is recommended__. 
+The user may need to provide a suitable number. __A number larger than 200 is recommended__. 
 
 Note that this option is useful only when the inlined data is presented. To eliminate the overhead caused by checking executions, we additionally plan to set up two different fuzzing instances like what [QYSM](https://github.com/sslab-gatech/qsym) does, where one is for fuzzing and the other is for checking executions.
