@@ -58,4 +58,4 @@ For example, if _M = 1000_, _p = 1e-4_, _N = 1e8_. The overhead caused by checki
 
 The user may need to provide a suitable number. __A number larger than 200 is recommended__. 
 
-Note that this option is useful only when the inlined data is presented. To eliminate the overhead caused by checking executions, we additionally plan to set up two different fuzzing instances like what [QYSM](https://github.com/sslab-gatech/qsym) does, where one is for fuzzing and the other is for checking executions.
+Note that this option is useful only when the inlined data is presented. To eliminate the overhead caused by checking executions, we additionally plan to set up two different fuzzing instances like what [QSYM](https://github.com/sslab-gatech/qsym) does, where one is for fuzzing and the other is for checking executions.
