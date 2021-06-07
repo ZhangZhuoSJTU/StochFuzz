@@ -1,6 +1,8 @@
 # Troubleshootings
 
-This documentation mainly talks about how to handle inputs that cause inconsistent behaviors on the rewritten binaries (e.g., invalid crashes which cannot be reproduced by the original binaries). Please kindly open an issue to report any other problems, including:
+The most common issue we may meet is that the cached files are inconsistent. Before reporting an issue, __the best suggestion is to first remove these cached files (`rm .*`) and rerun StochFuzz.__
+
+Besides, this documentation mainly talks about how to handle the case where the rewritten binaries have inconsistent behaviors taking the same inputs (e.g., invalid crashes which cannot be reproduced by the original binaries). Please kindly open an issue to report any other problems, including:
 
 + The execution speed is quite slow (e.g., slower than AFL-QEMU)
 + The fuzzing process is stuck (i.e., the AFL panel does not have updates for a while)
@@ -19,7 +21,8 @@ Hence, to check whether an input will cause inconsistent behaviors, you can exec
 
 StochFuzz provides different rewriting options and will automatically choose some, based on the given binary. In some cases, StochFuzz may do the wrong choices. The following steps can help us identify whether the erroneous behaviors are caused by incorrect rewriting options or latent bugs in StochFuzz.
 
-+ If you adopt the advanced strategy, please remove all cached files (`rm .*`) and try the basic usage.
++ First of all, make sure all the cached files are removed (`rm .*`) and try to rerun StochFuzz.
++ If the erroneous behaviors still exist but you have adopted the advanced strategy, please remove all cached files (`rm .*`) and try the basic usage.
 + If the erroneous behaviors still exist after adopting the basic usage, please remove all cached files (`rm .*`) and feed `-e -f -i` options into StochFuzz.
 
 ```
