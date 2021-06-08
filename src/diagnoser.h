@@ -106,8 +106,8 @@ STRUCT(Diagnoser, {
     GQueue *crashpoints;
     const char *cp_filename;
 
-    // system optargs
-    SysOptArgs *opts;
+    // rewriting optargs
+    RewritingOptArgs *opts;
 });
 
 DECLARE_GETTER(Diagnoser, diagnoser, GQueue *, crashpoints);
@@ -117,7 +117,7 @@ DECLARE_GETTER(Diagnoser, diagnoser, GQueue *, crashpoints);
  */
 Z_API Diagnoser *z_diagnoser_create(Patcher *patcher, Rewriter *rewriter,
                                     Disassembler *disassembler,
-                                    SysOptArgs *opts);
+                                    RewritingOptArgs *opts);
 
 /*
  * Destroy diagnoser

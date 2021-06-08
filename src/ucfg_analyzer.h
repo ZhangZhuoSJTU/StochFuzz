@@ -68,8 +68,8 @@ STRUCT(UCFG_Analyzer, {
     // whether an inst can reach a RET inst via intra-procedure edges
     GHashTable *can_ret;
 
-    // system optargs
-    SysOptArgs *opts;
+    // rewriting optargs
+    RewritingOptArgs *opts;
 
     Binary *binary;
 });
@@ -77,7 +77,8 @@ STRUCT(UCFG_Analyzer, {
 /*
  * Create an ucfg_analyzer
  */
-Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary, SysOptArgs *opts);
+Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary,
+                                            RewritingOptArgs *opts);
 
 /*
  * Destroy an ucfg_analyzer

@@ -39,9 +39,10 @@ typedef enum system_mode_t {
     SYSMODE_VIEW,
 } SysMode;
 
-typedef struct system_optargs_t {
-    SysMode mode;
-
+/*
+ * Rewriting options
+ */
+typedef struct rewriting_optargs_t {
     bool trace_pc;
     bool count_conflict;
     bool disable_opt;
@@ -50,6 +51,12 @@ typedef struct system_optargs_t {
     bool force_pdisasm;
     bool disable_callthrough;
     bool force_linear;  // secret option
+} RewritingOptArgs;
+
+typedef struct system_optargs_t {
+    SysMode mode;
+
+    RewritingOptArgs r;
 
     int32_t log_level;
 

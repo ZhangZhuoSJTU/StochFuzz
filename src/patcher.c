@@ -620,7 +620,7 @@ Z_API void z_patcher_describe(Patcher *p) {
     z_buffer_destroy(patchpoints);
 }
 
-Z_API Patcher *z_patcher_create(Disassembler *d, SysOptArgs *opts) {
+Z_API Patcher *z_patcher_create(Disassembler *d, RewritingOptArgs *opts) {
     Patcher *p = STRUCT_ALLOC(Patcher);
 
     p->opts = opts;

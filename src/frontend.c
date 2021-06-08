@@ -133,9 +133,9 @@ static int parse_args(int argc, const char **argv) {
             __MODE_CASE('V', VIEW);
 #undef __MODE_CASE
 
-#define __SETTING_CASE(c, m)  \
-    case c:                   \
-        sys_optargs.m = true; \
+#define __SETTING_CASE(c, m)    \
+    case c:                     \
+        sys_optargs.r.m = true; \
         break;
             __SETTING_CASE('g', trace_pc);
             __SETTING_CASE('c', count_conflict);
@@ -220,15 +220,15 @@ static int parse_args(int argc, const char **argv) {
 
     if (sys_optargs.mode == SYSMODE_DISASM) {
         // Under disasm mode, we forcely use probabilistic disassembly
-        sys_optargs.force_pdisasm = true;
-        sys_optargs.force_linear = false;
+        sys_optargs.r.force_pdisasm = true;
+        sys_optargs.r.force_linear = false;
     }
 
-    if (sys_optargs.force_pdisasm && sys_optargs.force_linear) {
+    if (sys_optargs.r.force_pdisasm && sys_optargs.r.force_linear) {
         EXITME("-f and -n cannot be set together");
     }
 
-    if (sys_optargs.instrument_early) {
+    if (sys_optargs.r.instrument_early) {
         z_warn(
             "-e option is experimental, it may cause invalid crashes on a "
             "different system other than Ubuntu 18.04");

@@ -281,7 +281,7 @@ Z_PRIVATE void __disassembler_superset_disasm(Disassembler *d) {
     }
 }
 
-Z_API Disassembler *z_disassembler_create(Binary *b, SysOptArgs *opts) {
+Z_API Disassembler *z_disassembler_create(Binary *b, RewritingOptArgs *opts) {
     Disassembler *d = STRUCT_ALLOC(Disassembler);
 
     d->opts = opts;

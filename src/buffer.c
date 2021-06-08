@@ -80,7 +80,9 @@ Z_API Buffer *z_buffer_create(const uint8_t *ptr, size_t size) {
     if (ptr != NULL) {
         memcpy(buf->raw_buf, ptr, size);
     } else {
-        assert(size == 0);
+        if (size) {
+            EXITME("try to create a buffer with NULL ptr and positive size");
+        }
     }
     buf->size = size;
     return buf;

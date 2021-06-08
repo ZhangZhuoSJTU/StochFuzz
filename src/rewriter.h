@@ -64,8 +64,8 @@ STRUCT(Rewriter, {
     // Internal data
     bool __main_rewritten;
 
-    // system optargs
-    SysOptArgs *opts;
+    // rewriting optargs
+    RewritingOptArgs *opts;
 });
 
 // which instruction needs to be handled
@@ -96,7 +96,7 @@ Z_API void z_rhandler_destroy(RHandler *handler);
 /*
  * Create a rewriter
  */
-Z_API Rewriter *z_rewriter_create(Disassembler *d, SysOptArgs *opts);
+Z_API Rewriter *z_rewriter_create(Disassembler *d, RewritingOptArgs *opts);
 
 /*
  * Destroy a rewrite

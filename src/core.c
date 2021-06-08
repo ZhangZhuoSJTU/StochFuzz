@@ -125,6 +125,18 @@ Z_PRIVATE uint32_t __afl_hash32(const void *key, uint32_t len, uint32_t seed) {
 }
 
 /*
+ * Clean cached files
+ */
+Z_PRIVATE void __core_clean_cache(const char *pathname);
+
+/*
+ * Check whether the binary and cached files are valid, and update the meta file
+ * if needed.
+ */
+Z_PRIVATE void __core_check_binary(const char *pathname,
+                                   RewritingOptArgs *opts);
+
+/*
  * Get the hash value of current afl bitmap
  */
 Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core);
@@ -158,6 +170,95 @@ Z_PRIVATE void __core_clean_environment(Core *core);
  * Setup a unix domain socker for core
  */
 Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
+
+Z_PRIVATE void __core_clean_cache(const char *pathname) {
+#define __RM_CACHE(prefix, binary)                       \
+    do {                                                 \
+        const char *filename = z_strcat(prefix, binary); \
+        if (!z_access(filename, F_OK)) {                 \
+            if (remove(filename)) {                      \
+                EXITME("failed to remove %s", filename); \
+            }                                            \
+        }                                                \
+        z_free((void *)filename);                        \
+    } while (0)
+
+    __RM_CACHE(LOOKUP_TABNAME_PREFIX, pathname);
+    __RM_CACHE(TRAMPOLINES_NAME_PREFIX, pathname);
+    __RM_CACHE(SHARED_TEXT_PREFIX, pathname);
+    __RM_CACHE(RETADDR_MAPPING_PREFIX, pathname);
+    __RM_CACHE(CRASHPOINT_LOG_PREFIX, pathname);
+    __RM_CACHE(PIPE_FILENAME_PREFIX, pathname);
+    __RM_CACHE(PDISASM_FILENAME_PREFIX, pathname);
+    __RM_CACHE(METADATA_FILENAME_PREFIX, pathname);
+
+#undef __RM_CACHE
+}
+
+Z_PRIVATE void __core_check_binary(const char *pathname,
+                                   RewritingOptArgs *opts) {
+    // step 1. check pathname
+    z_info("patch binary file: \"%s\"", pathname);
+    if (z_strchr(pathname, '/')) {
+        // TODO: it is a ugly approach to check working directory, change it
+        // when possible
+        EXITME("please make sure " OURTOOL
+               " running under the same directory with the target bianry (no "
+               "slash symbol).");
+    }
+
+    // step 2. collect metadate
+    Buffer *binary_buf = z_buffer_read_file(pathname);
+    GChecksum *checksum = g_checksum_new(G_CHECKSUM_MD5);
+    g_checksum_update(checksum, z_buffer_get_raw_buf(binary_buf),
+                      z_buffer_get_size(binary_buf));
+    const char *checksum_str = g_checksum_get_string(checksum);
+    z_info("MD5(%s) = %s", pathname, checksum_str);
+
+    // step 3. check metadata if needed
+    const char *metadata_filename =
+        z_strcat(METADATA_FILENAME_PREFIX, pathname);
+    if (!z_access(metadata_filename, F_OK)) {
+        Buffer *metadata_buf = z_buffer_read_file(metadata_filename);
+        size_t metadata_size = z_buffer_get_size(metadata_buf);
+        const uint8_t *metadata = z_buffer_get_raw_buf(metadata_buf);
+
+        if (metadata_size !=
+            sizeof(RewritingOptArgs) + z_strlen(checksum_str) + 1) {
+            z_info("inconsistent size of cache metadata, remove cached files");
+            __core_clean_cache(pathname);
+        } else if (memcmp(metadata, opts, sizeof(RewritingOptArgs))) {
+            z_info("inconsistent rewriting options, remove cached files");
+            __core_clean_cache(pathname);
+        } else if (z_strcmp((const char *)metadata + sizeof(RewritingOptArgs),
+                            checksum_str)) {
+            z_info("inconsistent binaries, remove cached files");
+            __core_clean_cache(pathname);
+        }
+
+        z_buffer_destroy(metadata_buf);
+    }
+
+    // step 4. update medadata file
+    {
+        Buffer *metadata_buf = z_buffer_create(NULL, 0);
+
+        z_buffer_append_raw(metadata_buf, (const uint8_t *)opts,
+                            sizeof(RewritingOptArgs));
+        z_buffer_append_raw(metadata_buf, (const uint8_t *)checksum_str,
+                            z_strlen(checksum_str));
+        z_buffer_push(metadata_buf, '\x00');
+
+        z_buffer_write_file(metadata_buf, metadata_filename);
+
+        z_buffer_destroy(metadata_buf);
+    }
+
+    // step 5. free
+    g_checksum_free(checksum);
+    z_buffer_destroy(binary_buf);
+    z_free((void *)metadata_filename);
+}
 
 Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core) {
     if (!core->afl_trace_bits) {
@@ -337,7 +438,7 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
 #endif
 
             // set LD_PRELOAD if needed
-            if (core->opts->safe_ret && getenv("STOCHFUZZ_PRELOAD")) {
+            if (core->opts->r.safe_ret && getenv("STOCHFUZZ_PRELOAD")) {
                 setenv("LD_PRELOAD", getenv("STOCHFUZZ_PRELOAD"), 1);
             }
 
@@ -400,27 +501,20 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
 }
 
 Z_PUBLIC Core *z_core_create(const char *pathname, SysOptArgs *opts) {
-    __core_environment_setup();
-
     if (__core) {
         EXITME("there can only be one Core instance");
     }
 
-    z_info("patch binary file: \"%s\"", pathname);
-    if (z_strchr(pathname, '/')) {
-        // TODO: it is a ugly approach to check working directory, change it
-        // when possible
-        EXITME("please make sure " OURTOOL
-               " running under the same directory with the target bianry (no "
-               "slash symbol).");
-    }
+    __core_environment_setup();
+
+    __core_check_binary(pathname, &opts->r);
 
     Core *core = STRUCT_ALLOC(Core);
 
     core->opts = opts;
 
-    core->binary = z_binary_open(pathname, core->opts->instrument_early);
-    if (core->opts->safe_ret && !core->opts->instrument_early) {
+    core->binary = z_binary_open(pathname, core->opts->r.instrument_early);
+    if (core->opts->r.safe_ret && !core->opts->r.instrument_early) {
         ELF *e = z_binary_get_elf(core->binary);
         if (z_elf_is_statically_linked(e)) {
             z_warn(
@@ -429,11 +523,11 @@ Z_PUBLIC Core *z_core_create(const char *pathname, SysOptArgs *opts) {
         }
     }
 
-    core->disassembler = z_disassembler_create(core->binary, core->opts);
-    core->rewriter = z_rewriter_create(core->disassembler, core->opts);
-    core->patcher = z_patcher_create(core->disassembler, core->opts);
+    core->disassembler = z_disassembler_create(core->binary, &core->opts->r);
+    core->rewriter = z_rewriter_create(core->disassembler, &core->opts->r);
+    core->patcher = z_patcher_create(core->disassembler, &core->opts->r);
     core->diagnoser = z_diagnoser_create(core->patcher, core->rewriter,
-                                         core->disassembler, core->opts);
+                                         core->disassembler, &core->opts->r);
 
     z_diagnoser_read_crashpoint_log(core->diagnoser);
 
@@ -468,6 +562,10 @@ Z_PUBLIC void z_core_activate(Core *core) {
 }
 
 Z_PUBLIC void z_core_destroy(Core *core) {
+    if (!__core) {
+        EXITME("detected an unrestrained core object");
+    }
+
     __core_clean_environment(core);
 
     z_diagnoser_write_crashpoint_log(core->diagnoser);
@@ -497,7 +595,7 @@ Z_PUBLIC void z_core_start_daemon(Core *core, int notify_fd) {
     // first dry run w/o any parameter to find some crashpoint during init
     // XXX: dry run must be performed before setting up shm
     // XXX: when -e option is given, we do not need to perform such dry runs
-    if (!core->opts->instrument_early) {
+    if (!core->opts->r.instrument_early) {
         // before dry run, we first patch the main function as directly
         // returning. As such, we can try our best to avoid the error diagnosis
         // during dry run

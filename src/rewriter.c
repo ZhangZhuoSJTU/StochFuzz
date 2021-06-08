@@ -926,7 +926,7 @@ Z_RESERVED Z_PRIVATE void __rewriter_build_bridges(Rewriter *r,
     }
 }
 
-Z_API Rewriter *z_rewriter_create(Disassembler *d, SysOptArgs *opts) {
+Z_API Rewriter *z_rewriter_create(Disassembler *d, RewritingOptArgs *opts) {
     Rewriter *r = STRUCT_ALLOC(Rewriter);
 
     r->opts = opts;

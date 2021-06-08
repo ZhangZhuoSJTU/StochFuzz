@@ -65,8 +65,8 @@ STRUCT(Disassembler, {
     // Light-weight instruction-level analyzer;
     UCFG_Analyzer *ucfg_analyzer;
 
-    // system optargs
-    SysOptArgs *opts;
+    // rewriting optargs
+    RewritingOptArgs *opts;
 });
 
 /*
@@ -78,7 +78,7 @@ DECLARE_GETTER(Disassembler, disassembler, UCFG_Analyzer *, ucfg_analyzer);
 /*
  * Create a disassembler
  */
-Z_API Disassembler *z_disassembler_create(Binary *b, SysOptArgs *opts);
+Z_API Disassembler *z_disassembler_create(Binary *b, RewritingOptArgs *opts);
 
 /*
  * Destroy a disassembler

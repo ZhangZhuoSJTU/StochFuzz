@@ -115,14 +115,14 @@ STRUCT(Patcher, {
     size_t resolved_bridges;
     size_t adjusted_bridges;
 
-    // system optargs
-    SysOptArgs *opts;
+    // rewriting optargs
+    RewritingOptArgs *opts;
 });
 
 /*
  * Create a patcher
  */
-Z_API Patcher *z_patcher_create(Disassembler *d, SysOptArgs *opts);
+Z_API Patcher *z_patcher_create(Disassembler *d, RewritingOptArgs *opts);
 
 /*
  * Destroy a patcher

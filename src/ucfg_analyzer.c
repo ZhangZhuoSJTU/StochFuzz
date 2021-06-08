@@ -689,7 +689,8 @@ Z_PRIVATE void __ucfg_analyzer_init_analyze(UCFG_Analyzer *a, addr_t addr,
     }
 }
 
-Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary, SysOptArgs *opts) {
+Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary,
+                                            RewritingOptArgs *opts) {
     UCFG_Analyzer *a = STRUCT_ALLOC(UCFG_Analyzer);
 
     a->binary = binary;
