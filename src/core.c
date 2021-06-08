@@ -91,87 +91,8 @@ static void __core_environment_setup(void) {
     }
 }
 
-/*
- * Functions and Macros copied and pasted from AFL source code
- */
-#define __AFL_ROL64(_x, _r) \
-    ((((uint64_t)(_x)) << (_r)) | (((uint64_t)(_x)) >> (64 - (_r))))
-
-Z_PRIVATE uint32_t __afl_hash32(const void *key, uint32_t len, uint32_t seed) {
-    const uint64_t *data = (uint64_t *)key;
-    uint64_t h1 = seed ^ len;
-
-    len >>= 3;
-
-    while (len--) {
-        uint64_t k1 = *data++;
-
-        k1 *= 0x87c37b91114253d5ULL;
-        k1 = __AFL_ROL64(k1, 31);
-        k1 *= 0x4cf5ad432745937fULL;
-
-        h1 ^= k1;
-        h1 = __AFL_ROL64(h1, 27);
-        h1 = h1 * 5 + 0x52dce729;
-    }
-
-    h1 ^= h1 >> 33;
-    h1 *= 0xff51afd7ed558ccdULL;
-    h1 ^= h1 >> 33;
-    h1 *= 0xc4ceb9fe1a85ec53ULL;
-    h1 ^= h1 >> 33;
-
-    return h1;
-}
-
-/*
- * Clean cached files
- */
-Z_PRIVATE void __core_clean_cache(const char *pathname);
-
-/*
- * Check whether the binary and cached files are valid, and update the meta file
- * if needed.
- */
-Z_PRIVATE void __core_check_binary(const char *pathname,
-                                   RewritingOptArgs *opts);
-
-/*
- * Get the hash value of current afl bitmap
- */
-Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core);
-
-/*
- * Set clock for client timeout
- */
-Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
-
-/*
- * Cancel clock for client timeout
- */
-Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid);
-
-/*
- * Setup shared memory of CRS
- */
-Z_PRIVATE void __core_setup_shm(Core *core);
-
-/*
- * Setup shared memory of AFL
- */
-Z_PRIVATE void __core_setup_afl_shm(Core *core, int afl_shm_id);
-
-/*
- * Clean up
- */
-Z_PRIVATE void __core_clean_environment(Core *core);
-
-/*
- * Setup a unix domain socker for core
- */
-Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
-
-Z_PRIVATE void __core_clean_cache(const char *pathname) {
+// clean cached files
+static void __core_clean_cache(const char *pathname) {
 #define __RM_CACHE(prefix, binary)                       \
     do {                                                 \
         const char *filename = z_strcat(prefix, binary); \
@@ -195,8 +116,9 @@ Z_PRIVATE void __core_clean_cache(const char *pathname) {
 #undef __RM_CACHE
 }
 
-Z_PRIVATE void __core_check_binary(const char *pathname,
-                                   RewritingOptArgs *opts) {
+// check whether the binary and cached files are valid, and update the meta file
+// if needed.
+static void __core_check_binary(const char *pathname, RewritingOptArgs *opts) {
     // step 1. check pathname
     z_info("patch binary file: \"%s\"", pathname);
     if (z_strchr(pathname, '/')) {
@@ -259,6 +181,74 @@ Z_PRIVATE void __core_check_binary(const char *pathname,
     z_buffer_destroy(binary_buf);
     z_free((void *)metadata_filename);
 }
+
+/*
+ * Functions and Macros copied and pasted from AFL source code
+ */
+#define __AFL_ROL64(_x, _r) \
+    ((((uint64_t)(_x)) << (_r)) | (((uint64_t)(_x)) >> (64 - (_r))))
+
+Z_PRIVATE uint32_t __afl_hash32(const void *key, uint32_t len, uint32_t seed) {
+    const uint64_t *data = (uint64_t *)key;
+    uint64_t h1 = seed ^ len;
+
+    len >>= 3;
+
+    while (len--) {
+        uint64_t k1 = *data++;
+
+        k1 *= 0x87c37b91114253d5ULL;
+        k1 = __AFL_ROL64(k1, 31);
+        k1 *= 0x4cf5ad432745937fULL;
+
+        h1 ^= k1;
+        h1 = __AFL_ROL64(h1, 27);
+        h1 = h1 * 5 + 0x52dce729;
+    }
+
+    h1 ^= h1 >> 33;
+    h1 *= 0xff51afd7ed558ccdULL;
+    h1 ^= h1 >> 33;
+    h1 *= 0xc4ceb9fe1a85ec53ULL;
+    h1 ^= h1 >> 33;
+
+    return h1;
+}
+
+/*
+ * Get the hash value of current afl bitmap
+ */
+Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core);
+
+/*
+ * Set clock for client timeout
+ */
+Z_PRIVATE void __core_set_client_clock(Core *core, pid_t client_pid);
+
+/*
+ * Cancel clock for client timeout
+ */
+Z_PRIVATE void __core_cancel_client_clock(Core *core, pid_t client_pid);
+
+/*
+ * Setup shared memory of CRS
+ */
+Z_PRIVATE void __core_setup_shm(Core *core);
+
+/*
+ * Setup shared memory of AFL
+ */
+Z_PRIVATE void __core_setup_afl_shm(Core *core, int afl_shm_id);
+
+/*
+ * Clean up
+ */
+Z_PRIVATE void __core_clean_environment(Core *core);
+
+/*
+ * Setup a unix domain socker for core
+ */
+Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
 
 Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core) {
     if (!core->afl_trace_bits) {
