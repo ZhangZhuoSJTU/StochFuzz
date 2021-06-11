@@ -1,6 +1,6 @@
 # Troubleshootings
 
-The most common issue we may meet is that the cached files are inconsistent. Before reporting an issue, __the best suggestion is to first remove these cached files (`rm .*`) and rerun StochFuzz.__
+If you are using a variant of AFL instead of the original [AFL](https://github.com/google/AFL), please refer to [system.md](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/docs/system.md#how-to-make-stochfuzz-compatible-with-other-afl-based-fuzzers) which tells you how to make StochFuzz compatible with those variants.
 
 Besides, this documentation mainly talks about how to handle the case where the rewritten binaries have inconsistent behaviors taking the same inputs (e.g., invalid crashes which cannot be reproduced by the original binaries). Please kindly open an issue to report any other problems, including:
 
