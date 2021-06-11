@@ -14,7 +14,7 @@ A good observation is that the edge coverage is at the block level, which means 
 
 ## How to make StochFuzz compatible with other AFL-based fuzzers
 
-One of the most common practices of variants of [AFL](https://github.com/google/AFL) is to extend the size of the shared memory. For example, [AFL++](https://github.com/AFLplusplus/AFLplusplus) extends the size to 8388608 bytes (`1 << 23`). To make StochFuzz compatible with such AFL variants, we need to do some slight modifications.
+One of the most common practices of variants of [AFL](https://github.com/google/AFL) is to extend the size of the shared memory. For example, [AFL++](https://github.com/AFLplusplus/AFLplusplus) extends the size to [8388608](https://github.com/AFLplusplus/AFLplusplus/blob/48c878a76ddec2c133fd5708b185b2ac27740084/include/config.h#L44) bytes (`1 << 23`). To make StochFuzz compatible with such AFL variants, we need to do some slight modifications.
 
 Specifically, we need to modify two macros defined in [afl_config.h](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/src/afl_config.h), [AFL_MAP_SIZE_POW2](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/9fe1500791729e267894e44faa935757e13124e6/src/afl_config.h#L37) and [AFL_MAP_ADDR](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/9fe1500791729e267894e44faa935757e13124e6/src/afl_config.h#L39). 
 
