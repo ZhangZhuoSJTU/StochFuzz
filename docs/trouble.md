@@ -31,7 +31,7 @@ StochFuzz provides different rewriting options and will automatically choose som
   -i            - ignore the call-fallthrough edges to defense RET-misusing obfuscation
 ```
 
-+ If the erroneous behaviors still exist after rewriting with the aforementioned options, please kindly open an issue to let us know.
++ If the erroneous behaviors still exist after rewriting with the aforementioned options, please kindly open an issue to let us know; if the erroneous behaviors are gone, you can try aforementioned options one by one to identify which one contributes to elimilate the errors, and if possible, you can also open an issue to let us know. 
 
 
 ## Known issues
