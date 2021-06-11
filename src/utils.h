@@ -333,6 +333,10 @@ extern const uint8_t *tp_code;
             EXITME("invalid AFL_PREV_ID_PTR value: %#lx v/s %#lx",             \
                    AFL_PREV_ID_PTR, RW_PAGE_INFO_ADDR(afl_prev_id));           \
         }                                                                      \
+        if (AFL_MAP_SIZE_POW2 > 31) {                                          \
+            EXITME("the size of AFL's shared memory is too large: %#lx",       \
+                   AFL_MAP_SIZE);                                              \
+        }                                                                      \
         if (RW_PAGE_SIZE < RW_PAGE_USED_SIZE + 0x100) {                        \
             /* XXX: 0x100 is left for utils_output_number when DEBUG */        \
             EXITME("use too much space on RW_PAGE: %#lx v/s %#lx",             \

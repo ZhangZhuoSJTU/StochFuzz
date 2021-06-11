@@ -28,8 +28,8 @@ typedef struct tp_code_t {
     uint8_t *code;
     size_t len;
     size_t capacity;
-    uint16_t *id_hole;
-    uint16_t *shr_id_hole;
+    uint32_t *id_hole;
+    uint32_t *shr_id_hole;
 } TPCode;
 
 STRUCT(TPDispatcher, {

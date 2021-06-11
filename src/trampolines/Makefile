@@ -6,8 +6,8 @@ bitmap:
 	objcopy --dump-section .text=bitmap.bin bitmap.out
 	xxd -i bitmap.bin > bitmap_bin.c
 	readelf -s bitmap.o | grep __BITMAP_ |  awk '{print "const size_t " $$8 " = 0x" $$2 ";"}' >> bitmap_bin.c
-	echo "const unsigned short bitmap_id_hole = 0xDEAD;" >> bitmap_bin.c
-	echo "const unsigned short bitmap_shr_id_hole = 0xBEEF;" >> bitmap_bin.c
+	echo "const unsigned int bitmap_id_hole = 0xDEAD;" >> bitmap_bin.c
+	echo "const unsigned int bitmap_shr_id_hole = 0xBEEF;" >> bitmap_bin.c
 
 context_save:
 	$(CC) -Wall -fno-stack-protector -fpie -Os -c context_save.c

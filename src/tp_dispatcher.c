@@ -49,7 +49,7 @@ Z_PRIVATE void __tp_code_destroy(TPCode *tpc);
 /*
  * Emit TPCode
  */
-Z_PRIVATE const uint8_t *__tp_code_emit(TPCode *tpc, uint16_t id,
+Z_PRIVATE const uint8_t *__tp_code_emit(TPCode *tpc, uint32_t id,
                                         size_t *size_ptr);
 
 /*
@@ -61,8 +61,8 @@ Z_PRIVATE void __tp_code_append_raw(TPCode *tpc, const uint8_t *buf,
 /*
  * Locate holes in TPCode
  */
-Z_PRIVATE void __tp_code_locate_holes(TPCode *tpc, uint16_t id_hole,
-                                      uint16_t shr_id_hole);
+Z_PRIVATE void __tp_code_locate_holes(TPCode *tpc, uint32_t id_hole,
+                                      uint32_t shr_id_hole);
 
 Z_PRIVATE void __tp_code_destroy(TPCode *tpc) {
     z_free(tpc->code);
@@ -78,12 +78,12 @@ Z_PRIVATE TPCode *__tp_code_create(size_t size) {
     return tpc;
 }
 
-Z_PRIVATE void __tp_code_locate_holes(TPCode *tpc, uint16_t id_hole,
-                                      uint16_t shr_id_hole) {
-    tpc->id_hole = (uint16_t *)TPD_LOCATE_HOLE(
+Z_PRIVATE void __tp_code_locate_holes(TPCode *tpc, uint32_t id_hole,
+                                      uint32_t shr_id_hole) {
+    tpc->id_hole = (uint32_t *)TPD_LOCATE_HOLE(
         tpc->code, tpc->len, &id_hole, sizeof(id_hole), "missing id hole");
     tpc->shr_id_hole =
-        (uint16_t *)TPD_LOCATE_HOLE(tpc->code, tpc->len, &shr_id_hole,
+        (uint32_t *)TPD_LOCATE_HOLE(tpc->code, tpc->len, &shr_id_hole,
                                     sizeof(shr_id_hole), "missing shr id hole");
 }
 
@@ -96,8 +96,10 @@ Z_PRIVATE void __tp_code_append_raw(TPCode *tpc, const uint8_t *buf,
     tpc->len += size;
 }
 
-Z_PRIVATE const uint8_t *__tp_code_emit(TPCode *tpc, uint16_t id,
+Z_PRIVATE const uint8_t *__tp_code_emit(TPCode *tpc, uint32_t id,
                                         size_t *size_ptr) {
+    assert(id < AFL_MAP_SIZE);
+
     *(tpc->id_hole) = (id);
     *(tpc->shr_id_hole) = ((id) >> 1);
     *(size_ptr) = tpc->len;
