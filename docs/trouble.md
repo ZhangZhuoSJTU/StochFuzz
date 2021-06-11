@@ -22,7 +22,7 @@ Hence, to check whether an input will cause inconsistent behaviors, you can exec
 StochFuzz provides different rewriting options and will automatically choose some, based on the given binary. In some cases, StochFuzz may do the wrong choices. The following steps can help us identify whether the erroneous behaviors are caused by incorrect rewriting options or latent bugs in StochFuzz.
 
 + First of all, make sure all the cached files are removed (`rm .*`) and try to rerun StochFuzz.
-+ If the erroneous behaviors still exist but you have adopted the advanced strategy, please remove all cached files (`rm .*`) and try the basic usage.
++ If the erroneous behaviors still exist but you have adopted the advanced strategy, please remove all cached files (`rm .*`) and try the basic mode.
 + If the erroneous behaviors still exist after adopting the basic usage, please remove all cached files (`rm .*`) and feed `-e -f -i` options into StochFuzz.
 
 ```
