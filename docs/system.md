@@ -12,6 +12,23 @@ Besides, we need to manually set the timeout for StochFuzz, which should be cons
 
 A good observation is that the edge coverage is at the block level, which means we do not need to trap all instructions but one instruction per block. This observation helps us avoid many rewriting errors.
 
+## How to make StochFuzz compatible with other AFL-based fuzzers
+
+One of the most common practices of variants of [AFL](https://github.com/google/AFL) is to extend the size of the shared memory. For example, [AFL++](https://github.com/AFLplusplus/AFLplusplus) extends the size to 8388608 bytes (`1 << 23`). To make StochFuzz compatible with such AFL variants, we need to do some slight modifications.
+
+Specifically, we need to modify two macros defined in [afl_config.h](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/src/afl_config.h), [AFL_MAP_SIZE_POW2](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/9fe1500791729e267894e44faa935757e13124e6/src/afl_config.h#L37) and [AFL_MAP_ADDR](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/9fe1500791729e267894e44faa935757e13124e6/src/afl_config.h#L39). 
+
+__AFL_MAP_SIZE_POW2__ is the logarithm of the size to the base 2. For example, to support AFL++, AFL_MAP_SIZE_POW2 should be set to 23: <img src="https://render.githubusercontent.com/render/math?math=log_2 8388608 = 23">.
+
+__AFL_MAP_ADDR__ is the address of the shared memory in the subject binary. Based on our testing, 0x3000000 would be a safe address.
+
+In short, taking AFL++ as an example, following modifications are sufficient.
+
+```c
+#define AFL_MAP_SIZE_POW2 23
+#define AFL_MAP_ADDR 0x3000000
+```
+
 ## Case: Polyglot
 
 [Polyglot](https://github.com/s3team/Polyglot) is a state-of-the-art language fuzzer that focuses on testing compilers and language interpreters. Since many programming languages are bootstrapping, which means their language processors are written in themselves, it is difficult or time-consuming to instrument these processors (e.g., __GCC__). The developers of Polyglot originally used AF QEMU mode to test such processors. 
