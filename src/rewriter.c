@@ -1103,7 +1103,24 @@ Z_API addr_t z_rewriter_get_shadow_addr(Rewriter *r, addr_t addr) {
 }
 
 Z_API bool z_rewriter_check_retaddr_crashpoint(Rewriter *r, addr_t addr) {
-    return !!g_hash_table_lookup(r->potential_retaddrs, GSIZE_TO_POINTER(addr));
+    // XXX: there is a special case where the correspoind callee
+    // (potential_retaddrs) exists but the related retaddrs (unpatched_retaddrs)
+    // do not. Specifically, It is possible that:
+    //  1. addresses A and B are found as the retaddrs of a callee X.
+    //  2. B is detected and X is marked as returnable. Hence, A, as a related
+    //  retaddr of X, should be patched.
+    //  3. However, A is additionally serving as a BRIDGE_POINT, which will not
+    //  be patched actually.
+    //  4. A is detected (during next execution). At this point, A is in
+    //  potential_retaddrs but X is not in unpatched_retaddrs
+    addr_t callee = (addr_t)g_hash_table_lookup(r->potential_retaddrs,
+                                                GSIZE_TO_POINTER(addr));
+    if (!callee) {
+        return false;
+    } else {
+        return !!g_hash_table_lookup(r->unpatched_retaddrs,
+                                     GSIZE_TO_POINTER(callee));
+    }
 }
 
 // XXX: every time we find a new retaddr, we will return all the unpatched
