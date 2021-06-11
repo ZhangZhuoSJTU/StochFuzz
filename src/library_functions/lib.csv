@@ -134,7 +134,7 @@
 ,EC_POINT_point2oct,,
 ,ERR_error_string,,
 ,ERR_get_error,,
-,__errno_location,,
+,__errno_location,RET,UNUSED
 ,EVP_aes_128_cbc,,
 ,EVP_aes_128_ctr,,
 ,EVP_aes_128_ecb,,
