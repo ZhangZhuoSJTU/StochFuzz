@@ -22,8 +22,8 @@ Hence, to check whether an input will cause inconsistent behaviors, you can exec
 StochFuzz provides different rewriting options and will automatically choose some, based on the given binary. In some cases, StochFuzz may do the wrong choices. The following steps can help us identify whether the erroneous behaviors are caused by incorrect rewriting options or latent bugs in StochFuzz.
 
 + First of all, make sure all the cached files are removed (`rm .*`) and try to rerun StochFuzz.
-+ If the erroneous behaviors still exist but you have adopted the advanced strategy, please remove all cached files (`rm .*`) and try the basic usage.
-+ If the erroneous behaviors still exist after adopting the basic usage, please remove all cached files (`rm .*`) and feed `-e -f -i` options into StochFuzz.
++ If the erroneous behaviors still exist but you have adopted the advanced strategy, please remove all cached files (`rm .*`) and try the basic mode.
++ If the erroneous behaviors still exist after adopting the basic mode, please remove all cached files (`rm .*`) and feed `-e -f -i` options into StochFuzz.
 
 ```
   -e            - install the fork server at the entrypoint instead of the main function
@@ -31,7 +31,7 @@ StochFuzz provides different rewriting options and will automatically choose som
   -i            - ignore the call-fallthrough edges to defense RET-misusing obfuscation
 ```
 
-+ If the erroneous behaviors still exist after rewriting with the aforementioned options, please kindly open an issue to let us know.
++ If the erroneous behaviors still exist after rewriting with the aforementioned options, please kindly open an issue to let us know; if the erroneous behaviors are gone, you can try aforementioned options one by one to identify which one contributes to elimilate the errors, and if possible, you can also open an issue to let us know. 
 
 
 ## Known issues
