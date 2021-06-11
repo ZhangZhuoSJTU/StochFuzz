@@ -23,7 +23,7 @@ StochFuzz provides different rewriting options and will automatically choose som
 
 + First of all, make sure all the cached files are removed (`rm .*`) and try to rerun StochFuzz.
 + If the erroneous behaviors still exist but you have adopted the advanced strategy, please remove all cached files (`rm .*`) and try the basic mode.
-+ If the erroneous behaviors still exist after adopting the basic usage, please remove all cached files (`rm .*`) and feed `-e -f -i` options into StochFuzz.
++ If the erroneous behaviors still exist after adopting the basic mode, please remove all cached files (`rm .*`) and feed `-e -f -i` options into StochFuzz.
 
 ```
   -e            - install the fork server at the entrypoint instead of the main function
