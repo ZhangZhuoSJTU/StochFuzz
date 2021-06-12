@@ -9,7 +9,7 @@
 StochFuzz is a (probabilistically) sound and cost-effective fuzzing technique for stripped binaries. It is facilitated by a novel incremental and stochastic rewriting technique that is particularly suitable for binary-only fuzzing. Any AFL-based fuzzer, which takes edge coverage (defined by [AFL](https://github.com/google/AFL)) as runtime feedback, can acquire benefits from StochFuzz to directly fuzz stripped binaries.
 </p>
   
-More data and the results of the experiments can be found [here](https://github.com/ZhangZhuoSJTU/StochFuzz-data). Example cases of leveraging StochFuzz to speedup an advanced AFL-based fuzzer ([AFL++](https://github.com/AFLplusplus/AFLplusplus) and [Polyglot](https://github.com/s3team/Polyglot)) can be found in [system.md](docs/system.md#how-to-make-stochfuzz-compatible-with-other-afl-based-fuzzers).
+More data and the results of the experiments can be found [here](https://github.com/ZhangZhuoSJTU/StochFuzz-data). Example cases of leveraging StochFuzz to improve advanced AFL-based fuzzers ([AFL++](https://github.com/AFLplusplus/AFLplusplus) and [Polyglot](https://github.com/s3team/Polyglot)) can be found in [system.md](docs/system.md#how-to-make-stochfuzz-compatible-with-other-afl-based-fuzzers).
 
 ## Clarifications
 
