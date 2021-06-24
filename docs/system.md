@@ -31,7 +31,7 @@ In short, taking AFL++ as an example, following modifications are sufficient.
 
 ## Case: Polyglot
 
-[Polyglot](https://github.com/s3team/Polyglot) is a state-of-the-art language fuzzer that focuses on testing compilers and language interpreters. Since many programming languages are bootstrapping, which means their language processors are written in themselves, it is difficult or time-consuming to instrument these processors (e.g., __GCC__). The developers of Polyglot originally used AF QEMU mode to test such processors. 
+[Polyglot](https://github.com/s3team/Polyglot) is a state-of-the-art language fuzzer that focuses on testing compilers and language interpreters. Since many programming languages are bootstrapping, which means their language processors are written in themselves, it is difficult or time-consuming to instrument these processors (e.g., __GCC__). The developers of Polyglot originally used AFL-QEMU mode to test such processors. 
 
 In this case study, we try to combine Polyglot with StochFuzz to provide a more efficient fuzzing test for GCC. 
 
