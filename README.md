@@ -16,7 +16,7 @@ More data and the results of the experiments can be found [here](https://github.
 + We adopt a new system design than the one from the paper. Details can be found at [system.md](docs/system.md).
 + In the paper, when we are talking about `e9patch`, we are actually talking about the binary-only fuzzing tool built upon e9patch, namely `e9tool`. Please refer to its [website](https://github.com/GJDuck/e9patch/blob/master/README.md#building) for more details.
 + StochFuzz provides sound rewriting for binaries without inlined data, and probabilistically sound rewriting for the rest.
-+ Although StochFuzz does support Position-independent code (PIC), there are some implementation bugs which make fuzzing PIC binaries failed. I will fix them in one month (by the end of June 2021).
++ Although StochFuzz does support Position-independent code (PIC), there are some implementation bugs which make fuzzing PIC binaries failed. I will fix them in one month (by the end of July 2021).
 
 
 
