@@ -31,7 +31,7 @@ check_command "wget" "unzip" "make" "cmake" "meson" "ninja" "pkg-config" "clang"
 # check clang version (>= 6.0.0)
 #
 
-CLANG_VERSION=$(clang --version | head -n 1 | grep -o -E "[[:digit:]].[[:digit:]].[[:digit:]]" | uniq | sort)
+CLANG_VERSION=$(clang --version | head -n 1 | grep -o -E "[[:digit:]]+.[[:digit:]]+.[[:digit:]]+" | uniq | sort)
 CLANG_MAJOR_VERSION=$(echo $CLANG_VERSION | awk -F '.' '{ print $1 }')
 if [[ $CLANG_VERSION < "6.0.0" && ${#CLANG_MAJOR_VERSION} = "1" ]]; then
     echo "clang-6.0 or a newer version is required"
