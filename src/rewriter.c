@@ -621,13 +621,13 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
     /*
      * XXX: for the basic block entrypoints' address mapping, there is a silght
      * difference between r->rewritten_bbs and LOOKUP_TABLE:
-     *      r->rewritten_bbs maps the bb entrypoint address to its instrumented
-     * bitmap code's shadow address (it serves for handlers to find shadown
+     *      r->rewritten_bbs maps the bb entrypoint address to its corresponding
+     * bitmap code's shadow address (it serves for handlers to find shadow
      * tranfer target);
      *      LOOKUP_TABLE maps the bb entrypoint address to its own shadow
      * address (it serves for on-the-fly translattion of indirect call/jmp);
      *
-     * In shore, for a given bb entrypoint, r->rewritten_bbs's mapping
+     * In short, for a given bb entrypoint, r->rewritten_bbs's mapping
      * value is always samller than LOOKUP_TABLE's.
      *
      */

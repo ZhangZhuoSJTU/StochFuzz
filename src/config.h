@@ -122,6 +122,7 @@ typedef struct __loading_info_t {
 
     char lookup_tab_path[0x100];
     uint64_t lookup_tab_size;
+    addr_t lookup_tab_base;
 
     char pipe_path[0x100];
 

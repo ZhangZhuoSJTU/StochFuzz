@@ -44,6 +44,8 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
     if (z_elf_get_is_pie(e)) {
         EXITME("ret handler for PIE binary is unimplemented");
     } else {
+        // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the underlying
+        // binary is not compiled with PIE.
         KS_ASM(shadow_addr,
                "  mov [rsp - 128], rcx;\n"
                // "  mov [rsp - 120], rax;\n"

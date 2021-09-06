@@ -351,6 +351,8 @@ Z_PRIVATE void __rewriter_call_handler_for_non_pie(Rewriter *r,
          * step [2]. rewrite ucall using hand-written assembly code
          */
         z_debug("rewrite ucall " CS_SHOW_INST(inst));
+        // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the underlying
+        // binary is not compiled with PIE.
         // XXX: call may not care about eflags
         KS_ASM(shadow_addr,
                "  mov [rsp - 128], rcx;\n"

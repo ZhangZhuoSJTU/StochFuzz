@@ -140,6 +140,8 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
 
         // do the addrss translation
         {
+            // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the
+            // underlying binary is not compiled with PIE.
             addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
             KS_ASM(shadow_addr,
                    /*

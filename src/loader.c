@@ -465,8 +465,10 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
     __PARSE_FILENAME(cur_, name);
     utils_strcpy(RW_PAGE_INFO(lookup_tab_path), fullpath);
     utils_puts(RW_PAGE_INFO(lookup_tab_path), true);
+    addr_t lookup_table_addr = rip_base + LOOKUP_TABLE_ADDR;
+    RW_PAGE_INFO(lookup_tab_base) = lookup_table_addr;
     RW_PAGE_INFO(lookup_tab_size) =
-        utils_mmap_external_file(fullpath, false, LOOKUP_TABLE_ADDR, PROT_READ);
+        utils_mmap_external_file(fullpath, false, lookup_table_addr, PROT_READ);
 
     // pipe file
     __PARSE_FILENAME(cur_, name);
