@@ -106,6 +106,13 @@ STRUCT(ELF, {
     // mapped page [0x1000, 0x2000). We use mapped_pages to support multiple
     // uTPs which fall into the same page (e.g., [0x1010, 0x1020] and [0x1100,
     // 0x1110]).
+    //
+    // XXX: when the underlying binary is PIE, vmapping does not containe those
+    // segments that are at fixed adddesses (RW_PAGE_ADDR, AFL_MAP_ADDR, and
+    // CRS_MAP_ADDR; details can be found in config.h). It is not a 100% safe
+    // solution, but since the likelihood of segment conflicts seems tiny, since
+    // the size of these fixed-address segments is relatively small and the
+    // addresses of them are low.
     Splay *vmapping;           // Virtual memory
     Splay *mmapped_pages;      // Mmapped pages
     addr_t max_addr;           // Max virtual address (XXX: excluding endpoint)

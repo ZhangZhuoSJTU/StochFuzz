@@ -84,8 +84,15 @@ typedef long double double128_t;
  *  + SHADOW_CODE_ADDR: random address based on ASLR/PIE
  *  + SIGNAL_STACK_ADDR: random address based on ASLR/PIE
  *  + RETADDR_MAPPING_ADDR: random address based on ASLR/PIE
+ *  + LOOKUP_TABLE_ADDR: random address based on ASLR/PIE
  *  + RW_PAGE_ADDR: fixed address
- *  + LOOKUP_TABLE_ADDR: fixed address
+ *  + AFL_MAP_ADDR: fixed address
+ *  + CRS_MAP_ADDR: fixed address
+ *
+ * Note that, RW_PAGE_ADDR can only be fixed because we need it to access the
+ * programb base on the runtime. On the contrary, AFL_MAP_ADDR and CRS_MAP_ADDR
+ * should have not been fixed, but they indeed are mainly due to the keystone
+ * bug that is related to address redirecting.
  */
 // XXX: see http://ref.x86asm.net/coder64.html for x64 encoding
 #define SHADOW_CODE_ADDR 0x1f1f8000

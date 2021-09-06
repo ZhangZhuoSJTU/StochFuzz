@@ -495,12 +495,6 @@ Z_PRIVATE void __elf_setup_lookup_table(ELF *e, const char *filename) {
     }
     assert(cell_val == (-1 & LOOKUP_TABLE_CELL_MASK));
 
-    /*
-     * TODO: PIE FIX! as lookup table should locate at a fixed address anyway,
-     * it does not need to insert into virtual mapping for PIE binary (PIE
-     * binary's memory space is random)
-     */
-
     // step (5). insert into virtual mapping
     Snode *node = NULL;
     FChunk *fc =
