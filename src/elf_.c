@@ -256,6 +256,7 @@ ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_init_array);
 ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_fini_array);
 ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt);
 ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt_got);
+ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt_sec);
 OVERLOAD_SETTER(ELF, elf, ELFState, state) {
     if (state & ELFSTATE_DISABLE) {
         // if is used to disable associated states
@@ -283,6 +284,7 @@ ELF_DEFINE_GETTER(ELF, elf, Elf64_Shdr *, shdr_init_array);
 ELF_DEFINE_GETTER(ELF, elf, Elf64_Shdr *, shdr_fini_array);
 ELF_DEFINE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt);
 ELF_DEFINE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt_got);
+ELF_DEFINE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt_sec);
 DEFINE_GETTER(ELF, elf, addr_t, loader_addr);
 DEFINE_GETTER(ELF, elf, addr_t, trampolines_addr);
 DEFINE_GETTER(ELF, elf, addr_t, lookup_table_addr);
@@ -727,6 +729,9 @@ Z_RESERVED Z_PRIVATE void __elf_set_relro(ELF *e) {
     }
 }
 
+#define __NUMBER_OF_GOTS 2
+#define __NUMBER_OF_PLTS 3
+
 // TODO: check whether PIE binaries would cause troubles
 // TODO: if any section is missed, directly return errors instead of EXITME
 Z_PRIVATE void __elf_parse_relocation(ELF *e) {
@@ -826,14 +831,15 @@ Z_PRIVATE void __elf_parse_relocation(ELF *e) {
         EXITME("fail to find neither DT_JMPREL nor DT_RELA");
     }
 
-    const Elf64_Rela *gots[2] = {rela_plt, rela_dyn};
-    const size_t gots_cnt[2] = {rela_plt_cnt, rela_dyn_cnt};
-    const int gots_type[2] = {R_X86_64_JUMP_SLOT, R_X86_64_GLOB_DAT};
-    const char *gots_str[2] = {".rela.plt", ".rela.dyn"};
+    const Elf64_Rela *gots[__NUMBER_OF_GOTS] = {rela_plt, rela_dyn};
+    const size_t gots_cnt[__NUMBER_OF_GOTS] = {rela_plt_cnt, rela_dyn_cnt};
+    const int gots_type[__NUMBER_OF_GOTS] = {R_X86_64_JUMP_SLOT,
+                                             R_X86_64_GLOB_DAT};
+    const char *gots_str[__NUMBER_OF_GOTS] = {".rela.plt", ".rela.dyn"};
 
     // let first quickly go though how many symbols we need
     size_t max_idx = 0;
-    for (size_t k = 0; k < 2; k++) {
+    for (size_t k = 0; k < __NUMBER_OF_GOTS; k++) {
         const Elf64_Rela *got = gots[k];
         const size_t cnt = gots_cnt[k];
         const int type = gots_type[k];
@@ -873,8 +879,7 @@ Z_PRIVATE void __elf_parse_relocation(ELF *e) {
     /*
      * step (2). collect GOT information
      */
-    // XXX: we do not handle .plt.sec here (as I does not know how)
-    for (size_t k = 0; k < 2; k++) {
+    for (size_t k = 0; k < __NUMBER_OF_GOTS; k++) {
         const Elf64_Rela *got = gots[k];
         const size_t cnt = gots_cnt[k];
         const int type = gots_type[k];
@@ -922,9 +927,11 @@ Z_PRIVATE void __elf_parse_relocation(ELF *e) {
      * step (3). collect PLT information
      */
     // we check .plt and .plt.got sections by check the instruction
-    Elf64_Shdr *plts[2] = {z_elf_get_shdr_plt(e), z_elf_get_shdr_plt_got(e)};
+    Elf64_Shdr *plts[__NUMBER_OF_PLTS] = {z_elf_get_shdr_plt(e),
+                                          z_elf_get_shdr_plt_got(e),
+                                          z_elf_get_shdr_plt_sec(e)};
 
-    for (size_t k = 0; k < 2; k++) {
+    for (size_t k = 0; k < __NUMBER_OF_PLTS; k++) {
         Elf64_Shdr *plt = plts[k];
         if (!plt) {
             continue;
@@ -1005,6 +1012,9 @@ Z_PRIVATE void __elf_parse_relocation(ELF *e) {
     dyn_->d_un.d_val = MAGIC_NUMBER;
 }
 
+#undef __NUMBER_OF_GOTS
+#undef __NUMBER_OF_PLTS
+
 Z_PRIVATE void __elf_parse_shdr(ELF *e) {
     Elf64_Ehdr *ehdr = z_elf_get_ehdr(e);
     size_t size = z_mem_file_ftell(e->stream);
@@ -1017,6 +1027,7 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e) {
     z_elf_set_shdr_fini_array(e, NULL);
     z_elf_set_shdr_plt(e, NULL);
     z_elf_set_shdr_plt_got(e, NULL);
+    z_elf_set_shdr_plt_sec(e, NULL);
 
     Elf64_Shdr *shdrs = (Elf64_Shdr *)((uint8_t *)ehdr + ehdr->e_shoff);
 
@@ -1072,6 +1083,8 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e) {
             z_elf_set_shdr_plt(e, shdr);
         } else if (!z_strcmp(shdr_name, ".plt.got")) {
             z_elf_set_shdr_plt_got(e, shdr);
+        } else if (!z_strcmp(shdr_name, ".plt.sec")) {
+            z_elf_set_shdr_plt_sec(e, shdr);
         }
     }
 
@@ -1118,6 +1131,13 @@ Z_PRIVATE void __elf_parse_shdr(ELF *e) {
                z_elf_get_shdr_plt_got(e)->sh_addr);
     } else {
         z_info(".plt.got section not found");
+    }
+
+    if (z_elf_get_shdr_plt_sec(e)) {
+        z_info("find .plt.sec section @ %#lx",
+               z_elf_get_shdr_plt_sec(e)->sh_addr);
+    } else {
+        z_info(".plt.sec section not found");
     }
 }
 

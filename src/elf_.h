@@ -89,6 +89,7 @@ STRUCT(ELF, {
     size_t shdr_fini_array_off;  // SHDR .fini_array
     size_t shdr_plt_off;         // SHDR .plt
     size_t shdr_plt_got_off;     // SHDR .plt.got
+    size_t shdr_plt_sec_off;     // SHDR .plt.sec
 
     /*
      * Dynamic information
@@ -189,6 +190,8 @@ DECLARE_SETTER(ELF, elf, Elf64_Shdr *, shdr_fini);
 DECLARE_SETTER(ELF, elf, Elf64_Shdr *, shdr_init_array);
 DECLARE_SETTER(ELF, elf, Elf64_Shdr *, shdr_fini_array);
 DECLARE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt);
+DECLARE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt_got);
+DECLARE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt_sec);
 DECLARE_SETTER(ELF, elf, ELFState, state);
 
 DECLARE_GETTER(ELF, elf, Elf64_Ehdr *, ehdr);
@@ -201,6 +204,8 @@ DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_fini);
 DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_init_array);
 DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_fini_array);
 DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt);
+DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt_got);
+DECLARE_GETTER(ELF, elf, Elf64_Shdr *, shdr_plt_sec);
 DECLARE_GETTER(ELF, elf, addr_t, loader_addr);
 DECLARE_GETTER(ELF, elf, addr_t, trampolines_addr);
 DECLARE_GETTER(ELF, elf, addr_t, lookup_table_addr);
