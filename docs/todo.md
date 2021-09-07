@@ -29,6 +29,7 @@ While we have successfully migrated StochFuzz to a new system design, we can sti
 + [x] Add tailed invalid instructions for those basic blocks terminated by bad decoding.
 + [x] Add a license.
 + [x] Do not use a global sys\_config, but put the options into each object.
++ [x] Current TP\_EMIT is only compatible with fuzzers compiled with AFL\_MAP\_SIZE = (1 << 16), we need to change the underlying implementation of TP\_EMIT to automatically fit the AFL\_MAP\_SIZE.
 + [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
 + [ ] Apply AddrDict to all possible places..
 + [ ] Apply Iter to all possible places..
@@ -40,8 +41,8 @@ While we have successfully migrated StochFuzz to a new system design, we can sti
 + [ ] Automatically scale the number of executions triggering checking runs (based on the result of previous checking run).
 + [ ] Set the default log level as WARN (note that we need to update `make test` and `make benchmark`).
 + [ ] Use a general method to add segments in the given ELF instead of using the simple PT\_NOTE trick.
-+ [ ] Current TP\_EMIT is only compatible with fuzzers compiled with AFL\_MAP\_SIZE = (1 << 16), we need to change the underlying implementation of TP\_EMIT to automatically fit the AFL\_MAP\_SIZE.
 + [ ] Fix the failed Github Actions on Ubuntu 20.04 (the root cause is unknown currently).
++ [ ] Place `ENDBR64` instruction before the AFL trampoline. The phantom program will crash otherwise.
 
 
 ## Challenges

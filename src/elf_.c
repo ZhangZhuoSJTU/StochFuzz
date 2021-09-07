@@ -952,6 +952,16 @@ Z_PRIVATE void __elf_parse_relocation(ELF *e) {
 
             CS_DISASM_RAW(ptr + off, plt_size - off, plt_addr + off, 1);
 
+            if (cs_inst->id == X86_INS_ENDBR64 &&
+                off + cs_inst->size < plt_size) {
+                // XXX: handle intel CET tech. Note that we may need to
+                // carefully design our system about how to handle CET/IBT.
+                size_t endbr64_size = cs_inst->size;
+                CS_DISASM_RAW(ptr + off + endbr64_size,
+                              plt_size - off - endbr64_size,
+                              plt_addr + off + endbr64_size, 1);
+            }
+
             addr_t got_addr = INVALID_ADDR;
             if (cs_count == 1 &&
                 z_capstone_is_pc_related_ujmp(cs_inst, &got_addr)) {
