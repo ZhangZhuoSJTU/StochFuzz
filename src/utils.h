@@ -143,11 +143,14 @@ Z_API char *z_strchr(const char *s, int c);
 /*
  * Keystone
  */
+#define KS_BUFMAX 0x400
+
 extern ks_engine *ks;
 extern size_t ks_count;
 extern size_t ks_size;
 extern const unsigned char *ks_encode;
 extern unsigned char ks_encode_fast[0x10];
+extern char ks_buf[KS_BUFMAX];
 
 #define KS_INIT                                                       \
     do {                                                              \
@@ -167,8 +170,6 @@ extern unsigned char ks_encode_fast[0x10];
             ks_close(ks);                                       \
         }                                                       \
     } while (0)
-
-#define KS_BUFMAX 0x300
 
 // for quick assembly
 #define KS_ASM_CALL(cur_addr, tar_addr)                           \
@@ -216,18 +217,17 @@ extern unsigned char ks_encode_fast[0x10];
         ks_encode = ks_encode_fast;                                           \
     } while (0)
 
-#define KS_ASM(addr, ...)                                                    \
-    do {                                                                     \
-        char code[KS_BUFMAX];                                                \
-        if (snprintf(code, KS_BUFMAX, __VA_ARGS__) >= KS_BUFMAX) {           \
-            EXITME("assembly code is too long:\n%s", code);                  \
-        }                                                                    \
-        if (ks_encode != NULL && ks_encode != ks_encode_fast)                \
-            ks_free((unsigned char *)ks_encode);                             \
-        if (ks_asm(ks, code, addr, (unsigned char **)(&ks_encode), &ks_size, \
-                   &ks_count) != KS_ERR_OK) {                                \
-            EXITME("fail on ks_asm:\n%s", code);                             \
-        }                                                                    \
+#define KS_ASM(addr, ...)                                                      \
+    do {                                                                       \
+        if (snprintf(ks_buf, KS_BUFMAX, __VA_ARGS__) >= KS_BUFMAX) {           \
+            EXITME("assembly code is too long:\n%s", ks_buf);                  \
+        }                                                                      \
+        if (ks_encode != NULL && ks_encode != ks_encode_fast)                  \
+            ks_free((unsigned char *)ks_encode);                               \
+        if (ks_asm(ks, ks_buf, addr, (unsigned char **)(&ks_encode), &ks_size, \
+                   &ks_count) != KS_ERR_OK) {                                  \
+            EXITME("fail on ks_asm:\n%s", ks_buf);                             \
+        }                                                                      \
     } while (0)
 
 /*

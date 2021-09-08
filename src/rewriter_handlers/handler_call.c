@@ -25,7 +25,7 @@
             KS_ASM((shadow_addr),                                    \
                    "  call next;\n"                                  \
                    "next:\n"                                         \
-                   "  sub [rsp], %#lx;\n",                           \
+                   "  sub qword ptr [rsp], %#lx;\n",                 \
                    (shadow_addr) + 5 - (ori_next_addr));             \
         } else {                                                     \
             KS_ASM((shadow_addr), "push %#lx", (ori_next_addr));     \
@@ -332,8 +332,70 @@ Z_PRIVATE void __rewriter_call_handler(Rewriter *r, GHashTable *holes,
         // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the underlying
         // binary is not compiled with PIE.
         // XXX: call may not care about eflags
-        // XXX: PIE fix
-        KS_ASM(shadow_addr,
+        if (is_pie) {
+            KS_ASM(shadow_addr,
+               "  mov [rsp - 168], rsi;\n"
+               "  mov [rsp - 128], rcx;\n"
+               // "  mov [rsp - 120], rax;\n"
+               // "  lahf;\n"
+               // "  seto al;\n"
+               "  pop rcx;\n"
+               "  mov [rsp - 144], rcx;\n"
+               /*
+                * get program base and update rcx
+                */
+               "  mov rsi, %#lx;\n"
+               "  mov rsi, [rsi];\n"
+               "  sub rcx, rsi;\n"
+               /*
+                * for addresses outside .text, directly go through
+                */
+               "  cmp rcx, %#lx;\n" // compare upper bound of .text
+               "  jae hug;\n"
+               "  sub rcx, %#lx;\n" // sub .text base and compare
+               "  jb hug;\n"
+               /*
+                * update bitmap and prev_id
+                */
+               "  mov [rsp - 152], rdx;\n"
+               "  mov [rsp - 160], rdi;\n"
+               "  xor rdx, rdx;\n" // hug keystone (issue #295)
+               "  mov rdi, qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdx];\n"
+               "  mov rdx, rcx;\n"
+               "  shr rdx, " STRING(AFL_MAP_SIZE_POW2) ";\n"
+               "  xor rdx, rcx;\n"
+               "  and rdx, " STRING(AFL_MAP_SIZE_MASK) ";\n"
+               "  xor rdi, rdx;\n"
+               "  inc BYTE PTR [" STRING(AFL_MAP_ADDR) " + rdi];\n"
+               "  xor rdi, rdi;\n" // hug keystone (issue #295)
+               "  shr rdx, 1;\n"
+               "  mov qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdi], rdx;\n"
+               "  mov rdi, [rsp - 160];\n"
+               "  mov rdx, [rsp - 152];\n"
+               /*
+                * lookup target shadow address
+                */
+               "  shl rcx, " STRING(LOOKUP_TABLE_CELL_SIZE_POW2) ";\n"
+               "  add rcx, rsi;\n"
+               "  movsxd rcx, dword ptr [" STRING(LOOKUP_TABLE_ADDR) " + rcx];\n"
+               "  add rcx, rsi;\n"
+               "  mov [rsp - 144], rcx;\n"
+               /*
+                * go to target
+                */
+               "hug:\n"
+               // "  add al, 127;\n"
+               // "  sahf;\n"
+               // "  mov rax, [rsp - 120 - 8];\n"
+               "  mov rcx, [rsp - 128 - 8];\n"
+               "  mov rsi, [rsp - 168 - 8];\n",
+               RW_PAGE_INFO_ADDR(program_base), text_addr + text_size, text_addr);
+
+            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+            shadow_addr += ks_size;
+
+        } else {
+            KS_ASM(shadow_addr,
                "  mov [rsp - 128], rcx;\n"
                // "  mov [rsp - 120], rax;\n"
                // "  lahf;\n"
@@ -380,10 +442,12 @@ Z_PRIVATE void __rewriter_call_handler(Rewriter *r, GHashTable *holes,
                // "  mov rax, [rsp - 120 - 8];\n"
                "  mov rcx, [rsp - 128 - 8];\n",
                text_addr + text_size, text_addr);
-        z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+
+            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+            shadow_addr += ks_size;
+        }
 
         // XXX: the below assembly is following the previous one
-        shadow_addr += ks_size;
         if (r->opts->safe_ret) {
             KS_ASM(shadow_addr, "call qword ptr [rsp - 144]");
             z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);

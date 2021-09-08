@@ -80,7 +80,9 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                "  mov rcx, [rsp - 128];\n",
                // "  ret;\n", // XXX: ret is replaced by the original inst, see below
                RW_PAGE_INFO_ADDR(program_base), text_addr + text_size, text_addr);
+
         z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+        shadow_addr += ks_size;
     } else {
         // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the underlying
         // binary is not compiled with PIE.
@@ -104,7 +106,9 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                "  mov rcx, [rsp - 128];\n",
                // "  ret;\n", // XXX: ret is replaced by the original inst, see below
                text_addr + text_size, text_addr);
+
         z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+        shadow_addr += ks_size;
     }
 
     // XXX: we respect the original encoding of inst, to support `ret n`

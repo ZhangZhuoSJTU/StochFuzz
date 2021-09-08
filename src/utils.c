@@ -200,6 +200,7 @@ size_t ks_count = 0;
 size_t ks_size = 0;
 const unsigned char *ks_encode = NULL;
 unsigned char ks_encode_fast[0x10];
+char ks_buf[KS_BUFMAX];
 
 /*
  * Capstone
