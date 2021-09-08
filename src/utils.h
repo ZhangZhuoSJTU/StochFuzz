@@ -346,6 +346,9 @@ extern const uint8_t *tp_code;
             EXITME("use too much space on CRS PAGE: %#lx v/s %#lx",            \
                    CRS_MAP_SIZE, CRS_USED_SIZE);                               \
         }                                                                      \
+        if (LOOKUP_TABLE_CELL_SIZE_POW2 != 2) {                                \
+            EXITME("the element size of lookup table must be dword");          \
+        }                                                                      \
         if (SIGUSR1 != 10) {                                                   \
             EXITME("SIGUSR1 is not equal to 10 on this machine");              \
         }                                                                      \

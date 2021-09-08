@@ -35,14 +35,52 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
     }
 
     // modern CPU will do nothing more except direct returning about `repz ret`
-    // TODO: but we need to consider `ret n`
     addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
     ELF *e = z_binary_get_elf(r->binary);
     addr_t text_addr = z_elf_get_shdr_text(e)->sh_addr;
     size_t text_size = z_elf_get_shdr_text(e)->sh_size;
 
     if (z_elf_get_is_pie(e)) {
-        EXITME("ret handler for PIE binary is unimplemented");
+        KS_ASM(shadow_addr,
+               "  mov [rsp - 128], rcx;\n"
+               "  mov [rsp - 136], rdx;\n"
+               // "  mov [rsp - 120], rax;\n"
+               // "  lahf;\n"
+               // "  seto al;\n"
+               /*
+                * get program base
+                */
+               "  mov rdx, %#lx;\n"
+               "  mov rdx, [rdx];\n"
+               /*
+                * calculate the *static* address of the retaddr (w/o PIE)
+                */
+               "  mov rcx, [rsp];\n"
+               "  sub rcx, rdx;\n"
+               /*
+                * check whether the retaddr is inside .text
+                */
+               "  cmp rcx, %#lx;\n"
+               "  jae hug;\n"
+               "  sub rcx, %#lx;\n"  // sub .text base
+               "  jb hug;\n"
+               /*
+                * translate the retaddr
+                */
+               "  shl rcx, " STRING(LOOKUP_TABLE_CELL_SIZE_POW2) ";\n"
+               "  add rcx, rdx;\n"  // add the program base for lookup table, in advance
+               "  movsxd rcx, dword ptr [" STRING(LOOKUP_TABLE_ADDR) " + rcx];\n"  // lookup table
+               "  add rcx, rdx;\n"  // add the program base onto the translated address
+               "  mov [rsp], rcx;\n"
+               "hug:\n"
+               // "  add al, 127;\n"
+               // "  sahf;\n"
+               // "  mov rax, [rsp - 120];\n"
+               "  mov rdx, [rsp - 136];\n"
+               "  mov rcx, [rsp - 128];\n",
+               // "  ret;\n", // XXX: ret is replaced by the original inst, see below
+               RW_PAGE_INFO_ADDR(program_base), text_addr + text_size, text_addr);
+        z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
     } else {
         // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the underlying
         // binary is not compiled with PIE.
@@ -63,9 +101,16 @@ Z_PRIVATE void __rewriter_ret_handler(Rewriter *r, GHashTable *holes,
                // "  add al, 127;\n"
                // "  sahf;\n"
                // "  mov rax, [rsp - 120];\n"
-               "  mov rcx, [rsp - 128];\n"
-               "  ret;\n",
+               "  mov rcx, [rsp - 128];\n",
+               // "  ret;\n", // XXX: ret is replaced by the original inst, see below
                text_addr + text_size, text_addr);
+        z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
     }
-    z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+
+    // XXX: we respect the original encoding of inst, to support `ret n`
+    // XXX: we keep the bnp prefix here if present. Note that we have to place
+    // endbr64 instruction at a suitable position since it is always possible
+    // for the control flow to jump from the original code (w/ an endbr64
+    // prefix)
+    z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
 }
