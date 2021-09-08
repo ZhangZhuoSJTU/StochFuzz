@@ -81,10 +81,6 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
                                 GSIZE_TO_POINTER(jmp_addr));
         }
     } else {
-        if (z_elf_get_is_pie(e)) {
-            EXITME("ujmp handler for PIE binary is unimplemented");
-        }
-
         // jmp may not jump out of .text (NO! z3 binary has such behaviour)
         z_debug("rewrite ujmp " CS_SHOW_INST(inst));
 
@@ -139,7 +135,81 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
         }
 
         // do the addrss translation
-        {
+        if (z_elf_get_is_pie(e)) {
+            addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
+
+            KS_ASM(shadow_addr,
+                   /*
+                    * backup rsi for program base
+                    */
+                   "  mov [rsp - 152], rsi;\n"
+                   /*
+                    * store rcx
+                    */
+                   "  mov [rsp - 112], rcx;\n"
+                   /*
+                    * store EFLAGS
+                    */
+                   "  mov [rsp - 120], rax;\n"
+                   "  lahf;\n"
+                   "  seto al;\n"
+                   /*
+                    * get program base into rsi
+                    */
+                   "  mov rsi, %#lx;\n"
+                   "  mov rsi, [rsi];\n"
+                   /*
+                    * get *static* address in rcx
+                    */
+                   "  sub rcx, rsi;\n"
+                   /*
+                    * for addresses outside .text, directly go through
+                    */
+                   "  cmp rcx, %#lx;\n" // compare upper bound of .text
+                   "  jae hug;\n"
+                   "  sub rcx, %#lx;\n" // sub .text base
+                   "  jb hug;\n"
+                   /*
+                    * update bitmap and prev_id
+                    */
+                   "  mov [rsp - 136], rdx;\n"
+                   "  mov [rsp - 144], rdi;\n"
+                   "  xor rdx, rdx;\n" // hug keystone (issue #295)
+                   "  mov rdi, qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdx];\n"
+                   "  mov rdx, rcx;\n"
+                   "  shr rdx, " STRING(AFL_MAP_SIZE_POW2) ";\n"
+                   "  xor rdx, rcx;\n"
+                   "  and rdx, " STRING(AFL_MAP_SIZE_MASK) ";\n"
+                   "  xor rdi, rdx;\n"
+                   "  inc BYTE PTR [" STRING(AFL_MAP_ADDR) " + rdi];\n"
+                   "  xor rdi, rdi;\n" // hug keystone (issue #295)
+                   "  shr rdx, 1;\n"
+                   "  mov qword ptr [" STRING(AFL_PREV_ID_PTR) " + rdi], rdx;\n"
+                   "  mov rdi, [rsp - 144];\n"
+                   "  mov rdx, [rsp - 136];\n"
+                   /*
+                    * lookup target shadow address
+                    */
+                   "  shl rcx, " STRING(LOOKUP_TABLE_CELL_SIZE_POW2)  " ;\n"
+                   "  add rcx, rsi;\n"
+                   "  movsxd rcx, dword ptr [" STRING(LOOKUP_TABLE_ADDR) " + rcx];\n"
+                   "  add rcx, rsi;\n"
+                   "  mov [rsp - 112], rcx;\n"
+                   /*
+                    * go to target
+                    */
+                   "hug:\n"
+                   "  add al, 127;\n"
+                   "  sahf;\n"
+                   "  mov rax, [rsp - 120];\n"
+                   "  mov rcx, [rsp - 128];\n"
+                   "  mov rsi, [rsp - 142];\n"
+                   "  jmp qword ptr [rsp - 112];\n",
+                   RW_PAGE_INFO_ADDR(program_base), text_addr + text_size, text_addr);
+
+            z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
+
+        } else {
             // XXX: it is ok to directly use LOOKUP_TABLE_ADDR since the
             // underlying binary is not compiled with PIE.
             addr_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
@@ -147,7 +217,7 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
                    /*
                     * store rcx
                     */
-                   "  mov [rsp - 112], rcx;"
+                   "  mov [rsp - 112], rcx;\n"
                    /*
                     * store EFLAGS
                     */
@@ -195,6 +265,7 @@ Z_PRIVATE void __rewriter_jmp_handler(Rewriter *r, GHashTable *holes,
                    "  mov rcx, [rsp - 128];\n"
                    "  jmp qword ptr [rsp - 112];\n",
                    text_addr + text_size, text_addr);
+
             z_binary_insert_shadow_code(r->binary, ks_encode, ks_size);
         }
     }
