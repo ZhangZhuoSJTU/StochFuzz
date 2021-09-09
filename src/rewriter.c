@@ -649,7 +649,6 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
      */
 
     // step [1]. handle entry of basic block
-    // TODO: [IMPORTANT] endbr64 instruction must be placed before trampoline
     if (bb_entry) {
         size_t shadow_addr = z_binary_get_shadow_code_addr(r->binary);
         // step [1.1]. update rewritten_bbs
@@ -659,7 +658,13 @@ Z_PRIVATE void __rewriter_generate_shadow_inst(Rewriter *r, GHashTable *holes,
                                 GSIZE_TO_POINTER(shadow_addr));
         }
 
-        // step [1.2] insert trampolines based on optimization
+        // step [1.2]. place an endbr64 at the beginning if the original inst is
+        // endbr64
+        if (inst->id == X86_INS_ENDBR64) {
+            z_binary_insert_shadow_code(r->binary, inst->bytes, inst->size);
+        }
+
+        // step [1.3]. insert trampolines based on optimization
         __rewriter_emit_trampoline(r, ori_addr);
     }
 
