@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 static void my_sleep() {
-    sleep(2);
+    sleep(5);
 }
 
 int main(int argc, const char **argv) {
