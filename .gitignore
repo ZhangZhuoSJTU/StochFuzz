@@ -104,3 +104,10 @@ test/*
 !test/no_main.c
 !test/json-2017-02-12.normal
 !test/json.seed
+!test/readelf.pie
+!test/small_exec.elf
+!test/bzip2.pie
+!test/pngfix.pie
+!test/toucan.png
+!test/tcpdump.pie
+!test/vrrp.pcap

@@ -65,7 +65,7 @@ jobs:
           make debug
         working-directory: ./src
       - name: make test
-        run: timeout --signal=KILL 15m make test
+        run: timeout --signal=KILL 30m make test
         working-directory: ./src
   
   release:
@@ -91,5 +91,5 @@ jobs:
           make release
         working-directory: ./src
       - name: make test
-        run: timeout --signal=KILL 15m make test
+        run: timeout --signal=KILL 30m make test
         working-directory: ./src

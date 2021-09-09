@@ -111,8 +111,8 @@ STRUCT(ELF, {
     // XXX: when the underlying binary is PIE, vmapping does not containe those
     // segments that are at fixed adddesses (RW_PAGE_ADDR, AFL_MAP_ADDR, and
     // CRS_MAP_ADDR; details can be found in config.h). It is not a 100% safe
-    // solution, but since the likelihood of segment conflicts seems tiny, since
-    // the size of these fixed-address segments is relatively small and the
+    // solution, but the likelihood of segment conflicts seems tiny, since the
+    // size of these fixed-address segments is relatively small and the
     // addresses of them are low.
     Splay *vmapping;           // Virtual memory
     Splay *mmapped_pages;      // Mmapped pages

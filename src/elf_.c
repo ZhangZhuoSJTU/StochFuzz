@@ -732,7 +732,7 @@ Z_RESERVED Z_PRIVATE void __elf_set_relro(ELF *e) {
 #define __NUMBER_OF_GOTS 2
 #define __NUMBER_OF_PLTS 3
 
-// TODO: check whether PIE binaries would cause troubles
+// TODO: make sure PIE binaries would not cause any trouble
 // TODO: if any section is missed, directly return errors instead of EXITME
 Z_PRIVATE void __elf_parse_relocation(ELF *e) {
     // XXX: we use z_elf_read_all to avoid inter-stream data
