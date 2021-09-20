@@ -175,7 +175,7 @@ ifeq ($(findstring -e,$(TEST_OPTIONS)), -e)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- no_main)
 endif
 ifneq ($(findstring -f,$(TEST_OPTIONS)), -f)
-	$(call test_whatever, ../$(TOOLNAME) -R -t 5000 $(TEST_OPTIONS) -- z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
+	$(call test_whatever, timeout --signal=KILL 10m ../$(TOOLNAME) -R -t 5000 $(TEST_OPTIONS) -- z3 -smt2 ex.smt2) # this test may fail due to the memory limit of Github Actions
 endif
 	# test daemon
 	rm -rf test; cp -r ../test test
