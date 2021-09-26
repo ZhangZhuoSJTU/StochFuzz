@@ -35,7 +35,7 @@ While we have successfully migrated StochFuzz to a new system design, we can sti
 + [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
 + [ ] Apply AddrDict to all possible places..
 + [ ] Apply Iter to all possible places..
-+ [ ] Support other disassembly backends (for the initial disassembly).
++ [ ] Support other disassembly backends, for the initial disassembly (e.g., [XDA](https://github.com/CUMLSec/XDA)).
 + [ ] Calculate [entropy](https://github.com/NationalSecurityAgency/ghidra/issues/1035) to check the existence of inlined data (ADVANCED).
 + [ ] Remove legacy code (e.g., the function of building bridges by Rewriter is no longer needed).
 + [ ] Instead of patching a fixed invalid instruction (0x2f), randomly choose an invalid instruction to patch. More details can be found [here](http://ref.x86asm.net/coder64.html).
