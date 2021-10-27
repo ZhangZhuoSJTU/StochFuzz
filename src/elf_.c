@@ -257,21 +257,39 @@ ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_fini_array);
 ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt);
 ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt_got);
 ELF_DEFINE_SETTER(ELF, elf, Elf64_Shdr *, shdr_plt_sec);
+
+#define __WAIT_STREAM_COUNT 5
+#define __WAIT_STREAM_INTERVAL 1
+#define __WAIT_STREAM(fname)                                                  \
+    do {                                                                      \
+        size_t __n = __WAIT_STREAM_COUNT;                                     \
+        while ((__n--) && (access((fname), W_OK) == -1) &&                    \
+               (errno == ETXTBSY)) {                                          \
+            z_warn("underlying binary (%s) is busy, wait for % sec", (fname), \
+                   __WAIT_STREAM_INTERVAL);                                   \
+            sleep(__WAIT_STREAM_INTERVAL);                                    \
+        }                                                                     \
+    } while (0)
 OVERLOAD_SETTER(ELF, elf, ELFState, state) {
     if (state & ELFSTATE_DISABLE) {
         // if is used to disable associated states
         state = state ^ ELFSTATE_DISABLE;
         if (state & ELFSTATE_CONNECTED) {
+            __WAIT_STREAM(elf->tmpnam);
             z_mem_file_suspend(elf->stream);
         }
         elf->state &= (state ^ ELFSTATE_MASK);
     } else {
         if (state & ELFSTATE_CONNECTED) {
+            __WAIT_STREAM(elf->tmpnam);
             z_mem_file_resume(elf->stream);
         }
         elf->state |= state;
     }
 }
+#undef __WAIT_STREAM_COUNT
+#undef __WAIT_STREAM_INTERVAL
+#undef __WAIT_STREAM
 
 ELF_DEFINE_GETTER(ELF, elf, Elf64_Ehdr *, ehdr);
 ELF_DEFINE_GETTER(ELF, elf, Elf64_Phdr *, phdr_note);

@@ -241,6 +241,14 @@ static inline void loader_mmap_fake_shared_memory() {
                  0) != shared_mem_addr) {
         utils_error(loader_err_str, true);
     }
+
+    shared_mem_addr = CRS_MAP_ADDR;
+    shared_mem_size = CRS_MAP_SIZE;
+    if (sys_mmap(shared_mem_addr, shared_mem_size, PROT_READ | PROT_WRITE,
+                 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1,
+                 0) != shared_mem_addr) {
+        utils_error(loader_err_str, true);
+    }
 }
 
 /*
@@ -263,9 +271,10 @@ static inline void loader_mmap_data_page(size_t rip_base) {
 static void loader_catch_suspect_signals(int signal, siginfo_t *siginfo,
                                          void *context) {
     uint64_t rip = ((ucontext_t *)context)->uc_mcontext.gregs[REG_RIP];
-    uint64_t client_pid = RW_PAGE_INFO(client_pid);
 
 #ifdef DEBUG
+    uint64_t client_pid = RW_PAGE_INFO(client_pid);
+
     char s[0x40] = "";
     s[0] = 'r';
     s[1] = 'i';
@@ -275,9 +284,12 @@ static void loader_catch_suspect_signals(int signal, siginfo_t *siginfo,
     utils_num2hexstr(s + 5, rip);
     s[21] = '(';
     utils_num2hexstr(s + 22, client_pid);
-    s[38] = ')';
-    s[39] = '\n';
-    s[40] = '\x00';
+    s[38] = ',';
+    s[39] = ' ';
+    utils_num2hexstr(s + 40, sys_getpid());
+    s[56] = ')';
+    s[57] = '\n';
+    s[58] = '\x00';
     utils_puts(suspect_signal_info_str, false);
     utils_puts(s, false);
 #endif
@@ -289,17 +301,25 @@ static void loader_catch_suspect_signals(int signal, siginfo_t *siginfo,
     // memory to sent crashed PC. Note that CRS_DATA_FD is still valid in dry
     // run, for compatibility. In the future, we will abandon this pipe.
     if (RW_PAGE_INFO(daemon_attached)) {
-        CRS_INFO(crash_ip) = (addr_t)rip;
+        // we need a lock to avoid race condition
+        if (!__sync_lock_test_and_set((uint32_t *)CRS_INFO_ADDR(lock), 1)) {
+            CRS_INFO(crash_ip) = (addr_t)rip;
+            CRS_INFO(self_fired) = 1UL;
+        } else {
+            // we pause this process here. Note that we are fine with pause()
+            // here.
+            sys_pause();
+        }
     } else {
+        // we only need to send rip, since a successful communication indicates
+        // a signal fired
         if (sys_write(CRS_DATA_FD, (char *)(&rip), 8) != 8) {
             utils_error(handler_err_str, true);
         }
     }
 
-    sys_kill(client_pid, SIGUSR1);  // kill client
-
-    uint64_t self_pid = sys_getpid();
-    sys_kill(self_pid, SIGUSR1);  // kill itself, if it is not the client
+    // it would be better to kill all the process in the group
+    sys_kill(0, SIGKILL);
 }
 
 /*
@@ -413,6 +433,9 @@ NO_INLINE void loader_load(Trampoline *tp, void *shared_text_base,
                            const char *pathname) {
     void *mmap_addr, *tp_addr;
     unsigned long mmap_size, tp_size, next_tp_offset;
+
+    // in case we send SIGKILL to all the parent signal
+    sys_setpgid(0, 0);  // ignore errors
 
     loader_set_signal_handler((addr_t)rip_base);
     loader_set_seccomp();

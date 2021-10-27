@@ -406,6 +406,19 @@ Z_SYSCALL pid_t sys_fork() {
     return (pid_t)err;
 }
 
+Z_SYSCALL pid_t sys_pause() {
+    register intptr_t err asm("rax");
+
+    asm volatile(
+        "mov $34, %%eax\n\t"  // SYS_PAUSE
+        "syscall"
+        : "=rax"(err)
+        :
+        : "rcx", "r11");
+
+    return (pid_t)err;
+}
+
 Z_SYSCALL int sys_setpgid(pid_t pid_0, pid_t pgid_0) {
     register uintptr_t pid asm("rdi") = (uintptr_t)pid_0;
     register uintptr_t pgid asm("rsi") = (uintptr_t)pgid_0;

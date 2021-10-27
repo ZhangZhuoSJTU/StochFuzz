@@ -187,11 +187,18 @@ extern uint64_t z_lookup_table_get_cell_num();
  * Crash check
  */
 // For exit code usage, check https://tldp.org/LDP/abs/html/exitcodes.html for
-// more information
-#define IS_SUSPECT_STATUS(s) (WIFSIGNALED(s) && (WTERMSIG(s) == SIGUSR1))
-#define IS_ABNORMAL_STATUS(s) (!WIFEXITED(s) && WIFSIGNALED(s))
+// more information.
+// It is lucky that we can play with the high 16 bits of status.
+#define __RS(s) ((s) & (0xffff))          // __REAL_STATUS
+#define __SF(s) (!!((s) & (0xffff0000)))  // __SELF_FIRED
+#define PACK_STATUS(s, r) ((((r) << 16) & (0xffff0000)) | (((s) & (0xffff))))
+#define IS_SUSPECT_STATUS(s) \
+    (__SF(s) && WIFSIGNALED(__RS(s)) && (WTERMSIG(__RS(s)) == SIGKILL))
+#define IS_ABNORMAL_STATUS(s) \
+    (__SF(s) || (!WIFEXITED(__RS(s)) && WIFSIGNALED(__RS(s))))
 // XXX: AFL uses SIGKILL to terminate a timeouted process (same as us)
-#define IS_TIMEOUT_STATUS(s) (WIFSIGNALED(s) && (WTERMSIG(s) == SIGKILL))
+#define IS_TIMEOUT_STATUS(s) \
+    (!__SF(s) && WIFSIGNALED(__RS(s)) && (WTERMSIG(__RS(s)) == SIGKILL))
 
 /*
  * Define struct with type info

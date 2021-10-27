@@ -36,7 +36,9 @@ typedef enum crs_status_t {
  * [CRS_INFO] The crash site information needed by self-patching
  */
 typedef struct __crs_info_t {
+    uint32_t lock;
     addr_t crash_ip;
+    size_t self_fired;
 } __CRSInfo;
 
 #define CRS_MAP_SIZE_POW2 PAGE_SIZE_POW2
@@ -47,6 +49,7 @@ typedef struct __crs_info_t {
 
 #define CRS_INFO(field) (((__CRSInfo *)CRS_MAP_ADDR)->field)
 #define CRS_INFO_BASE(addr, field) (((__CRSInfo *)(addr))->field)
+#define CRS_INFO_ADDR(f) (CRS_MAP_ADDR + offsetof(__CRSInfo, f))
 
 #define CRS_COMM_FD 222
 

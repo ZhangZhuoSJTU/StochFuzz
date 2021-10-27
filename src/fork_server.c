@@ -422,6 +422,10 @@ NO_INLINE void fork_server_start(char **envp) {
     /*
      * step (4). mmap CRS_SHARED_MEMORY
      */
+    // ummap the fake CRS map
+    if (sys_munmap(CRS_MAP_ADDR, CRS_MAP_SIZE) != 0) {
+        utils_error(mumap_err_str, true);
+    }
     if ((size_t)sys_shmat(crs_shm_id, (const void *)CRS_MAP_ADDR, SHM_RND) !=
         CRS_MAP_ADDR) {
         utils_error(crs_shmat_err_str, true);
@@ -470,6 +474,11 @@ NO_INLINE void fork_server_start(char **envp) {
         }
 
         // step (7.2). do fork
+        // XXX: just before the fork, we need to clean CRS
+        CRS_INFO(lock) = 0;
+        CRS_INFO(crash_ip) = CRS_INVALID_IP;
+        CRS_INFO(self_fired) = 0;
+
         pid_t tid = 0;
         pid_t client_pid =
             sys_clone(CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | SIGCHLD, 0,
@@ -482,6 +491,18 @@ NO_INLINE void fork_server_start(char **envp) {
             /*
              * child process
              */
+
+            /*
+             * Update at Nov 2021:
+             *  For binaries compiled with ASAN, it seems there always are some
+             * new processes (?). Hence, it would be better to isolate the
+             * client into a new process group.
+             */
+            // set pgid, to avoid kill fork_server when sending signal
+            // or we can setsid to directly isolate the process
+            if (sys_setpgid(0, 0)) {
+                utils_error(setpgid_err_str, true);
+            }
 
             /*
              * XXX: To handle multi-thread/-process programs, a safe approach is
@@ -580,6 +601,9 @@ NO_INLINE void fork_server_start(char **envp) {
         if (sys_wait4(client_pid, &client_status, 0, NULL) < 0) {
             utils_error(wait4_err_str, true);
         }
+        // update client_status
+        int self_fired = CRS_INFO(self_fired);
+        client_status = PACK_STATUS(client_status, self_fired);
 #ifdef DEBUG
         utils_puts(status_str, false);
         utils_output_number(client_status);
@@ -688,9 +712,11 @@ NO_INLINE void fork_server_start(char **envp) {
 
             // If the program has reached this part, it indicates a real
             // crash has occured. Here, we need to reset client_status as
-            // any suspect status, here we choose SIGSEGV
+            // any suspect status, here we choose SIGKILL
             if (IS_SUSPECT_STATUS(client_status)) {
-                client_status = 139;
+                // XXX: please MAKE SURE **SIGKILL** is used, otherwise it is
+                // possible to meet dead lock in the signal handler
+                client_status = SIGKILL;
             }
         } else if (check_execs) {
             // handle checking runs when current execution is normal
@@ -711,17 +737,17 @@ NO_INLINE void fork_server_start(char **envp) {
         } else {
             // notify the daemon is exited normally
             sys_write(CRS_COMM_FD, (char *)&client_status, 4);
+            // XXX: in case of any hooked signal
             if (WIFEXITED(client_status)) {
                 sys_exit(WEXITSTATUS(client_status));
             } else if (WIFSIGNALED(client_status)) {
                 // XXX: if the daemon already identified this crash, it will
                 // stop automatically
-                // XXX: any suspect signal will be caught by the signal handler,
-                // which is not desired. But it seems trivial currently so we
-                // ignore it. Improve such code when necessary.
-                sys_kill(sys_getpid(), WTERMSIG(client_status));
+                // XXX: we are using SIGKILL which cannot be caught by any
+                // signal handler
+                sys_kill(0, WTERMSIG(client_status));
             } else {
-                sys_kill(sys_getpid(), WSTOPSIG(client_status));
+                sys_kill(0, WSTOPSIG(client_status));
             }
         }
     }

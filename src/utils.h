@@ -349,9 +349,6 @@ extern const uint8_t *tp_code;
         if (LOOKUP_TABLE_CELL_SIZE_POW2 != 2) {                                \
             EXITME("the element size of lookup table must be dword");          \
         }                                                                      \
-        if (SIGUSR1 != 10) {                                                   \
-            EXITME("SIGUSR1 is not equal to 10 on this machine");              \
-        }                                                                      \
         if (SIGNAL_STACK_SIZE < MINSIGSTKSZ) {                                 \
             EXITME(                                                            \
                 "the size of signal stack is smaller than MINSIGSTKSZ (%#lx)", \

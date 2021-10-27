@@ -349,6 +349,8 @@ Z_PRIVATE void __core_setup_afl_shm(Core *core, int afl_shm_id) {
 
 Z_PRIVATE void __core_clean_environment(Core *core) {
     if (core->shm_id != INVALID_SHM_ID) {
+        // XXX: remove lock to avoid dead lock
+        CRS_INFO_BASE(core->shm_addr, lock) = 0;
         shmctl(core->shm_id, IPC_RMID, NULL);
         core->shm_id = INVALID_SHM_ID;
         core->shm_addr = INVALID_ADDR;
@@ -432,6 +434,35 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
                 setenv("LD_PRELOAD", getenv("STOCHFUZZ_PRELOAD"), 1);
             }
 
+            // set other environments including ASAN (copied from AFL)
+
+            /* This should improve performance a bit, since it stops the linker
+               from doing extra work post-fork(). */
+
+            if (!getenv("LD_BIND_LAZY"))
+                setenv("LD_BIND_NOW", "1", 0);
+
+            /* Set sane defaults for ASAN if nothing else specified. */
+
+            setenv("ASAN_OPTIONS",
+                   "abort_on_error=1:"
+                   "detect_leaks=0:"
+                   "symbolize=0:"
+                   "allocator_may_return_null=1",
+                   0);
+
+            /* MSAN is tricky, because it doesn't support abort_on_error=1 at
+               this point. So, we do this in a very hacky way. */
+
+            // note: #define MSAN_ERROR 86 (in AFL)
+            setenv("MSAN_OPTIONS",
+                   "exit_code=86:"
+                   "symbolize=0:"
+                   "abort_on_error=1:"
+                   "allocator_may_return_null=1:"
+                   "msan_track_origins=0",
+                   0);
+
             execv(argv_[0], (char **)argv_);
             exit(0);
         } else {
@@ -448,7 +479,6 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             if (waitpid(pid, &status, 0) < 0) {
                 EXITME("waitpid failed");
             }
-            z_info("child process exit with %#lx", status);
 
             // cancel clock
             __core_cancel_client_clock(core, pid);
@@ -456,9 +486,17 @@ Z_PUBLIC int z_core_perform_dry_run(Core *core, int argc, const char **argv) {
             z_core_attach(core);
 
             addr_t crash_rip = CRS_INVALID_IP;
-            // XXX: this read may fail when the status is not suspect
-            read(signal_fd, (char *)(&crash_rip), 8);
+            // XXX: this read may fail when the status is not suspicious.
+            if (read(signal_fd, (char *)(&crash_rip), 8) == 8) {
+                // well received, we need to update status
+                status = PACK_STATUS(status, 1);
+            } else {
+                // re-init crash_rip
+                crash_rip = CRS_INVALID_IP;
+            }
             close(st_pipe[0]);
+
+            z_info("child process exit with %#lx", status);
 
             uint32_t cov = __core_get_bitmap_hash(core);
             CRSStatus crs_status = z_diagnoser_new_crashpoint(
