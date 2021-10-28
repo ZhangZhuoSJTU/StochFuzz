@@ -142,8 +142,8 @@ endif
 
 test:
 	rm -rf test; cp -r ../test test
-	whereis libasan.so.4
-	echo $(whereis libasan.so.4)
+	@whereis libasan.so.4
+	@echo $(whereis libasan.so.4)
 	$(call test_succ, ./libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
