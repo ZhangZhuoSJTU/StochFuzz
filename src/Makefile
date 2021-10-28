@@ -142,11 +142,6 @@ endif
 
 test:
 	rm -rf test; cp -r ../test test
-	@whereis libasan.so.4
-	@echo $(whereis libasan.so.4)
-	$(call test_succ, LD_PRELOAD=$(strip $(shell whereis libasan.so.4 | cut -d ' ' -f2)):$(STOCHFUZZ_PRELOAD) ./libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
-	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
 	$(call test_succ, ../$(TOOLNAME) -P $(TEST_OPTIONS) -- bzip2.no.pie)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.no.pie --help)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.no.pie -kfd test.c.bz2)
@@ -170,7 +165,7 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie seed.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie toucan.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- tcpdump.pie -ee -vv -nnr vrrp.pcap)
-	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4'))
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_whatever, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash mdzz)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash)
@@ -197,7 +192,7 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie toucan.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' tcpdump.pie -ee -vv -nnr vrrp.pcap)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4'))
 ifeq ($(findstring -r,$(TEST_OPTIONS)), -r)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -e' hello)
 else
