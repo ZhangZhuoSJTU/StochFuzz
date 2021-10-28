@@ -165,7 +165,9 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie seed.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie toucan.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- tcpdump.pie -ee -vv -nnr vrrp.pcap)
+ifneq ($(strip $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4')),)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4'))
+endif
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_whatever, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash mdzz)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash)
@@ -192,7 +194,9 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie toucan.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' tcpdump.pie -ee -vv -nnr vrrp.pcap)
+ifneq ($(strip $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4')),)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4'))
+endif
 ifeq ($(findstring -r,$(TEST_OPTIONS)), -r)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -e' hello)
 else
