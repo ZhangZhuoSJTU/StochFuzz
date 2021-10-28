@@ -181,7 +181,8 @@ extern uint64_t z_lookup_table_get_cell_num();
 #define LOOKUP_TABLE_MAX_SIZE \
     (LOOKUP_TABLE_CELL_SIZE * LOOKUP_TABLE_MAX_CELL_NUM)
 
-#define LOOKUP_TABLE_ADDR ((1UL << 31) - LOOKUP_TABLE_MAX_SIZE)
+// in case of conflicting with asan shadow memory
+#define LOOKUP_TABLE_ADDR ((0x7fff8000) - LOOKUP_TABLE_MAX_SIZE)
 
 /*
  * Crash check

@@ -116,15 +116,15 @@ library_functions_load:
 ifeq ($(findstring -r,$(TEST_OPTIONS)), -r)
 STOCHFUZZ_PRELOAD = $(shell ../scripts/stochfuzz_env.sh)
 define test_succ
-	cd test && ( STOCHFUZZ_PRELOAD=$(STOCHFUZZ_PRELOAD) ${1} )
+	cd test && ( STOCHFUZZ_PRELOAD=$(strip ${2}):$(STOCHFUZZ_PRELOAD) ${1} )
 endef
 
 define test_fail
-	cd test && ( ! STOCHFUZZ_PRELOAD=$(STOCHFUZZ_PRELOAD) ${1} )
+	cd test && ( ! STOCHFUZZ_PRELOAD=$(strip ${2}):$(STOCHFUZZ_PRELOAD) ${1} )
 endef
 
 define test_whatever
-	cd test && ( STOCHFUZZ_PRELOAD=$(STOCHFUZZ_PRELOAD) ${1} || true )
+	cd test && ( STOCHFUZZ_PRELOAD=$(strip ${2}):$(STOCHFUZZ_PRELOAD) ${1} || true )
 endef
 else
 define test_succ
@@ -165,7 +165,7 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie seed.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie toucan.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- tcpdump.pie -ee -vv -nnr vrrp.pcap)
-	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg)
+	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
 ifneq ($(findstring -n,$(TEST_OPTIONS)), -n)
 	$(call test_whatever, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash mdzz)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- unintentional_crash)
@@ -192,7 +192,7 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie toucan.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' tcpdump.pie -ee -vv -nnr vrrp.pcap)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg)
+	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
 ifeq ($(findstring -r,$(TEST_OPTIONS)), -r)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS) -e' hello)
 else
