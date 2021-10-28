@@ -142,6 +142,7 @@ endif
 
 test:
 	rm -rf test; cp -r ../test test
+	$(call test_succ, ./libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2))
 	$(call test_succ, ../$(TOOLNAME) -P $(TEST_OPTIONS) -- bzip2.no.pie)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.no.pie --help)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.no.pie -kfd test.c.bz2)
