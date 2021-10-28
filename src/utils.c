@@ -187,6 +187,10 @@ Z_API char *z_strdup(const char *s) {
 
 Z_API int z_strcmp(const char *s1, const char *s2) { return strcmp(s1, s2); }
 
+Z_API int z_strncmp(const char *s1, const char *s2, size_t n) {
+    return strncmp(s1, s2, n);
+}
+
 Z_API size_t z_strlen(const char *s) { return strlen(s); }
 
 Z_API void z_strcpy(char *dst, const char *src) { strcpy(dst, src); }

@@ -110,9 +110,46 @@ Z_PRIVATE void __rewriter_cjmp_handler_for_rcx(Rewriter *r, GHashTable *holes,
 #undef __GENERATE_SHADOW_JMP
 }
 
+Z_PRIVATE bool __rewriter_cjmp_is_security_check(Rewriter *r, addr_t addr);
+
+// check whether this cjmp is directly related to security check
+Z_PRIVATE bool __rewriter_cjmp_is_security_check(Rewriter *r, addr_t addr) {
+    // XXX: this function must be sound but does not need to be complete, since
+    // we cannot skip any non-security-check cjmp but can afford the additional
+    // efforts of flipping security check cjmp.
+
+    Disassembler *d = r->disassembler;
+    UCFG_Analyzer *a = z_disassembler_get_ucfg_analyzer(d);
+
+    Buffer *succ_addrs_buf = z_disassembler_get_intra_successors(d, addr);
+    size_t succ_n = z_buffer_get_size(succ_addrs_buf) / sizeof(addr_t);
+    addr_t *succ_addrs = (addr_t *)z_buffer_get_raw_buf(succ_addrs_buf);
+
+    bool is_security_check = false;
+    for (int i = 0; i < succ_n; i++) {
+        if (z_ucfg_analyzer_is_security_chk_failed(a, succ_addrs[i])) {
+            is_security_check = true;
+            break;
+        }
+    }
+
+    if (is_security_check) {
+        z_trace("find a security check: %#lx", addr);
+        // update instrumentation_free_bbs
+        for (int i = 0; i < succ_n; i++) {
+            g_hash_table_add(r->instrumentation_free_bbs,
+                             GSIZE_TO_POINTER(succ_addrs[i]));
+        }
+    }
+
+    return is_security_check;
+}
+
 Z_PRIVATE void __rewriter_cjmp_handler(Rewriter *r, GHashTable *holes,
                                        cs_insn *inst, addr_t ori_addr,
                                        addr_t ori_next_addr) {
+    __rewriter_cjmp_is_security_check(r, ori_addr);
+
     if (inst->id == X86_INS_JCXZ || inst->id == X86_INS_JECXZ ||
         inst->id == X86_INS_JRCXZ) {
         __rewriter_cjmp_handler_for_rcx(r, holes, inst, ori_addr,

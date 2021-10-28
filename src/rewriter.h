@@ -53,6 +53,9 @@ STRUCT(Rewriter, {
     // for a given callee, all unpatched retaddr crashpoints associated with it
     GHashTable *unpatched_retaddrs;  // callee -> retaddrs
 
+    // instrumentaion-free blocks (following a security_check predicate)
+    GHashTable *instrumentation_free_bbs;
+
     // Statistical data
     size_t patched_safe_bg_count;
     size_t patched_unsafe_bg_count;

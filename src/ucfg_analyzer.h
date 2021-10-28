@@ -68,6 +68,10 @@ STRUCT(UCFG_Analyzer, {
     // whether an inst can reach a RET inst via intra-procedure edges
     GHashTable *can_ret;
 
+    // whether an inst can reach a security-chk-failed PLT call without any
+    // condition and indirect edges
+    GHashTable *sec_chk_failed;
+
     // rewriting optargs
     RewritingOptArgs *opts;
 
@@ -147,5 +151,11 @@ Z_API GPRState z_ucfg_analyzer_get_gpr_can_write(UCFG_Analyzer *a, addr_t addr);
  */
 Z_API RegState *z_ucfg_analyzer_get_register_state(UCFG_Analyzer *a,
                                                    addr_t addr);
+
+/*
+ * Get whether an instruction belongs to a security_chk_failed block
+ */
+Z_API bool z_ucfg_analyzer_is_security_chk_failed(UCFG_Analyzer *a,
+                                                  addr_t addr);
 
 #endif

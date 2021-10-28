@@ -375,6 +375,13 @@ Z_PRIVATE void __rewriter_emit_trampoline(Rewriter *r, addr_t addr) {
     UCFG_Analyzer *ucfg_analyzer =
         z_disassembler_get_ucfg_analyzer(r->disassembler);
 
+    if (g_hash_table_lookup(r->instrumentation_free_bbs,
+                            GSIZE_TO_POINTER(addr)) ||
+        z_ucfg_analyzer_is_security_chk_failed(ucfg_analyzer, addr)) {
+        // instrumentation-free blocks do not need trampoline
+        return;
+    }
+
     FLGState flg_state =
         z_ucfg_analyzer_get_flg_need_write(ucfg_analyzer, addr);
     GPRState gpr_state = z_ucfg_analyzer_get_gpr_can_write(ucfg_analyzer, addr);
@@ -946,6 +953,10 @@ Z_API Rewriter *z_rewriter_create(Disassembler *d, RewritingOptArgs *opts) {
     r->rewritten_bbs =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
+    // init instrumentation information
+    r->instrumentation_free_bbs =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+
     // init potential returen address info
     r->potential_retaddrs =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
@@ -1026,6 +1037,8 @@ Z_API void z_rewriter_destroy(Rewriter *r) {
 
     g_hash_table_destroy(r->shadow_code);
     g_hash_table_destroy(r->rewritten_bbs);
+
+    g_hash_table_destroy(r->instrumentation_free_bbs);
 
     g_hash_table_destroy(r->potential_retaddrs);
     g_hash_table_destroy(r->unpatched_retaddrs);

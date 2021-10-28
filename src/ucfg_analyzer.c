@@ -74,6 +74,14 @@ Z_PRIVATE void __ucfg_analyzer_analyze_ret(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst);
 
 /*
+ * Reachability analysis for security check failed functions: whether a given
+ * inst (at addr) can reach a security-chk-failed PLT call without any condition
+ * and indirect edge
+ */
+Z_PRIVATE void __ucfg_analyzer_analyze_sec_chk(UCFG_Analyzer *a, addr_t addr,
+                                               const cs_insn *inst);
+
+/*
  * Add predecessor and successor relation
  */
 Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
@@ -86,6 +94,117 @@ Z_PRIVATE void __ucfg_analyzer_new_pred_and_succ(UCFG_Analyzer *a,
  */
 Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
                                                 const cs_insn *inst_bob);
+
+Z_PRIVATE void __ucfg_analyzer_analyze_sec_chk(UCFG_Analyzer *a, addr_t addr,
+                                               const cs_insn *inst) {
+    // this addr cannot be in a->sec_chk_failed now
+    assert(!g_hash_table_lookup(a->sec_chk_failed, GSIZE_TO_POINTER(addr)));
+
+    ELF *e = z_binary_get_elf(a->binary);
+
+    GQueue *queue = g_queue_new();  // queue for back trace
+
+    // step (1). check whether current address is a sec_check_failed function.
+    // Any other call wouldbe invalid.
+    if (z_capstone_is_call(inst)) {
+        const cs_detail *detail = inst->detail;
+        if (detail->x86.op_count != 1) {
+            return;
+        }
+
+        const cs_x86_op *op = &(detail->x86.operands[0]);
+        if (op->type != X86_OP_IMM) {
+            return;
+        }
+
+        const addr_t callee_addr = op->imm;
+        const LFuncInfo *callee_info = z_elf_get_plt_info(e, callee_addr);
+        if (!callee_info) {
+            return;
+        }
+
+        // see https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling for
+        // C++ mangling rules
+        if ((z_strstr(callee_info->name, "__asan_report")) ||
+            (z_strstr(callee_info->name, "__stack_chk_fail")) ||
+            (z_strncmp(callee_info->name, "_Z", 2) &&
+             z_strstr(callee_info->name, "__asan") &&
+             z_strstr(callee_info->name, "Report"))) {
+            // it is a sec_chk_failed PLT call
+            z_trace("find a sec_chk_failed instruction: %#lx", addr);
+            g_hash_table_add(a->sec_chk_failed, GSIZE_TO_POINTER(addr));
+            g_queue_push_tail(queue, GSIZE_TO_POINTER(addr));
+        }
+    } else if (z_capstone_is_cjmp(inst) || z_capstone_is_loop(inst) ||
+               z_capstone_is_xbegin(inst) || z_capstone_is_ret(inst)) {
+        // these instructions cannot belong to a sec_chk_failed block
+        return;
+    } else {
+        Buffer *succ_addrs = z_ucfg_analyzer_get_intra_successors(a, addr);
+        size_t succ_n = z_buffer_get_size(succ_addrs) / sizeof(addr_t);
+        if (succ_n != 1) {
+            // we only consider those instructions with only one successor
+            return;
+        }
+
+        addr_t succ_addr = *((addr_t *)z_buffer_get_raw_buf(succ_addrs));
+        if (!g_hash_table_lookup(a->sec_chk_failed,
+                                 GSIZE_TO_POINTER(succ_addr))) {
+            return;
+        }
+
+        // it belongs to a sec_chk_failed block
+        z_trace("find a sec_chk_failed instruction: %#lx", addr);
+        g_hash_table_add(a->sec_chk_failed, GSIZE_TO_POINTER(addr));
+        g_queue_push_tail(queue, GSIZE_TO_POINTER(addr));
+    }
+
+    // step (2). check all the possible predecessors
+    while (!g_queue_is_empty(queue)) {
+        addr_t cur_addr = (addr_t)g_queue_pop_head(queue);
+        assert(
+            g_hash_table_lookup(a->sec_chk_failed, GSIZE_TO_POINTER(cur_addr)));
+
+        Buffer *pred_addrs_buf =
+            z_ucfg_analyzer_get_intra_predecessors(a, cur_addr);
+        size_t pred_n = z_buffer_get_size(pred_addrs_buf) / sizeof(addr_t);
+        addr_t *pred_addrs = (addr_t *)z_buffer_get_raw_buf(pred_addrs_buf);
+        for (int i = 0; i < pred_n; i++) {
+            addr_t pred_addr = pred_addrs[i];
+
+            const cs_insn *pred_inst = (const cs_insn *)g_hash_table_lookup(
+                a->insts, GSIZE_TO_POINTER(pred_addr));
+            // pred_inst cannot be NULL
+            assert(pred_inst);
+
+            // step (2.1). check the type of pred_inst
+            if (z_capstone_is_call(pred_inst) ||
+                z_capstone_is_cjmp(pred_inst) ||
+                z_capstone_is_xbegin(pred_inst) ||
+                z_capstone_is_ret(pred_inst) || z_capstone_is_loop(pred_inst)) {
+                continue;
+            }
+
+            // step (2.2). check the number of succ
+            size_t succ_n =
+                z_buffer_get_size(
+                    z_ucfg_analyzer_get_intra_successors(a, pred_addr)) /
+                sizeof(addr_t);
+            if (succ_n != 1) {
+                continue;
+            }
+
+            // step (2.3). add into queue if not find before
+            if (!g_hash_table_lookup(a->sec_chk_failed,
+                                     GSIZE_TO_POINTER(pred_addr))) {
+                z_trace("find a sec_chk_failed instruction: %#lx", pred_addr);
+                g_hash_table_add(a->sec_chk_failed,
+                                 GSIZE_TO_POINTER(pred_addr));
+                g_queue_push_tail(queue, GSIZE_TO_POINTER(pred_addr));
+            }
+        }
+    }
+}
 
 Z_PRIVATE void __ucfg_analyzer_analyze_ret(UCFG_Analyzer *a, addr_t addr,
                                            const cs_insn *inst) {
@@ -488,6 +607,7 @@ Z_PRIVATE void __ucfg_analyzer_advance_analyze(UCFG_Analyzer *a, addr_t addr,
     __ucfg_analyzer_analyze_flg(a, addr, inst);
     __ucfg_analyzer_analyze_gpr(a, addr, inst);
     __ucfg_analyzer_analyze_ret(a, addr, inst);
+    __ucfg_analyzer_analyze_sec_chk(a, addr, inst);
 }
 
 Z_PRIVATE bool __ucfg_analyzer_check_consistent(const cs_insn *inst_alice,
@@ -730,6 +850,9 @@ Z_API UCFG_Analyzer *z_ucfg_analyzer_create(Binary *binary,
     a->can_ret =
         g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
+    a->sec_chk_failed =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+
     return a;
 }
 
@@ -747,6 +870,7 @@ Z_API void z_ucfg_analyzer_destroy(UCFG_Analyzer *a) {
     g_hash_table_destroy(a->gpr_analyzed_succs);
     g_hash_table_destroy(a->gpr_can_write);
     g_hash_table_destroy(a->can_ret);
+    g_hash_table_destroy(a->sec_chk_failed);
 
     z_free(a);
 }
@@ -852,6 +976,11 @@ Z_API RegState *z_ucfg_analyzer_get_register_state(UCFG_Analyzer *a,
                                                    addr_t addr) {
     return (RegState *)g_hash_table_lookup(a->reg_states,
                                            GSIZE_TO_POINTER(addr));
+}
+
+Z_API bool z_ucfg_analyzer_is_security_chk_failed(UCFG_Analyzer *a,
+                                                  addr_t addr) {
+    return !!(g_hash_table_lookup(a->sec_chk_failed, GSIZE_TO_POINTER(addr)));
 }
 
 #undef __UCFG_ANALYZER_GHASHTABLE_GET_BUFFER

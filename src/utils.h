@@ -117,6 +117,7 @@ Z_API int z_rand();
 
 Z_API char *z_strcat(const char *s1, const char *s2);
 Z_API int z_strcmp(const char *s1, const char *s2);
+Z_API int z_strncmp(const char *s1, const char *s2, size_t n);
 Z_API char *z_strstr(const char *haystack, const char *needle);
 Z_API char *z_strdup(const char *s);
 Z_API size_t z_strlen(const char *s);
