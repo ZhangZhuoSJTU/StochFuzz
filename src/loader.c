@@ -373,18 +373,22 @@ static inline void loader_set_seccomp() {
         utils_error(prctl_err_str, true);
     }
 
+    // XXX: note that we cannot block sigprocmask (which may delay the following
+    // signals). For more information, please refer to
+    // https://lwn.net/Articles/822256/ ("accepting or rejecting the system call
+    // cannot depend on, for example, values in structures that are passed to
+    // system calls via pointers")
     /*
      * Use compiled seccomp rule (bytecode) to avoid compilation difference
      *
-     *    int error = 0;
+     *    int error = 1;
      *    struct sock_filter filter[] = {
      *        BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
      *                 (offsetof(struct seccomp_data, nr))),
-     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_rt_sigaction, 0, 5),
+     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_rt_sigaction, 0, 4),
      *        BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
      *                 (offsetof(struct seccomp_data, args[0]))),
-     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGTRAP, 4, 0),
-     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGUSR1, 3, 0),
+     *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGTRAP, 3, 0),
      *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGSEGV, 2, 0),
      *        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGILL, 1, 0),
      *        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
@@ -400,14 +404,13 @@ static inline void loader_set_seccomp() {
         "_filter:\n\t"
         ".ascii \""
         "\\040\\000\\000\\000\\000\\000\\000\\000"  // 0. BPF_STMT
-        "\\025\\000\\000\\005\\015\\000\\000\\000"  // 1. BPF_JUMP
+        "\\025\\000\\000\\004\\015\\000\\000\\000"  // 1. BPF_JUMP
         "\\040\\000\\000\\000\\020\\000\\000\\000"  // 2. BPF_STMT
-        "\\025\\000\\004\\000\\005\\000\\000\\000"  // 3. BPF_JUMP
-        "\\025\\000\\003\\000\\012\\000\\000\\000"  // 4. BPF_JUMP
-        "\\025\\000\\002\\000\\013\\000\\000\\000"  // 5. BPF_JUMP
-        "\\025\\000\\001\\000\\004\\000\\000\\000"  // 6. BPF_JUMP
-        "\\006\\000\\000\\000\\000\\000\\377\\177"  // 7. BPF_STMT
-        "\\006\\000\\000\\000\\000\\000\\005\\000"  // 8. BPF_STME
+        "\\025\\000\\003\\000\\005\\000\\000\\000"  // 3. BPF_JUMP
+        "\\025\\000\\002\\000\\013\\000\\000\\000"  // 4. BPF_JUMP
+        "\\025\\000\\001\\000\\004\\000\\000\\000"  // 5. BPF_JUMP
+        "\\006\\000\\000\\000\\000\\000\\377\\177"  // 6. BPF_STMT
+        "\\006\\000\\000\\000\\001\\000\\005\\000"  // 7. BPF_STMT
         "\"\n\t"
         "_out:"
         : "=rax"(filter)
@@ -415,7 +418,7 @@ static inline void loader_set_seccomp() {
         :);
 
     struct sock_fprog prog = {
-        .len = 9,  // (unsigned short)(sizeof(filter) / sizeof(filter[0])),
+        .len = 8,  // (unsigned short)(sizeof(filter) / sizeof(filter[0])),
         .filter = filter,
     };
 

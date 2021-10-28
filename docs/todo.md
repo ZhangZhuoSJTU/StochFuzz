@@ -32,6 +32,7 @@ While we have successfully migrated StochFuzz to a new system design, we can sti
 + [x] Current TP\_EMIT is only compatible with fuzzers compiled with AFL\_MAP\_SIZE = (1 << 16), we need to change the underlying implementation of TP\_EMIT to automatically fit the AFL\_MAP\_SIZE.
 + [x] Fix the bugs when rewriting PIE binary and support it.
 + [x] Place `ENDBR64` instruction before the AFL trampoline. The phantom program will crash otherwise.
++ [x] Support binaries compiled with gcc ASAN (clang would inline ASAN functions).
 + [ ] Use g\_hash\_table\_iter\_init instead of g\_hash\_table\_get\_keys.
 + [ ] Apply AddrDict to all possible places..
 + [ ] Apply Iter to all possible places..
@@ -44,6 +45,7 @@ While we have successfully migrated StochFuzz to a new system design, we can sti
 + [ ] Use a general method to add segments in the given ELF instead of using the simple PT\_NOTE trick.
 + [ ] Fix the failed Github Actions on Ubuntu 20.04 (the root cause is unknown currently).
 + [ ] Add more stress test for rewriting PIE binary.
++ [ ] Support binaries compiled with MSAN.
 
 
 ## Challenges

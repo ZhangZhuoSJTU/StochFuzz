@@ -14,5 +14,12 @@ if [ ! -f $libunwind_path ]; then
     exit 1
 fi
 
-export STOCHFUZZ_PRELOAD=$libstochfuzzRT_path:$libunwind_path
+# it seems that clang will inline ASAN functions into the target binary
+if [ -x "$(command -v gcc)" ]; then
+    libasan_gcc_path="$(gcc -print-file-name=libasan.so)"
+else
+    libasan_gcc_path=""
+fi
+
+export STOCHFUZZ_PRELOAD=$libasan_gcc_path:$libstochfuzzRT_path:$libunwind_path
 echo $STOCHFUZZ_PRELOAD

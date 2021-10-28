@@ -527,14 +527,14 @@ NO_INLINE void fork_server_start(char **envp) {
              * kill client and the crashed process:
              *
              *   ------
-             *      sys_kill(client_pid, SIGUSR1);
-             *      sys_kill(sys_getpid(), SIGUSR1);
+             *      sys_kill(client_pid, SIGKILL);
+             *      sys_kill(sys_getpid(), SIGKILL);
              *   ------
              *
              * Instead of killing the whole process group like following
              *
              *   ------
-             *      sys_kill(0, SIGUSR1);
+             *      sys_kill(0, SIGKILL);
              *   ------
              *
              * It is helpful when facing multi-thread/-process programs.
