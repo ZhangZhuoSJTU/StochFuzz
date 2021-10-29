@@ -250,6 +250,57 @@ Z_PRIVATE void __core_clean_environment(Core *core);
  */
 Z_PRIVATE void __core_setup_unix_domain_socket(Core *core);
 
+/*
+ * Prepare a target binary under the current working directory
+ */
+Z_PRIVATE const char *__core_prepare_binary_under_curdir(const char *pathname);
+
+Z_PRIVATE const char *__core_prepare_binary_under_curdir(const char *pathname) {
+    // check whether pathname exists
+    if (access(pathname, F_OK)) {
+        EXITME("file not found: %s", pathname);
+    }
+
+    const char *last_slash = z_strrchr(pathname, '/');
+    if (!last_slash) {
+        return pathname;
+    }
+
+    // check new_pathname is valid
+    const char *new_pathname = last_slash + 1;
+    if (!new_pathname[0]) {
+        EXITME("please provide a file path instead of a directory one: %s",
+               pathname);
+    }
+
+    // check whether new_pathname exists.
+    if (!access(new_pathname, F_OK)) {
+        // if so, check whether these two files are the same
+        struct stat statbuf, new_statbuf;
+        if (stat(pathname, &statbuf) || stat(new_pathname, &new_statbuf)) {
+            EXITME("cannot stat %s or %s", pathname, new_pathname);
+        }
+
+        if (statbuf.st_ino == new_statbuf.st_ino) {
+            // nice, these two files are identical, and we do not need to do
+            // anything
+            return new_pathname;
+        }
+    }
+
+    // copy pathname to new_pathname
+    Buffer *tmp_buf = z_buffer_read_file(pathname);
+    z_buffer_write_file(tmp_buf, new_pathname);
+    z_buffer_destroy(tmp_buf);
+
+    // chmod
+    if (z_chmod(new_pathname, 0755)) {
+        EXITME("fail to chmod new binary: %s", new_pathname);
+    }
+
+    return new_pathname;
+}
+
 Z_PRIVATE uint32_t __core_get_bitmap_hash(Core *core) {
     if (!core->afl_trace_bits) {
         // checking runs are not enabled
@@ -532,6 +583,8 @@ Z_PUBLIC Core *z_core_create(const char *pathname, SysOptArgs *opts) {
     if (__core) {
         EXITME("there can only be one Core instance");
     }
+
+    pathname = __core_prepare_binary_under_curdir(pathname);
 
     __core_environment_setup();
 

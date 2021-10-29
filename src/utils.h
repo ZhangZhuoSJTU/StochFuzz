@@ -123,6 +123,7 @@ Z_API char *z_strdup(const char *s);
 Z_API size_t z_strlen(const char *s);
 Z_API void z_strcpy(char *dst, const char *src);
 Z_API char *z_strchr(const char *s, int c);
+Z_API char *z_strrchr(const char *s, int c);
 
 #define z_alloc_printf(_str...)                 \
     ({                                          \

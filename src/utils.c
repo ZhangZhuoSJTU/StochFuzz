@@ -196,6 +196,9 @@ Z_API size_t z_strlen(const char *s) { return strlen(s); }
 Z_API void z_strcpy(char *dst, const char *src) { strcpy(dst, src); }
 
 Z_API char *z_strchr(const char *s, int c) { return strchr(s, c); }
+
+Z_API char *z_strrchr(const char *s, int c) { return strchr(s, c); }
+
 /*
  * Keystone
  */
