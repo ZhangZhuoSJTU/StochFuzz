@@ -197,7 +197,7 @@ Z_API void z_strcpy(char *dst, const char *src) { strcpy(dst, src); }
 
 Z_API char *z_strchr(const char *s, int c) { return strchr(s, c); }
 
-Z_API char *z_strrchr(const char *s, int c) { return strchr(s, c); }
+Z_API char *z_strrchr(const char *s, int c) { return strrchr(s, c); }
 
 /*
  * Keystone
