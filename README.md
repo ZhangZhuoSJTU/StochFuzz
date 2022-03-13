@@ -25,7 +25,7 @@ StochFuzz is built upon [Keystone](https://www.keystone-engine.org/), [Capstone]
 
 Most of these depenences require `meson >= 0.60.1`. Please use `meson --version` to check you are using the up-to-date version.
 
-You can use [build.sh](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/build.sh) to build all the dependences automatically. If you are using a clean container, make sure some standard tools like `autoreconf` and `libtool` are installed.
+[Build.sh](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/build.sh) helps build all the dependences automatically. For clean containers, make sure some standard tools like `autoreconf` and `libtool` are installed.
  
 ```bash
 $ git clone https://github.com/ZhangZhuoSJTU/StochFuzz.git
