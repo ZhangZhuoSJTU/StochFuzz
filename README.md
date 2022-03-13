@@ -21,9 +21,11 @@ More data and the results of the experiments can be found [here](https://github.
 
 ## Building StochFuzz
 
-StochFuzz is built upon [Keystone](https://www.keystone-engine.org/), [Capstone](https://www.capstone-engine.org/), [GLib](https://developer.gnome.org/glib/), and [libunwind](https://www.nongnu.org/libunwind/). Most of these depenences require `meson >= 0.60.1`. Please use `meson --version` to check you are using the up-to-date version.
+StochFuzz is built upon [Keystone](https://www.keystone-engine.org/), [Capstone](https://www.capstone-engine.org/), [GLib](https://developer.gnome.org/glib/), and [libunwind](https://www.nongnu.org/libunwind/).
 
-Dependences can be built by [build.sh](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/build.sh). If you are trying to build StochFuzz in a clean container, make sure some standard tools like `autoreconf` and `libtool` are installed.
+Most of these depenences require `meson >= 0.60.1`. Please use `meson --version` to check you are using the up-to-date version.
+
+You can use [build.sh](https://github.com/ZhangZhuoSJTU/StochFuzz/blob/master/build.sh) to build all the dependences automatically. If you are using a clean container, make sure some standard tools like `autoreconf` and `libtool` are installed.
  
 ```bash
 $ git clone https://github.com/ZhangZhuoSJTU/StochFuzz.git
