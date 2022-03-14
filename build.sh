@@ -11,6 +11,8 @@ KEYSTONE_VERSION="0.9.2"
 GLIB_VERSION="2.68.0"
 LIBUNWIND_VERSION="1.5"
 
+set -e
+
 #
 # check necessary command
 #
