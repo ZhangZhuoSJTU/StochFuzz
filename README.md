@@ -1,4 +1,4 @@
-# StochFuzz: A New Solution for Binary-only Fuzzing <a href="https://openai.com/product/dall-e-2"><img src="imgs/logo.png" alt="Logo" align="right" width="82"/></a>
+# StochFuzz: A New Solution for Binary-only Fuzzing <a href="https://openai.com/product/dall-e-2"><img src="imgs/logo.png" alt="Logo" align="right" width="72"/></a>
 
 [![test](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/basic.yml/badge.svg)](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/basic.yml)
 [![benchmark](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml/badge.svg)](https://github.com/ZhangZhuoSJTU/StochFuzz/actions/workflows/benchmark.yml)
