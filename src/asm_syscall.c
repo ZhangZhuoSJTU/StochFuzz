@@ -29,7 +29,7 @@
 #define NO_INLINE __attribute__((__noinline__))
 #define NO_RETURN __attribute__((__noreturn__))
 
-#define Z_SYSCALL __attribute__((unused)) static
+#define Z_SYSCALL __attribute__((unused)) static inline
 
 #define ASM_STRING(name, content)       \
     ".global " #name                    \

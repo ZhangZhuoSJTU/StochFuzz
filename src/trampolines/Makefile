@@ -1,7 +1,9 @@
+SIGSTKSZ =  $(shell ../get_signal_stack_size.sh)
+
 all: bitmap context_save context_restore
 
 bitmap:
-	$(CC) -Wall -fno-stack-protector -fpie -Os -c bitmap.c
+	$(CC) -Wall -fno-stack-protector -fpie -Os -c bitmap.c -DSIGNAL_STACK_SIZE=$(SIGSTKSZ)
 	$(CC) -nostdlib -o bitmap.out bitmap.o -Wl,--entry=_entry
 	objcopy --dump-section .text=bitmap.bin bitmap.out
 	xxd -i bitmap.bin > bitmap_bin.c
@@ -10,13 +12,13 @@ bitmap:
 	echo "const unsigned int bitmap_shr_id_hole = 0xBEEF;" >> bitmap_bin.c
 
 context_save:
-	$(CC) -Wall -fno-stack-protector -fpie -Os -c context_save.c
+	$(CC) -Wall -fno-stack-protector -fpie -Os -c context_save.c -DSIGNAL_STACK_SIZE=$(SIGSTKSZ)
 	$(CC) -nostdlib -o context_save.out context_save.o -Wl,--entry=_entry
 	objcopy --dump-section .text=context_save.bin context_save.out
 	xxd -i context_save.bin > context_save_bin.c
 
 context_restore:
-	$(CC) -Wall -fno-stack-protector -fpie -Os -c context_restore.c
+	$(CC) -Wall -fno-stack-protector -fpie -Os -c context_restore.c -DSIGNAL_STACK_SIZE=$(SIGSTKSZ)
 	$(CC) -nostdlib -o context_restore.out context_restore.o -Wl,--entry=_entry
 	objcopy --dump-section .text=context_restore.bin context_restore.out
 	xxd -i context_restore.bin > context_restore_bin.c

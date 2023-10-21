@@ -97,8 +97,17 @@ typedef long double double128_t;
 // XXX: see http://ref.x86asm.net/coder64.html for x64 encoding
 #define SHADOW_CODE_ADDR 0x1f1f8000
 
+// XXX: SIGSTKSZ is now a run-time variable, which makes compilation of loader
+// and forkserver failed.
+// Check discussion below:
+//  https://public-inbox.org/libc-alpha/87y2ew8i1w.fsf@igel.home/T/
+// Some references:
+//  https://codebrowser.dev/glibc/glibc/sysdeps/unix/sysv/linux/bits/sigstack.h.html#30
+//  https://codebrowser.dev/glibc/glibc/sysdeps/unix/sysv/linux/bits/sigstksz.h.html#28
+#ifndef SIGNAL_STACK_SIZE
+#error "SIGNAL_STACK_SIZE should be determined before compilation"
+#endif
 // XXX: we pick a high address to avoid overflow with other important pages
-#define SIGNAL_STACK_SIZE SIGSTKSZ
 #define SIGNAL_STACK_ADDR (0x100000000 + SIGNAL_STACK_SIZE)
 
 #define RETADDR_MAPPING_ADDR (SIGNAL_STACK_ADDR + SIGNAL_STACK_SIZE)

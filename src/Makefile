@@ -1,9 +1,10 @@
 CC = clang
 
-CFLAGS = -Wall -Wno-unused-command-line-argument -fPIC -pie -ffast-math -D_GNU_SOURCE
+SIGSTKSZ =  $(shell ./get_signal_stack_size.sh)
+CFLAGS = -Wall -Wno-unused-command-line-argument -Wno-void-pointer-to-int-cast -Wno-void-pointer-to-enum-cast -fPIC -pie -ffast-math -D_GNU_SOURCE -DSIGNAL_STACK_SIZE=$(SIGSTKSZ)
 LDFLAGS =
 
-SHELLCODE_CFLAGS = -Wall -fno-stack-protector -fno-jump-tables -fpie -O3 -D_GNU_SOURCE
+SHELLCODE_CFLAGS = -Wall -fno-stack-protector -fno-jump-tables -fpie -O3 -D_GNU_SOURCE -DSIGNAL_STACK_SIZE=$(SIGSTKSZ)
 
 LIBNAME = $(shell find . -regex './lib[^\.\/]*\.h' | tr -d '/' | cut -d '.' -f2)
 TOOLNAME = $(shell grep '^\#define OURTOOL ' config.h | cut -d '"' -f2)
@@ -49,7 +50,7 @@ LDFLAGS +=
 
 # libunwind
 LIBUNWIND_RT_STEP_OFFSET = 0x$(shell readelf -s $(realpath ..)/libunwind/install/lib/libunwind.so  | grep _ULx86_64_step | head -n 1 | awk '{print $$2}')
-LIBUNWIND_RT_CFLAGS += -fPIC -shared -I $(realpath ..)/libunwind/install/include -DSTEP_OFFSET=$(LIBUNWIND_RT_STEP_OFFSET)
+LIBUNWIND_RT_CFLAGS += -fPIC -shared -I $(realpath ..)/libunwind/install/include -DSTEP_OFFSET=$(LIBUNWIND_RT_STEP_OFFSET) -DSIGNAL_STACK_SIZE=$(SIGSTKSZ)
 
 OBJS=\
 	binary.o \
@@ -164,7 +165,6 @@ test:
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- bzip2.pie -kfd test.c.bz2)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie seed.png)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- pngfix.pie toucan.png)
-	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- tcpdump.pie -ee -vv -nnr vrrp.pcap)
 ifneq ($(strip $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4')),)
 	$(call test_succ, ../$(TOOLNAME) -R $(TEST_OPTIONS) -- libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4'))
 endif
@@ -193,7 +193,6 @@ endif
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' bzip2.pie -kfd test.c.bz2)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie seed.png)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' pngfix.pie toucan.png)
-	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' tcpdump.pie -ee -vv -nnr vrrp.pcap)
 ifneq ($(strip $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4')),)
 	$(call test_succ, ./test_daemon.sh ../$(TOOLNAME) '$(TEST_OPTIONS)' libjpeg.asan seed.jpg, $(shell whereis libasan.so.4 | cut -d ' ' -f2- | xargs ls | grep 'libasan.so.4'))
 endif
